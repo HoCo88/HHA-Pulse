@@ -10,6 +10,7 @@ using HHAPulse.Overlay.Collectors.Vendor;
 using HHAPulse.Overlay.Ipc;
 using HHAPulse.Overlay.Services;
 using HHAPulse.Overlay.Settings;
+using HHAPulse.Overlay.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 
@@ -76,6 +77,11 @@ public partial class App : Application
         window = new MainWindow();
         window.Closed += OnWindowClosed;
         window.Activate();
+
+        // Wire AppHost to ViewModel so UI updates with live data.
+        var overlayViewModel = new OverlayViewModel();
+        appHost.AttachViewModel(overlayViewModel);
+        window.AttachViewModel(overlayViewModel);
 
         // Start the tick loop on the UI thread dispatcher.
         tickTimer = new DispatcherTimer

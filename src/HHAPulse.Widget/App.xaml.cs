@@ -8,7 +8,7 @@ namespace HHAPulse.Widget;
 
 public sealed partial class App : Application
 {
-    private XboxGameBarWidget widget;
+    private XboxGameBarWidget? widget;
 
     public App()
     {

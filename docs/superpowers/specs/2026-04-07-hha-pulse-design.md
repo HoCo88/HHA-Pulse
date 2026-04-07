@@ -16,14 +16,16 @@ Public naming:
 
 ## Distribution
 
-HHA Pulse ships as **two Microsoft Store products**:
+HHA Pulse ships as **one MSIX package** in the Microsoft Store:
 
-| Product | Store price | Purpose |
+| Component | Price | Purpose |
 | --- | --- | --- |
-| HHA Pulse | $1.99 USD / 49 CZK / 1.99 EUR | Paid WinUI 3 overlay and full settings app |
-| HHA Pulse Widget | Free | Xbox Game Bar companion and conversion funnel |
+| HHA Pulse (overlay + widget) | Free download, IAP $1.99 / 49 CZK / 1.99 EUR | Overlay + Game Bar widget in one package |
 
-Use a **Company Partner Center account** for OSVC/commercial publishing. Do not distribute installers, drivers, or downloadable EXEs from handheldally.com. The personal EXE build is for local development/testing only and is not a public distribution channel.
+Free tier: Game Bar widget + Minimal overlay preset + battery monitoring.
+Paid IAP: all 4 presets, custom mode, metric picker, FrameGen, bottleneck, side panel, profiles, hotkeys.
+
+Use a **Company Partner Center account** for OSVC/commercial publishing. Do not distribute installers, drivers, or downloadable EXEs from handheldally.com. The personal EXE build is for local development/testing only.
 
 ## Architecture
 
@@ -38,10 +40,10 @@ HHA Pulse paid MSIX
   - optional external integrations if already installed
   - named pipe server at \\.\pipe\LOCAL\HHAPulse
 
-HHA Pulse Widget free MSIX
+HHA Pulse Widget (same MSIX package)
   UWP XAML, Xbox Game Bar SDK
   - standalone limited metrics
-  - upsell to paid Store listing
+  - upsell to IAP for full overlay features
   - enhanced mode via pipe when paid app is installed/running
 ```
 

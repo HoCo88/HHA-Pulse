@@ -16,13 +16,13 @@ public sealed class BatteryCollector : IMetricCollector
 
     public Task CollectAsync(TelemetrySnapshot snapshot, CancellationToken cancellationToken)
     {
-        var state = new SystemBatteryState();
+        var state = new SYSTEM_BATTERY_STATE();
         int status = CallNtPowerInformation(
-            SystemBatteryState,
+            SystemBatteryStateLevel,
             IntPtr.Zero,
             0,
             out state,
-            (uint)Marshal.SizeOf<SystemBatteryState>());
+            (uint)Marshal.SizeOf<SYSTEM_BATTERY_STATE>());
 
         if (status != 0)
             return Task.CompletedTask;
@@ -58,18 +58,18 @@ public sealed class BatteryCollector : IMetricCollector
         return Task.CompletedTask;
     }
 
-    private const int SystemBatteryState = 5;
+    private const int SystemBatteryStateLevel = 5;
 
     [DllImport("powrprof.dll", SetLastError = true)]
     private static extern int CallNtPowerInformation(
         int informationLevel,
         IntPtr inputBuffer,
         uint inputBufferLength,
-        out SystemBatteryState outputBuffer,
+        out SYSTEM_BATTERY_STATE outputBuffer,
         uint outputBufferLength);
 
     [StructLayout(LayoutKind.Sequential)]
-    private struct SystemBatteryState
+    private struct SYSTEM_BATTERY_STATE
     {
         [MarshalAs(UnmanagedType.U1)]
         public bool AcOnLine;

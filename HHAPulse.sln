@@ -10,9 +10,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HHAPulse.Widget", "src\HHAP
 EndProject
 Project("{BC8A1FFA-BEE3-4634-8014-F334798102B3}") = "HHAPulse.Native", "src\HHAPulse.Native\HHAPulse.Native.vcxproj", "{A62CB9FA-2C95-42C6-A682-89B620C5E8AB}"
 EndProject
-Project("{C71604B7-2428-4511-AF16-35A7292C4D7C}") = "HHAPulse.Overlay.Packaging", "src\HHAPulse.Overlay.Packaging\HHAPulse.Overlay.Packaging.wapproj", "{FC9D225E-10A4-4D49-8434-6F9D1AD51822}"
-EndProject
-Project("{C71604B7-2428-4511-AF16-35A7292C4D7C}") = "HHAPulse.Widget.Packaging", "src\HHAPulse.Widget.Packaging\HHAPulse.Widget.Packaging.wapproj", "{2F807975-7810-49D4-9096-41D159671B31}"
+Project("{C71604B7-2428-4511-AF16-35A7292C4D7C}") = "HHAPulse.Packaging", "src\HHAPulse.Overlay.Packaging\HHAPulse.Overlay.Packaging.wapproj", "{FC9D225E-10A4-4D49-8434-6F9D1AD51822}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HHAPulse.Shared.Tests", "tests\HHAPulse.Shared.Tests\HHAPulse.Shared.Tests.csproj", "{F95D9851-B6F3-4ED1-91D9-14A16C0EA73F}"
 EndProject
@@ -44,10 +42,6 @@ Global
 		{FC9D225E-10A4-4D49-8434-6F9D1AD51822}.Debug|x64.Build.0 = Debug|x64
 		{FC9D225E-10A4-4D49-8434-6F9D1AD51822}.Release|x64.ActiveCfg = Release|x64
 		{FC9D225E-10A4-4D49-8434-6F9D1AD51822}.Release|x64.Build.0 = Release|x64
-		{2F807975-7810-49D4-9096-41D159671B31}.Debug|x64.ActiveCfg = Debug|x64
-		{2F807975-7810-49D4-9096-41D159671B31}.Debug|x64.Build.0 = Debug|x64
-		{2F807975-7810-49D4-9096-41D159671B31}.Release|x64.ActiveCfg = Release|x64
-		{2F807975-7810-49D4-9096-41D159671B31}.Release|x64.Build.0 = Release|x64
 		{F95D9851-B6F3-4ED1-91D9-14A16C0EA73F}.Debug|x64.ActiveCfg = Debug|Any CPU
 		{F95D9851-B6F3-4ED1-91D9-14A16C0EA73F}.Debug|x64.Build.0 = Debug|Any CPU
 		{F95D9851-B6F3-4ED1-91D9-14A16C0EA73F}.Release|x64.ActiveCfg = Release|Any CPU

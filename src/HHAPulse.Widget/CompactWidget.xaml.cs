@@ -6,7 +6,7 @@ namespace HHAPulse.Widget;
 
 public sealed partial class CompactWidget : Page
 {
-    public XboxGameBarWidget Widget { get; private set; }
+    public XboxGameBarWidget? Widget { get; private set; }
 
     public CompactWidget()
     {
@@ -16,6 +16,7 @@ public sealed partial class CompactWidget : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        Widget = e.Parameter as XboxGameBarWidget;
+        if (e.Parameter is XboxGameBarWidget w)
+            Widget = w;
     }
 }
