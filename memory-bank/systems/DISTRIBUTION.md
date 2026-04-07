@@ -1,63 +1,61 @@
 # HHA Pulse — Distribution Strategy
 
-## Sales Channel: Microsoft Store ONLY
+## Sales Channel: Microsoft Store Only
 
-**Jediný prodejní kanál = Microsoft Store.** Žádný přímý prodej z webu.
+No direct public downloads, no EXE/MSI sales, no Stripe checkout. handheldally.com is for promotion, support, SEO, privacy policy, and Microsoft Store deep links.
 
-### Microsoft Store (MSIX)
-- **Widget:** Free — auto-appears in Game Bar Widget Store
-- **Desktop App:** ~2 EUR / 49 CZK / $1.99 USD
-- **Revenue:** Microsoft takes 15% (~$0.30 per sale)
-- **Benefits:** Discovery, auto-update, user trust, reviews, one-click install
-- **One MSIX package:** Widget + Desktop Service bundled together
+## Store Products
 
-### handheldally.com (Promo ONLY — no direct sales)
-- **Promo stránka** s popisem HHA Pulse
-- **Odkaz na Microsoft Store listing** (ms-windows-store:// deep link)
-- **SEO:** Target "windows handheld overlay", "rog ally fps overlay", "steam deck overlay windows"
-- **NO direct download, NO EXE installer, NO Stripe checkout**
+| Product | Price | Purpose |
+| --- | --- | --- |
+| HHA Pulse | $1.99 USD / 49 CZK / 1.99 EUR | Paid WinUI 3 overlay app |
+| HHA Pulse Widget | Free | Xbox Game Bar funnel and companion |
 
-### Game Bar Widget Store (Organic Funnel)
-- **Auto-listed** from Microsoft Store submission
-- **Free widget** = discovery tool
-- **Cross-sell:** "Unlock full features" → ms-windows-store:// deep link (100% policy-compliant)
-- **Branding:** "Powered by Handheld Ally" with logo
+Use a **Company Partner Center account** for OSVC/commercial publishing. Reserve both app names in Partner Center.
 
 ## Cross-Sell Flow
 
 ```
-Google/SEO → handheldally.com → Store link
-Xbox button → Game Bar Widget Store → free widget → "Unlock" → Store purchase
-Microsoft Store search → HHA Pulse listing → purchase
-handheldally.com visitors → HHA Pulse promo section → Store link
+Google/SEO -> handheldally.com -> paid Store listing
+Xbox Game Bar -> free widget -> Store upsell -> paid HHA Pulse
+Microsoft Store search -> HHA Pulse paid app
 ```
 
-All roads lead to Microsoft Store.
+Widget upsell links use:
 
-## Store Policies (Key Rules)
+```
+ms-windows-store://pdp/?ProductId=<paid-app-product-id>
+```
 
-- Free widget CAN promote paid app IF paid app is also in Store AND link uses ms-windows-store:// URI
-- "Powered by Handheld Ally" branding = allowed
-- Link to handheldally.com for info/support = OK
-- Widget → Store deep link for purchase = 100% policy-compliant
+## External Dependencies
 
-## Developer Account
+HHA Pulse must not bundle, download, or install external NT services or drivers.
 
-- Individual account: FREE (no annual fee)
-- Company account: 1,720 CZK (~75 EUR) one-time
-- Recommendation: Individual account sufficient for v1
+| Dependency | Use | Distribution rule |
+| --- | --- | --- |
+| PresentMon Service | FPS, frametime, GPU Busy, latency, FrameGen | User-installed external dependency; disclose in Store certification notes |
+| PawnIO | CPU temp, fan, RAPL power | Optional only; user-installed; disclose if detected/used |
 
-## Pricing Per Market
+Without PresentMon, the app still shows battery, CPU%, GPU%, RAM, VRAM, display, settings, profiles, and widget upsell. Without PawnIO, only CPU MSR temp/fan/RAPL are missing.
 
-- Base: $1.99 USD (Store tier)
-- Override CZK: 49 CZK
-- Override EUR: 1.99 EUR (scale to 2.99 EUR after FPS/profiles features)
-- Auto-converted for all other markets (60+ currencies)
+## Store Checklist
 
-## Kernel Driver Distribution
+- Company account
+- Paid app name: `HHA Pulse`
+- Free widget name: `HHA Pulse Widget`
+- Privacy policy URL on handheldally.com
+- Product screenshots per listing
+- IARC rating per listing
+- `runFullTrust` justified for paid overlay app
+- External dependency disclosure in certification notes
+- Cross-package pipe IPC certification notes if enhanced widget mode ships
 
-PawnIO driver CANNOT be in MSIX Store package. Solution:
-1. **Auto-download on first run** — app detects missing driver, prompts user, downloads from secure CDN
-2. **Without driver:** Battery, CPU/GPU %, RAM, FPS (PresentMon), VRAM all work
-3. **With driver:** + CPU temp, fan speed, RAPL power draw
-4. App works great without driver — driver is "optional enhancement" for advanced metrics
+## Personal Development Build
+
+An unpackaged EXE build may exist for local development and hardware testing:
+
+```
+dotnet publish src/HHAPulse.Overlay/HHAPulse.Overlay.csproj -c Release -r win-x64 --self-contained
+```
+
+This EXE is not a public distribution channel.

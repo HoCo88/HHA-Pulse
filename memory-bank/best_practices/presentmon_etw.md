@@ -1,8 +1,10 @@
 # PresentMon / ETW Integration Best Practices
 
+HHA Pulse v1 consumes the external PresentMon Service API when the user has installed PresentMon. HHA Pulse does not own the ETW session in normal v1 operation.
+
 ## ETW Session Management
 
-- **Orphaned Sessions (CRITICAL):** ETW sessions are MACHINE-WIDE and survive process death
+- **Historical/raw ETW fallback only:** ETW sessions are MACHINE-WIDE and survive process death
   - On service startup: check for and clean up orphaned sessions from previous runs
   - Use deterministic session name: "HHAPulse_ETW"
   - Always clean up in `finally` block and handle process termination signals

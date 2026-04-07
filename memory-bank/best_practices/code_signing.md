@@ -1,5 +1,7 @@
 # Code Signing & Distribution Best Practices
 
+> HHA Pulse v1 is Microsoft Store-only. Store MSIX signing is handled by Microsoft. EV/MSI guidance below is historical reference for non-Store experiments and does not apply to v1 public distribution.
+
 ## EV Code Signing Certificate
 
 - **Get EV cert early** — standard certs need 2-8 weeks to build SmartScreen reputation

@@ -1,0 +1,220 @@
+using MessagePack;
+
+namespace HHAPulse.Shared.Models;
+
+[MessagePackObject]
+public sealed class TelemetrySnapshot
+{
+    [Key(0)]
+    public long TimestampUnixMilliseconds { get; set; }
+
+    [Key(1)]
+    public MetricFlags AvailableMetrics { get; set; }
+
+    [Key(2)]
+    public PerformanceMetrics Performance { get; set; } = new();
+
+    [Key(3)]
+    public CpuMetrics Cpu { get; set; } = new();
+
+    [Key(4)]
+    public GpuMetrics Gpu { get; set; } = new();
+
+    [Key(5)]
+    public BatteryMetrics Battery { get; set; } = new();
+
+    [Key(6)]
+    public MemoryMetrics Memory { get; set; } = new();
+
+    [Key(7)]
+    public DisplayMetrics Display { get; set; } = new();
+
+    [Key(8)]
+    public DependencyState Dependencies { get; set; } = new();
+}
+
+[MessagePackObject]
+public sealed class PerformanceMetrics
+{
+    [Key(0)]
+    public double FramesPerSecond { get; set; }
+
+    [Key(1)]
+    public double AverageFramesPerSecond { get; set; }
+
+    [Key(2)]
+    public double OnePercentLowFramesPerSecond { get; set; }
+
+    [Key(3)]
+    public double ZeroPointOnePercentLowFramesPerSecond { get; set; }
+
+    [Key(4)]
+    public double FrameTimeMilliseconds { get; set; }
+
+    [Key(5)]
+    public double GpuBusyMilliseconds { get; set; }
+
+    [Key(6)]
+    public double InputLatencyMilliseconds { get; set; }
+
+    [Key(7)]
+    public FrameGenerationMetrics FrameGeneration { get; set; } = new();
+
+    [Key(8)]
+    public BottleneckMetrics Bottleneck { get; set; } = new();
+}
+
+[MessagePackObject]
+public sealed class FrameGenerationMetrics
+{
+    [Key(0)]
+    public bool IsActive { get; set; }
+
+    [Key(1)]
+    public double NativeFramesPerSecond { get; set; }
+
+    [Key(2)]
+    public double DisplayedFramesPerSecond { get; set; }
+
+    [Key(3)]
+    public ConfidenceLevel Confidence { get; set; }
+}
+
+[MessagePackObject]
+public sealed class BottleneckMetrics
+{
+    [Key(0)]
+    public BottleneckKind Kind { get; set; }
+
+    [Key(1)]
+    public ConfidenceLevel Confidence { get; set; }
+
+    [Key(2)]
+    public double FrameTimeMilliseconds { get; set; }
+
+    [Key(3)]
+    public double GpuBusyMilliseconds { get; set; }
+}
+
+[MessagePackObject]
+public sealed class CpuMetrics
+{
+    [Key(0)]
+    public double UsagePercent { get; set; }
+
+    [Key(1)]
+    public double TemperatureCelsius { get; set; }
+
+    [Key(2)]
+    public double MaxTemperatureCelsius { get; set; }
+
+    [Key(3)]
+    public double ClockMegahertz { get; set; }
+
+    [Key(4)]
+    public double PowerWatts { get; set; }
+
+    [Key(5)]
+    public int FanRpm { get; set; }
+}
+
+[MessagePackObject]
+public sealed class GpuMetrics
+{
+    [Key(0)]
+    public double UsagePercent { get; set; }
+
+    [Key(1)]
+    public double TemperatureCelsius { get; set; }
+
+    [Key(2)]
+    public double MaxTemperatureCelsius { get; set; }
+
+    [Key(3)]
+    public double ClockMegahertz { get; set; }
+
+    [Key(4)]
+    public double PowerWatts { get; set; }
+
+    [Key(5)]
+    public double VramUsedMegabytes { get; set; }
+
+    [Key(6)]
+    public double VramTotalMegabytes { get; set; }
+}
+
+[MessagePackObject]
+public sealed class BatteryMetrics
+{
+    [Key(0)]
+    public double ChargePercent { get; set; }
+
+    [Key(1)]
+    public double EstimatedMinutesRemaining { get; set; }
+
+    [Key(2)]
+    public double DischargeWatts { get; set; }
+
+    [Key(3)]
+    public double HealthPercent { get; set; }
+
+    [Key(4)]
+    public double CurrentCapacityWattHours { get; set; }
+
+    [Key(5)]
+    public double DesignCapacityWattHours { get; set; }
+
+    [Key(6)]
+    public int CycleCount { get; set; }
+
+    [Key(7)]
+    public bool IsCharging { get; set; }
+}
+
+[MessagePackObject]
+public sealed class MemoryMetrics
+{
+    [Key(0)]
+    public double RamUsedMegabytes { get; set; }
+
+    [Key(1)]
+    public double RamTotalMegabytes { get; set; }
+}
+
+[MessagePackObject]
+public sealed class DisplayMetrics
+{
+    [Key(0)]
+    public int WidthPixels { get; set; }
+
+    [Key(1)]
+    public int HeightPixels { get; set; }
+
+    [Key(2)]
+    public double RefreshRateHertz { get; set; }
+
+    [Key(3)]
+    public bool VrrSupported { get; set; }
+
+    [Key(4)]
+    public bool VrrActive { get; set; }
+
+    [Key(5)]
+    public string PresentMode { get; set; } = string.Empty;
+}
+
+[MessagePackObject]
+public sealed class DependencyState
+{
+    [Key(0)]
+    public bool PresentMonAvailable { get; set; }
+
+    [Key(1)]
+    public bool PawnIoAvailable { get; set; }
+
+    [Key(2)]
+    public string PresentMonStatusMessage { get; set; } = string.Empty;
+
+    [Key(3)]
+    public string PawnIoStatusMessage { get; set; } = string.Empty;
+}

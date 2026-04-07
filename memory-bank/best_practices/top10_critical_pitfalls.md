@@ -1,14 +1,14 @@
-# Top 10 Most Critical Pitfalls for HHA Pulse
+# Top 10 Most Critical Pitfalls for HHA Pulse v1
 
 Check this list before every PR / major change.
 
-1. **Named Pipe Security for UWP** — Must explicitly grant Package SID access. Widget CANNOT connect without it.
-2. **ETW Session Orphaning** — Sessions survive process death. ALWAYS clean up on service startup.
-3. **WinUI 3 x:Bind Window Leak** — Known bug. Use x:Bind in child controls, NEVER in Window XAML.
-4. **P/Invoke Delegate GC** — Store native callbacks in STATIC fields. GC WILL collect them.
-5. **Async Deadlocks** — NEVER `.Result` or `.Wait()`. Keep async all the way up.
-6. **Pipe Squatting** — Use `FILE_FLAG_FIRST_PIPE_INSTANCE` to prevent hijacking.
-7. **DispatcherQueue Thread Safety** — ALL UI updates from pipe callbacks MUST go through `TryEnqueue`.
-8. **PresentMon DLL Compatibility** — NEVER ship your own copy of PresentMonAPI2.dll.
-9. **Service Recovery** — Configure restart-on-failure via sc.exe. Crashes must not be permanent.
-10. **SmartScreen + EV Certificate** — Get EV cert before first release. Standard certs need weeks to build reputation.
+1. **Named Pipe Path** — Use `\\.\pipe\LOCAL\HHAPulse`; UWP/Game Bar cannot use the non-LOCAL path.
+2. **Named Pipe Security** — Must explicitly grant widget Package SID access; use S2 spike result for the final DACL.
+3. **Cross-Package IPC Risk** — If Store certification rejects enhanced mode, widget remains standalone-only for v1.
+4. **No Windows Service** — Do not add HHA Pulse NT service, LocalSystem, service recovery, or `sc.exe`.
+5. **No Bundled External Dependencies** — Never bundle, download, or install PresentMon or PawnIO.
+6. **WinUI 3 x:Bind Window Leak** — Use no `x:Bind` in `MainWindow.xaml`.
+7. **P/Invoke Delegate GC** — Store native callbacks in static fields.
+8. **Async Deadlocks** — Never `.Result` or `.Wait()`.
+9. **DispatcherQueue Thread Safety** — All UI updates from collectors/pipe callbacks must go through `TryEnqueue`.
+10. **Build Tooling** — Use Windows + Visual Studio MSBuild for UWP/MSIX; `dotnet build` alone is not enough.
