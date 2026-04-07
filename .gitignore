@@ -1,0 +1,48 @@
+# Build output
+bin/
+obj/
+publish/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+*.sln.docstates
+
+# NuGet
+packages/
+*.nupkg
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Logs
+*.log
+logs/
+
+# Superpowers brainstorm sessions
+.superpowers/
+
+# Certificates and keys
+*.pfx
+*.snk
+*.cer
+*.p12
+
+# Driver builds
+*.sys
+*.cat
+*.inf
+
+# Test results
+TestResults/
+coverage/
