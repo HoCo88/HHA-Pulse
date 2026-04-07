@@ -1,21 +1,23 @@
 # HHA Pulse — Distribution Strategy
 
-## Three Sales Channels
+## Sales Channel: Microsoft Store ONLY
 
-### 1. Microsoft Store (MSIX)
+**Jediný prodejní kanál = Microsoft Store.** Žádný přímý prodej z webu.
+
+### Microsoft Store (MSIX)
 - **Widget:** Free — auto-appears in Game Bar Widget Store
 - **Desktop App:** ~2 EUR / 49 CZK / $1.99 USD
 - **Revenue:** Microsoft takes 15% (~$0.30 per sale)
-- **Benefits:** Discovery, auto-update, user trust, reviews
+- **Benefits:** Discovery, auto-update, user trust, reviews, one-click install
 - **One MSIX package:** Widget + Desktop Service bundled together
 
-### 2. handheldally.com (Direct Download)
-- **Desktop App:** EXE installer, same price or direct purchase via Stripe
-- **Revenue:** 0% platform cut (only payment processor fee ~2.9%)
-- **Benefits:** Full control, no Store restrictions, driver included
+### handheldally.com (Promo ONLY — no direct sales)
+- **Promo stránka** s popisem HHA Pulse
+- **Odkaz na Microsoft Store listing** (ms-windows-store:// deep link)
 - **SEO:** Target "windows handheld overlay", "rog ally fps overlay", "steam deck overlay windows"
+- **NO direct download, NO EXE installer, NO Stripe checkout**
 
-### 3. Game Bar Widget Store (Organic Funnel)
+### Game Bar Widget Store (Organic Funnel)
 - **Auto-listed** from Microsoft Store submission
 - **Free widget** = discovery tool
 - **Cross-sell:** "Unlock full features" → ms-windows-store:// deep link (100% policy-compliant)
@@ -24,19 +26,20 @@
 ## Cross-Sell Flow
 
 ```
-Google/SEO → handheldally.com → Store link OR direct download
+Google/SEO → handheldally.com → Store link
 Xbox button → Game Bar Widget Store → free widget → "Unlock" → Store purchase
 Microsoft Store search → HHA Pulse listing → purchase
-handheldally.com visitors → HHA Pulse promo section → cross-sell
+handheldally.com visitors → HHA Pulse promo section → Store link
 ```
+
+All roads lead to Microsoft Store.
 
 ## Store Policies (Key Rules)
 
 - Free widget CAN promote paid app IF paid app is also in Store AND link uses ms-windows-store:// URI
 - "Powered by Handheld Ally" branding = allowed
 - Link to handheldally.com for info/support = OK
-- Link to handheldally.com for purchase = RISKY (avoid)
-- Non-game apps CAN use own commerce (Stripe) = Microsoft takes 0%
+- Widget → Store deep link for purchase = 100% policy-compliant
 
 ## Developer Account
 
@@ -53,7 +56,8 @@ handheldally.com visitors → HHA Pulse promo section → cross-sell
 
 ## Kernel Driver Distribution
 
-PawnIO driver CANNOT be in MSIX Store package. Solutions:
-1. **Auto-download on first run** — app detects missing driver, downloads from handheldally.com
-2. **Included in EXE installer** (handheldally.com direct download)
-3. **Without driver:** Battery, CPU/GPU %, RAM, FPS, VRAM all work. Missing: CPU temp, fan speed, RAPL power.
+PawnIO driver CANNOT be in MSIX Store package. Solution:
+1. **Auto-download on first run** — app detects missing driver, prompts user, downloads from secure CDN
+2. **Without driver:** Battery, CPU/GPU %, RAM, FPS (PresentMon), VRAM all work
+3. **With driver:** + CPU temp, fan speed, RAPL power draw
+4. App works great without driver — driver is "optional enhancement" for advanced metrics
