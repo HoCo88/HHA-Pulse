@@ -4,8 +4,8 @@
 
 - **NEVER** call `.Result` or `.Wait()` on async code — causes deadlocks
 - Always use `async Task`, never `async void` (except UI event handlers)
-- Use `ConfigureAwait(false)` in service/library code, NOT in WinUI UI code
-- Pass `CancellationToken` through all async methods — critical for service shutdown
+- Use `ConfigureAwait(false)` in library/background code, NOT in WinUI UI code
+- Pass `CancellationToken` through async methods — critical for app shutdown and collector loops
 - Don't discard Tasks — use fire-and-forget helper that logs exceptions
 
 ## IDisposable / Resource Management
@@ -25,7 +25,7 @@
 - Set `SetLastError = true` and call `Marshal.GetLastWin32Error()` immediately
 - Make structs blittable: `[StructLayout(LayoutKind.Sequential)]`, no bool, no string
 
-## Memory in Long-Running Services
+## Memory in Long-Running App Processes
 
 - `PerformanceCounter` has known memory leak in .NET Core — periodically recreate
 - Static collections grow indefinitely — implement eviction (time or size based)

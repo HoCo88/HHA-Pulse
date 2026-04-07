@@ -1,55 +1,64 @@
 # HHA Pulse
 
-Windows handheld performance overlay. One install, one app, replaces RTSS + HWiNFO + Afterburner.
+Windows handheld performance overlay. Store-delivered paid app plus free Xbox Game Bar widget funnel for the Handheld Ally community.
 
 ## Stack
 
-C# / .NET 8, WinUI 3 (Overlay UI), UWP XAML (Game Bar Widget), Windows Service (Helper), Named Pipes IPC, PresentMon ETW, PawnIO driver, ADLX (AMD), IGCL (Intel).
+C# / .NET 8, WinUI 3 (paid overlay), UWP XAML (free Game Bar widget), Named Pipes IPC, PresentMon Service API, optional PawnIO, ADLX (AMD), IGCL (Intel), C++ native wrappers.
 
 ## Architecture
 
 ```
-Helper Service (SYSTEM) --> Named Pipe --> Overlay UI (user) + Game Bar Widget (UWP)
+HHA Pulse paid WinUI 3 FullTrustProcess
+  -> collects metrics as current user
+  -> renders overlay
+  -> publishes \\.\pipe\LOCAL\HHAPulse
+  -> HHA Pulse Widget free UWP Game Bar client
 ```
 
-- Helper Service: PresentMon ETW, PawnIO, ADLX/IGCL, battery APIs, named pipe server
-- Overlay UI: WinUI 3, top bar + side panel, hotkey handler, settings
-- Game Bar Widget: UWP XAML, free companion, Game Bar Widget Store
+- No HHA Pulse Windows Service in v1.
+- No LocalSystem process in v1.
+- PresentMon is an external user-installed dependency for FPS/frametime/latency/FrameGen.
+- PawnIO is optional only for CPU MSR temp, fan, and RAPL power.
+- The app never bundles, downloads, or installs PresentMon or PawnIO.
 
 ## Commands
 
 ```bash
-dotnet build                    # Build all projects
-dotnet test                     # Run all tests
-dotnet publish -c Release       # Release build
+msbuild HHAPulse.sln /p:Configuration=Release /p:Platform=x64
+dotnet test tests/HHAPulse.Shared.Tests/HHAPulse.Shared.Tests.csproj
+dotnet test tests/HHAPulse.Overlay.Tests/HHAPulse.Overlay.Tests.csproj
+dotnet publish src/HHAPulse.Overlay/HHAPulse.Overlay.csproj -c Release -r win-x64 --self-contained
 ```
+
+`dotnet publish` is for personal development/testing EXE output only. Store builds use MSIX packaging projects and full Visual Studio/MSBuild on Windows.
 
 ## Rules
 
-- Read the actual code before any change. Never assume API behavior -- check docs and source.
+- Read the actual code before any change. Never assume API behavior; check docs and source.
 - NEVER use WPF for overlay rendering. WPF has a known VRR bug (dotnet/wpf#2294).
-- NEVER inject DLLs into game processes. NEVER hook DirectX/Vulkan. This is an anti-cheat safety rule.
-- NEVER read game process memory. Use PresentMon ETW for FPS data (passive event tracing).
+- NEVER inject DLLs into game processes. NEVER hook DirectX/Vulkan.
+- NEVER read game process memory. Use PresentMon Service API or passive ETW-derived data.
 - All Named Pipe communication must use explicit DACLs. No default security.
+- Pipe name is `\\.\pipe\LOCAL\HHAPulse`.
 - P/Invoke: always pin managed objects, use SafeHandle, free unmanaged memory.
-- Async/await: always use ConfigureAwait(false) in library/service code. Never block on async (.Result, .Wait()).
+- Async/await: always use ConfigureAwait(false) in library code. Never block on async (.Result, .Wait()).
 - IDisposable: implement full pattern in any class holding unmanaged resources or subscriptions.
-- PawnIO driver: only load from verified path with hash check. Never load arbitrary drivers.
-- Helper Service: zero network access. Local Named Pipes only.
+- PawnIO: detect only if already installed, hash-verify before use, never load arbitrary drivers.
 - No telemetry, no tracking, no analytics. All data stays local.
 
 ## Security
 
-- Code-sign everything: EV cert for app, WHQL for driver, Store cert for widget.
-- Named Pipes: explicit DACL (SYSTEM + local user + Package SID only).
-- Service runs with restricted token -- drop unnecessary privileges.
+- Store MSIX signing is handled by Microsoft Store.
+- Named Pipes: explicit DACL for current user and widget Package SID; use S2 spike result for final ACL shape.
 - All NuGet packages pinned to specific verified versions.
-- No WinRing0 dependency (flagged by Defender). Use PawnIO.
+- No WinRing0 dependency. PawnIO is optional.
+- External dependency use must be disclosed in Store certification notes.
 
 ## Team Workflow
 
-- Use teammates (TeamCreate) for parallel research or multi-file changes.
-- HANDS OFF files that teammates are editing.
+- Use focused agents for independent workstreams.
+- HANDS OFF files that another teammate is editing.
 - For single-file work, handle directly.
 
 ## Git

@@ -1,0 +1,25 @@
+name: Windows build
+
+on:
+  push:
+    branches: [main, feature/**]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: microsoft/setup-msbuild@v2
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - name: Restore
+        run: nuget restore HHAPulse.sln
+      - name: Test shared
+        run: dotnet test tests/HHAPulse.Shared.Tests/HHAPulse.Shared.Tests.csproj -c Release
+      - name: Test overlay
+        run: dotnet test tests/HHAPulse.Overlay.Tests/HHAPulse.Overlay.Tests.csproj -c Release
+      - name: Build solution
+        run: msbuild HHAPulse.sln /p:Configuration=Release /p:Platform=x64 /m
