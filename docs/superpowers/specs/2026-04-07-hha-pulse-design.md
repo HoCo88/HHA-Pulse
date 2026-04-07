@@ -638,7 +638,72 @@ Widget shows banner: "Unlock FPS monitoring, temps, and custom overlays — get 
 
 ---
 
-## 15. Open Questions
+## 15. Security Requirements
+
+All code, APIs, and communication channels MUST follow highest security standards. This is a commercial product that runs with elevated privileges — security is non-negotiable.
+
+### 15.1 Code Signing
+
+- **Desktop app executable** — signed with EV (Extended Validation) code signing certificate. Prevents Windows SmartScreen warnings and builds user trust.
+- **PawnIO driver** — must be signed with Microsoft-approved kernel-mode certificate (WHQL or Attestation signed). Unsigned drivers won't load on Windows 11 with Secure Boot.
+- **Game Bar widget (MSIX)** — signed via Microsoft Store certificate (automatic during Store submission).
+- **Installer (MSI/EXE)** — signed with same EV certificate as the app.
+
+### 15.2 Named Pipes IPC Security
+
+- Pipe `\\.\pipe\HHAPulse` created with **explicit DACL (Discretionary Access Control List)**:
+  - SYSTEM: Full control (Helper Service)
+  - Local user SID: Read/Write (Overlay UI)
+  - Package SID: Read/Write (Game Bar widget)
+  - Everyone else: Denied
+- **Message validation:** All messages from pipe clients are validated (size limits, schema check, type bounds). Malformed messages are dropped and logged.
+- **No remote access:** Pipe is local-only (`FILE_FLAG_FIRST_PIPE_INSTANCE` to prevent name hijacking).
+
+### 15.3 Helper Service Hardening
+
+- Runs as `LocalSystem` but with **restricted token** — drop all unnecessary privileges.
+- **No network access** — service does not listen on any TCP/UDP port. Communication is local Named Pipes only.
+- **Driver loading:** Only loads PawnIO from a verified path with hash validation. Never loads arbitrary drivers.
+- **No write operations exposed via pipe:** The pipe protocol is read-only (metric data push). TDP/fan control (if added later) requires separate elevated confirmation flow, never via unauthenticated pipe message.
+- **Service binary protected:** Install directory ACL set to Administrators-only write access.
+
+### 15.4 Data Privacy
+
+- **No telemetry collected.** HHA Pulse does not send any data to any server. Zero network calls.
+- **No user tracking.** No analytics, no crash reporting without explicit user opt-in.
+- **All data stays local.** Per-game profiles, settings, overlay preferences stored in `%LocalAppData%\HHAPulse\`.
+- **No cloud sync.** Settings are device-local only.
+
+### 15.5 Overlay UI Security
+
+- Overlay window does NOT use `WS_EX_TRANSPARENT` flag for click-through (avoids anti-cheat heuristic). Instead uses proper WinUI 3 input passthrough.
+- No clipboard access, no keylogging, no input capture beyond configured hotkeys.
+- Hotkeys registered via `RegisterHotKey` (standard Windows API) — only captures the specific configured key combos, not all input.
+
+### 15.6 Game Bar Widget Security
+
+- UWP sandbox — widget cannot access filesystem, registry, or other processes beyond its declared capabilities.
+- Named Pipe connection authenticated via Package SID — only our widget can connect to the pipe.
+- Widget stores no sensitive data. User preferences synced from desktop app config (read-only).
+
+### 15.7 Installer Security
+
+- MSI/EXE installer signed with EV certificate.
+- **No bundled third-party software.** No toolbars, no adware, no optional installs.
+- Installer validates file hashes before extracting.
+- Uninstaller cleanly removes: service, driver, app files, registry entries. Does NOT remove user settings (preserves in %LocalAppData% for reinstall).
+
+### 15.8 Dependency Security
+
+- All NuGet packages pinned to specific verified versions (no floating versions).
+- PresentMon SDK: MIT licensed, Intel-maintained, hash-verified.
+- ADLX/IGCL SDKs: vendor-provided, verified from official sources only.
+- No dependency on WinRing0 (known vulnerable driver flagged by Defender).
+- PawnIO: signed driver, sandboxed bytecode execution model — no arbitrary kernel access.
+
+---
+
+## 16. Open Questions
 
 1. **PawnIO licensing** — need to verify commercial usage terms
 2. **ADLX on Ryzen Z1 Extreme** — need to verify ADLX works for iGPU (not just discrete AMD GPUs)
