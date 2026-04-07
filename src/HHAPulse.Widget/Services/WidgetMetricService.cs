@@ -3,33 +3,31 @@ using HHAPulse.Shared.Pipe;
 
 namespace HHAPulse.Widget.Services;
 
-public sealed class WidgetMetricService : IDisposable
+public sealed class WidgetMetricService : IAsyncDisposable
 {
     private readonly PipeClient pipeClient = new();
 
-    public bool EnhancedModeConnected { get; private set; }
+    public bool EnhancedModeConnected => pipeClient.IsConnected;
 
     public async Task<TelemetrySnapshot?> TryReadEnhancedSnapshotAsync(CancellationToken cancellationToken)
     {
         try
         {
-            if (!EnhancedModeConnected)
-            {
-                await pipeClient.ConnectAsync(cancellationToken).ConfigureAwait(false);
-                EnhancedModeConnected = true;
-            }
-
+            await pipeClient.ReconnectIfBrokenAsync(cancellationToken).ConfigureAwait(false);
             return await pipeClient.ReadSnapshotAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
         }
         catch
         {
-            EnhancedModeConnected = false;
             return null;
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        pipeClient.Dispose();
+        await pipeClient.DisposeAsync().ConfigureAwait(false);
     }
 }

@@ -44,6 +44,10 @@ public sealed class CollectorOrchestrator
             {
                 await collector.CollectAsync(snapshot, cancellationToken).ConfigureAwait(false);
             }
+            catch (OperationCanceledException)
+            {
+                throw; // Re-throw for clean shutdown.
+            }
             catch
             {
                 // Failure isolation is deliberate. Surface per-collector status later via dependency state.

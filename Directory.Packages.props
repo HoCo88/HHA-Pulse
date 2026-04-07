@@ -9,6 +9,7 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="3.0.2" />
     <PackageVersion Include="coverlet.collector" Version="6.0.4" />
     <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.6.250205002" />
+    <PackageVersion Include="System.IO.Pipes.AccessControl" Version="8.0.0" />
     <PackageVersion Include="Microsoft.Gaming.XboxGameBar" Version="7.3.2511061" />
   </ItemGroup>
 </Project>

@@ -4,40 +4,97 @@ using HHAPulse.Shared.Protocol;
 
 namespace HHAPulse.Shared.Pipe;
 
-public sealed class PipeClient : IDisposable
+public sealed class PipeClient : IAsyncDisposable
 {
-    private NamedPipeClientStream? stream;
+    private NamedPipeClientStream? _pipe;
 
-    public async Task ConnectAsync(CancellationToken cancellationToken)
+    public bool IsConnected => _pipe is { IsConnected: true };
+
+    public async Task ConnectWithRetryAsync(CancellationToken ct)
     {
-        stream = new NamedPipeClientStream(".", PipeConstants.PipeLocalName, PipeDirection.In, PipeOptions.Asynchronous);
-        await stream.ConnectAsync(cancellationToken).ConfigureAwait(false);
+        int delayMs = 100;
+        const int maxDelayMs = 5000;
+
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                _pipe = new NamedPipeClientStream(".", PipeConstants.PipeLocalName, PipeDirection.In);
+                await _pipe.ConnectAsync(2000, ct).ConfigureAwait(false);
+                return; // connected
+            }
+            catch (TimeoutException)
+            {
+                _pipe?.Dispose();
+                _pipe = null;
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+                delayMs = Math.Min(delayMs * 2, maxDelayMs);
+            }
+            catch (IOException)
+            {
+                _pipe?.Dispose();
+                _pipe = null;
+                await Task.Delay(delayMs, ct).ConfigureAwait(false);
+                delayMs = Math.Min(delayMs * 2, maxDelayMs);
+            }
+        }
+
+        ct.ThrowIfCancellationRequested();
     }
 
     public async Task<TelemetrySnapshot> ReadSnapshotAsync(CancellationToken cancellationToken)
     {
-        if (stream is null)
+        if (_pipe is null || !_pipe.IsConnected)
         {
             throw new InvalidOperationException("Pipe client is not connected.");
         }
 
-        var lengthBuffer = new byte[PipeConstants.LengthPrefixBytes];
-        await ReadExactlyAsync(stream, lengthBuffer, cancellationToken).ConfigureAwait(false);
-        var payloadLength = BitConverter.ToInt32(lengthBuffer, 0);
-        if (payloadLength < 0 || payloadLength > PipeConstants.MaxPayloadBytes)
+        try
         {
-            throw new InvalidDataException($"Invalid pipe payload length {payloadLength}.");
-        }
+            var lengthBuffer = new byte[PipeConstants.LengthPrefixBytes];
+            await ReadExactlyAsync(_pipe, lengthBuffer, cancellationToken).ConfigureAwait(false);
+            var payloadLength = BitConverter.ToInt32(lengthBuffer, 0);
+            if (payloadLength < 0 || payloadLength > PipeConstants.MaxPayloadBytes)
+            {
+                throw new InvalidDataException($"Invalid pipe payload length {payloadLength}.");
+            }
 
-        var payload = new byte[payloadLength];
-        await ReadExactlyAsync(stream, payload, cancellationToken).ConfigureAwait(false);
-        var envelope = MessageSerializer.DeserializeEnvelope(payload);
-        return MessageSerializer.DeserializePayload<TelemetrySnapshot>(envelope);
+            var payload = new byte[payloadLength];
+            await ReadExactlyAsync(_pipe, payload, cancellationToken).ConfigureAwait(false);
+            var envelope = MessageSerializer.DeserializeEnvelope(payload);
+            return MessageSerializer.DeserializePayload<TelemetrySnapshot>(envelope);
+        }
+        catch (Exception ex) when (ex is EndOfStreamException or IOException)
+        {
+            // Pipe is broken — clean up so callers can detect via IsConnected and reconnect.
+            await DisposePipeAsync().ConfigureAwait(false);
+            throw;
+        }
     }
 
-    public void Dispose()
+    public async Task ReconnectIfBrokenAsync(CancellationToken ct)
     {
-        stream?.Dispose();
+        if (IsConnected)
+        {
+            return;
+        }
+
+        await DisposePipeAsync().ConfigureAwait(false);
+        await ConnectWithRetryAsync(ct).ConfigureAwait(false);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposePipeAsync().ConfigureAwait(false);
+    }
+
+    private async ValueTask DisposePipeAsync()
+    {
+        if (_pipe is not null)
+        {
+            await _pipe.DisposeAsync().ConfigureAwait(false);
+            _pipe = null;
+        }
     }
 
     private static async Task ReadExactlyAsync(Stream input, byte[] buffer, CancellationToken cancellationToken)

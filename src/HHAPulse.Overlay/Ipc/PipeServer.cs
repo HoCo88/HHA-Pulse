@@ -1,5 +1,7 @@
 using System.Collections.Concurrent;
 using System.IO.Pipes;
+using System.Security.AccessControl;
+using System.Security.Principal;
 using HHAPulse.Shared.Models;
 using HHAPulse.Shared.Protocol;
 
@@ -51,9 +53,13 @@ public sealed class PipeServer : IAsyncDisposable
 
     private async Task AcceptLoopAsync(CancellationToken cancellationToken)
     {
+        bool isFirstInstance = true;
+
         while (!cancellationToken.IsCancellationRequested)
         {
-            var server = CreateServerStream();
+            var server = CreateServerStream(isFirstInstance);
+            isFirstInstance = false;
+
             try
             {
                 await server.WaitForConnectionAsync(cancellationToken).ConfigureAwait(false);
@@ -70,13 +76,32 @@ public sealed class PipeServer : IAsyncDisposable
         }
     }
 
-    private static NamedPipeServerStream CreateServerStream()
+    private static NamedPipeServerStream CreateServerStream(bool firstInstance)
     {
-        return new NamedPipeServerStream(
+        var pipeSecurity = new PipeSecurity();
+
+        // Current user = full control
+        pipeSecurity.AddAccessRule(new PipeAccessRule(
+            WindowsIdentity.GetCurrent().Owner!,
+            PipeAccessRights.FullControl,
+            AccessControlType.Allow));
+
+        // TODO: For cross-package IPC (e.g. Game Bar widget in a separate MSIX),
+        // add the Package SID here. Same-MSIX-package processes share identity.
+
+        var options = PipeOptions.Asynchronous;
+        if (firstInstance)
+        {
+            options |= PipeOptions.FirstPipeInstance;
+        }
+
+        return NamedPipeServerStreamAcl.Create(
             PipeConstants.PipeLocalName,
             PipeDirection.Out,
-            maxNumberOfServerInstances: 8,
+            NamedPipeServerStream.MaxAllowedServerInstances,
             PipeTransmissionMode.Byte,
-            PipeOptions.Asynchronous);
+            options,
+            0, 0,
+            pipeSecurity);
     }
 }
