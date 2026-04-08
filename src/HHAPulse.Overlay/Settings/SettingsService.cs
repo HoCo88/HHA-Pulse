@@ -23,9 +23,22 @@ public sealed class SettingsService
             return AppSettings.CreateDefault();
         }
 
-        await using var stream = File.OpenRead(settingsPath);
-        var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
-        return Normalize(settings ?? AppSettings.CreateDefault());
+        try
+        {
+            await using var stream = File.OpenRead(settingsPath);
+            if (stream.Length == 0)
+            {
+                return AppSettings.CreateDefault();
+            }
+
+            var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+            return Normalize(settings ?? AppSettings.CreateDefault());
+        }
+        catch (JsonException)
+        {
+            // Corrupt or empty settings file — start fresh.
+            return AppSettings.CreateDefault();
+        }
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
@@ -42,12 +55,11 @@ public sealed class SettingsService
 
     private static AppSettings Normalize(AppSettings settings)
     {
-        if (settings.ActivePreset != OverlayPreset.Hud && settings.ActivePreset != OverlayPreset.Off)
+        // Accept all valid preset values; default to Standard for unrecognized.
+        if (!Enum.IsDefined(settings.ActivePreset))
         {
-            settings.ActivePreset = OverlayPreset.Hud;
+            settings.ActivePreset = OverlayPreset.Standard;
         }
-
-        settings.EnabledMetricIds.Clear();
 
         if (settings.UpdateInterval <= TimeSpan.Zero)
         {

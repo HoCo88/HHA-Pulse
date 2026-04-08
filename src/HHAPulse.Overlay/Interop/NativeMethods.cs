@@ -5,7 +5,12 @@ namespace HHAPulse.Overlay.Interop;
 internal static partial class NativeMethods
 {
     // ── Window styles ──────────────────────────────────────────────────
+    internal const int GWL_STYLE = -16;
     internal const int GWL_EXSTYLE = -20;
+    internal const nint WS_CAPTION = 0x00C00000;
+    internal const nint WS_THICKFRAME = 0x00040000;
+    internal const nint WS_SYSMENU = 0x00080000;
+    internal const nint WS_POPUP = -2147483648;
     internal const int WS_EX_LAYERED = 0x00080000;
     internal const int WS_EX_TRANSPARENT = 0x00000020;
     internal const int WS_EX_TOOLWINDOW = 0x00000080;
@@ -22,6 +27,8 @@ internal static partial class NativeMethods
 
     // ── DWM constants ──────────────────────────────────────────────────
     internal const int DWMWA_EXCLUDED_FROM_PEEK = 12;
+    internal const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;
+    internal const int DWMWCP_DONOTROUND = 1;
 
     // ── Structs ────────────────────────────────────────────────────────
 

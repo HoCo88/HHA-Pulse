@@ -40,5 +40,6 @@ public sealed class AppHost : IAsyncDisposable
     public async ValueTask DisposeAsync()
     {
         await pipeServer.DisposeAsync().ConfigureAwait(false);
+        orchestrator.Dispose();
     }
 }

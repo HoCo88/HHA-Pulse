@@ -12,6 +12,8 @@ public sealed class AppSettings
 
     public OverlayFontSize FontSize { get; set; }
 
+    public double TextSizePixels { get; set; }
+
     public TimeSpan UpdateInterval { get; set; }
 
     public List<string> EnabledMetricIds { get; set; } = new();
@@ -22,11 +24,12 @@ public sealed class AppSettings
     {
         return new AppSettings
         {
-            ActivePreset = OverlayPreset.Hud,
+            ActivePreset = OverlayPreset.Standard,
             TopBarPosition = OverlayEdge.Top,
             BackgroundOpacity = 0.85,
             TextOpacity = 1.0,
             FontSize = OverlayFontSize.Medium,
+            TextSizePixels = 15,
             UpdateInterval = TimeSpan.FromSeconds(1),
             EnabledMetricIds = new List<string>(),
             ShowMode = OverlayShowMode.Always
@@ -36,8 +39,11 @@ public sealed class AppSettings
 
 public enum OverlayPreset
 {
-    Hud = 0,
-    Off = 1
+    Minimal = 0,
+    Standard = 1,
+    Tuner = 2,
+    Custom = 3,
+    Off = 4
 }
 
 public enum OverlayEdge

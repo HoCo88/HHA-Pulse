@@ -100,6 +100,9 @@ public sealed class GpuMetrics
 
     [Key(6)]
     public double VramTotalMegabytes { get; set; }
+
+    [Key(7)]
+    public int FanRpm { get; set; }
 }
 
 [MessagePackObject]

@@ -3,13 +3,24 @@ using HHAPulse.Overlay.Diagnostics;
 
 namespace HHAPulse.Overlay.Collectors;
 
-public sealed class CollectorOrchestrator
+public sealed class CollectorOrchestrator : IDisposable
 {
     private readonly IReadOnlyList<IMetricCollector> collectors;
 
     public CollectorOrchestrator(IEnumerable<IMetricCollector> collectors)
     {
         this.collectors = collectors.ToArray();
+    }
+
+    public void Dispose()
+    {
+        foreach (var collector in collectors)
+        {
+            if (collector is IDisposable disposable)
+            {
+                disposable.Dispose();
+            }
+        }
     }
 
     public async Task InitializeAsync(CancellationToken cancellationToken)

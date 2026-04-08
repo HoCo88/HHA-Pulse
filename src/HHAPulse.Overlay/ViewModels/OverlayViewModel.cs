@@ -8,13 +8,20 @@ public sealed class OverlayViewModel : ViewModelBase
 {
     private const int HistorySampleCapacity = 120;
     private readonly RingBuffer<double> fpsHistoryBuffer = new(HistorySampleCapacity);
+    private readonly RingBuffer<double> avgFpsHistoryBuffer = new(HistorySampleCapacity);
+    private readonly RingBuffer<double> onePercentLowHistoryBuffer = new(HistorySampleCapacity);
+    private readonly RingBuffer<double> zeroPointOneLowHistoryBuffer = new(HistorySampleCapacity);
     private readonly RingBuffer<double> frameTimeHistoryBuffer = new(HistorySampleCapacity);
 
     private TelemetrySnapshot currentSnapshot = new();
-    private OverlayPreset activePreset = OverlayPreset.Hud;
-    private IReadOnlyList<string> topBarMetricIds = OverlayPresetCatalog.GetLayout(OverlayPreset.Hud, Array.Empty<string>()).TopBarMetricIds;
+    private OverlayPreset activePreset = OverlayPreset.Standard;
+    private IReadOnlyList<string> topBarMetricIds = OverlayPresetCatalog.GetLayout(OverlayPreset.Standard, Array.Empty<string>()).TopBarMetricIds;
     private IReadOnlyList<double> fpsHistory = Array.Empty<double>();
+    private IReadOnlyList<double> avgFpsHistory = Array.Empty<double>();
+    private IReadOnlyList<double> onePercentLowHistory = Array.Empty<double>();
+    private IReadOnlyList<double> zeroPointOneLowHistory = Array.Empty<double>();
     private IReadOnlyList<double> frameTimeHistory = Array.Empty<double>();
+    private bool frameGenDetected;
 
     public TelemetrySnapshot CurrentSnapshot
     {
@@ -40,6 +47,24 @@ public sealed class OverlayViewModel : ViewModelBase
         private set => SetProperty(ref fpsHistory, value);
     }
 
+    public IReadOnlyList<double> AvgFpsHistory
+    {
+        get => avgFpsHistory;
+        private set => SetProperty(ref avgFpsHistory, value);
+    }
+
+    public IReadOnlyList<double> OnePercentLowHistory
+    {
+        get => onePercentLowHistory;
+        private set => SetProperty(ref onePercentLowHistory, value);
+    }
+
+    public IReadOnlyList<double> ZeroPointOneLowHistory
+    {
+        get => zeroPointOneLowHistory;
+        private set => SetProperty(ref zeroPointOneLowHistory, value);
+    }
+
     public IReadOnlyList<double> FrameTimeHistory
     {
         get => frameTimeHistory;
@@ -53,19 +78,51 @@ public sealed class OverlayViewModel : ViewModelBase
         TopBarMetricIds = layout.TopBarMetricIds;
     }
 
+    public bool FrameGenDetected
+    {
+        get => frameGenDetected;
+        private set => SetProperty(ref frameGenDetected, value);
+    }
+
     public void ApplyTelemetry(TelemetrySnapshot snapshot)
     {
+        // Auto-detect frame generation from capture service.
+        if (!frameGenDetected && snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen))
+        {
+            FrameGenDetected = true;
+        }
+
         UpdateHistory(snapshot);
         CurrentSnapshot = snapshot;
     }
 
     private void UpdateHistory(TelemetrySnapshot snapshot)
     {
-        if (snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps) &&
-            snapshot.Performance.FramesPerSecond > 0)
+        if (snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps))
         {
-            fpsHistoryBuffer.Add(snapshot.Performance.FramesPerSecond);
-            FpsHistory = fpsHistoryBuffer.ToArray();
+            if (snapshot.Performance.FramesPerSecond > 0)
+            {
+                fpsHistoryBuffer.Add(snapshot.Performance.FramesPerSecond);
+                FpsHistory = fpsHistoryBuffer.ToArray();
+            }
+
+            if (snapshot.Performance.AverageFramesPerSecond > 0)
+            {
+                avgFpsHistoryBuffer.Add(snapshot.Performance.AverageFramesPerSecond);
+                AvgFpsHistory = avgFpsHistoryBuffer.ToArray();
+            }
+
+            if (snapshot.Performance.OnePercentLowFramesPerSecond > 0)
+            {
+                onePercentLowHistoryBuffer.Add(snapshot.Performance.OnePercentLowFramesPerSecond);
+                OnePercentLowHistory = onePercentLowHistoryBuffer.ToArray();
+            }
+
+            if (snapshot.Performance.ZeroPointOnePercentLowFramesPerSecond > 0)
+            {
+                zeroPointOneLowHistoryBuffer.Add(snapshot.Performance.ZeroPointOnePercentLowFramesPerSecond);
+                ZeroPointOneLowHistory = zeroPointOneLowHistoryBuffer.ToArray();
+            }
         }
 
         if (snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameTime) &&

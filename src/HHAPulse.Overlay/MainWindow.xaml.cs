@@ -11,7 +11,9 @@ namespace HHAPulse.Overlay;
 
 public sealed partial class MainWindow : Window
 {
-    private const int TopBarHeight = 28;
+    private const int SingleRowHeight = 28;
+    private const int TallRowHeight = 46;
+    private const int DoubleRowHeight = 52;
 
     private OverlayViewModel? _viewModel;
     private bool isOverlayVisible = true;
@@ -19,6 +21,7 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        TopBar.LayoutMetricsChanged += OnTopBarLayoutMetricsChanged;
         Activated += OnActivated;
     }
 
@@ -57,6 +60,16 @@ public sealed partial class MainWindow : Window
         isOverlayVisible = visible;
     }
 
+    public void ApplyOpacity(double bgOpacity, double textOpacity)
+    {
+        TopBar.ApplyOpacity(bgOpacity, textOpacity);
+    }
+
+    public void ApplyTextSize(double size)
+    {
+        TopBar.ApplyTextSize(size);
+    }
+
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
         Activated -= OnActivated;
@@ -73,6 +86,11 @@ public sealed partial class MainWindow : Window
         }
     }
 
+    private void OnTopBarLayoutMetricsChanged(object? sender, EventArgs args)
+    {
+        DispatcherQueue.TryEnqueue(ApplyLayoutState);
+    }
+
     private void ApplyLayoutState()
     {
         ResizeOverlayWindow();
@@ -82,13 +100,22 @@ public sealed partial class MainWindow : Window
     {
         var hwnd = WindowNative.GetWindowHandle(this);
         var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
-        var appWindow = AppWindow.GetFromWindowId(windowId);
         var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
 
-        int width = displayArea.WorkArea.Width;
-        int height = TopBarHeight;
+        int width = Math.Min(TopBar.EstimatedWidth, displayArea.WorkArea.Width);
+        int rows = TopBar.RowCount;
+        int height;
+        if (rows > 1)
+            height = DoubleRowHeight;
+        else if (TopBar.FpsGroupIsTwoRow)
+            height = TallRowHeight;
+        else
+            height = SingleRowHeight;
 
-        var bounds = new RectInt32(displayArea.WorkArea.X, displayArea.WorkArea.Y, width, height);
-        appWindow.MoveAndResize(bounds);
+        NativeMethods.SetWindowPos(
+            hwnd,
+            NativeMethods.HWND_TOPMOST,
+            displayArea.WorkArea.X, displayArea.WorkArea.Y, width, height,
+            NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
     }
 }

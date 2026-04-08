@@ -39,7 +39,13 @@ internal static class TransparentWindowHelper
             0, 0, 0, 0,
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
 
-        // 4. Set extended window styles: tool window, no-activate, layered + transparent (click-through).
+        // 4a. Strip all non-client chrome from the normal style so window rect == client rect.
+        var style = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_STYLE);
+        style &= ~(NativeMethods.WS_CAPTION | NativeMethods.WS_THICKFRAME | NativeMethods.WS_SYSMENU);
+        style |= NativeMethods.WS_POPUP;
+        NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_STYLE, style);
+
+        // 4b. Set extended window styles: tool window, no-activate, layered + transparent (click-through).
         var exStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE);
         exStyle |= NativeMethods.WS_EX_TOOLWINDOW
                  | NativeMethods.WS_EX_NOACTIVATE
@@ -64,6 +70,14 @@ internal static class TransparentWindowHelper
             hwnd,
             NativeMethods.DWMWA_EXCLUDED_FROM_PEEK,
             in excludeFromPeek,
+            sizeof(int));
+
+        // 8. Square corners — remove Windows 11 rounded pill shape.
+        var cornerPref = NativeMethods.DWMWCP_DONOTROUND;
+        NativeMethods.DwmSetWindowAttribute(
+            hwnd,
+            NativeMethods.DWMWA_WINDOW_CORNER_PREFERENCE,
+            in cornerPref,
             sizeof(int));
     }
 }

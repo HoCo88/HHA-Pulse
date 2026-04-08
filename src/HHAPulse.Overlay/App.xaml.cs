@@ -91,6 +91,7 @@ public partial class App : Application
             new CpuUsageCollector(),
             new RamCollector(),
             new GpuUsageCollector(),
+            new GpuPerfDataCollector(),
             new VramCollector(),
             new DisplayCollector()
         };
@@ -249,11 +250,13 @@ public partial class App : Application
 
         overlayViewModel?.ApplySettings(settings);
         controlWindow?.ApplySettings(settings);
+        window?.ApplyOpacity(settings.BackgroundOpacity, settings.TextOpacity);
+        if (settings.TextSizePixels > 0) window?.ApplyTextSize(settings.TextSizePixels);
     }
 
     private void ToggleHudMode()
     {
-        SetPreset(OverlayPresetCatalog.NextPreset(settings?.ActivePreset ?? OverlayPreset.Hud));
+        SetPreset(OverlayPresetCatalog.NextPreset(settings?.ActivePreset ?? OverlayPreset.Standard));
     }
 
     private async Task SaveSettingsAsync()
@@ -299,6 +302,10 @@ public partial class App : Application
             controlWindow.ExitRequested += OnExitRequested;
             controlWindow.ShowModeChanged += OnShowModeChanged;
             controlWindow.EnableCaptureRequested += OnEnableCaptureRequested;
+            controlWindow.PresetChanged += OnPresetChanged;
+            controlWindow.CustomMetricsChanged += OnCustomMetricsChanged;
+            controlWindow.OpacityChanged += OnOpacityChanged;
+            controlWindow.TextSizeChanged += OnTextSizeChanged;
             controlWindow.Closed += OnControlWindowClosed;
         }
 
@@ -315,6 +322,10 @@ public partial class App : Application
             controlWindow.ExitRequested -= OnExitRequested;
             controlWindow.ShowModeChanged -= OnShowModeChanged;
             controlWindow.EnableCaptureRequested -= OnEnableCaptureRequested;
+            controlWindow.PresetChanged -= OnPresetChanged;
+            controlWindow.CustomMetricsChanged -= OnCustomMetricsChanged;
+            controlWindow.OpacityChanged -= OnOpacityChanged;
+            controlWindow.TextSizeChanged -= OnTextSizeChanged;
             controlWindow.Closed -= OnControlWindowClosed;
             controlWindow.ViewModel = null;
             controlWindow = null;
@@ -336,6 +347,43 @@ public partial class App : Application
         }
 
         AppLogger.Info($"Overlay show mode changed to {mode}.");
+    }
+
+    private void OnPresetChanged(OverlayPreset preset)
+    {
+        SetPreset(preset);
+    }
+
+    private void OnCustomMetricsChanged(List<string> enabledMetricIds)
+    {
+        if (settings is null || overlayViewModel is null)
+        {
+            return;
+        }
+
+        settings.EnabledMetricIds = enabledMetricIds;
+        settings.ActivePreset = OverlayPreset.Custom;
+        ApplySettingsToWindows();
+        _ = SaveSettingsAsync();
+        AppLogger.Info($"Custom metrics updated: {enabledMetricIds.Count} metrics selected.");
+    }
+
+    private void OnOpacityChanged(double bgOpacity, double textOpacity)
+    {
+        if (settings is null) return;
+
+        settings.BackgroundOpacity = bgOpacity;
+        settings.TextOpacity = textOpacity;
+        window?.ApplyOpacity(bgOpacity, textOpacity);
+        _ = SaveSettingsAsync();
+    }
+
+    private void OnTextSizeChanged(double size)
+    {
+        if (settings is null) return;
+        settings.TextSizePixels = size;
+        window?.ApplyTextSize(size);
+        _ = SaveSettingsAsync();
     }
 
     private void OnExitRequested()

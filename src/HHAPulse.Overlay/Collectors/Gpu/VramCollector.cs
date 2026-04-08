@@ -49,9 +49,18 @@ public sealed class VramCollector : IMetricCollector
                     return Task.CompletedTask;
                 }
 
-                var info = adapter3.QueryVideoMemoryInfo(0, MemorySegmentGroup.Local);
-
                 var desc = adapter.Description1;
+
+                // Intel iGPUs (vendor 0x8086) have no dedicated VRAM — skip.
+                // AMD APUs report usable VRAM through the local segment.
+                bool isIntelIgpu = desc.VendorId == 0x8086 && desc.DedicatedVideoMemory <= 256UL * 1024UL * 1024UL;
+                if (isIntelIgpu)
+                {
+                    LogOnce($"VRAM: Intel iGPU detected (VendorId=0x{desc.VendorId:X4}, DedicatedVRAM={desc.DedicatedVideoMemory / (1024 * 1024)}MB). VRAM metric hidden.");
+                    return Task.CompletedTask;
+                }
+
+                var info = adapter3.QueryVideoMemoryInfo(0, MemorySegmentGroup.Local);
                 var totalBytes = info.Budget;
                 if (desc.DedicatedVideoMemory > 256UL * 1024UL * 1024UL)
                 {
