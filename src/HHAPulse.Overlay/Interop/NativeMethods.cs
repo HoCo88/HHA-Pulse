@@ -17,6 +17,8 @@ internal static partial class NativeMethods
     internal const uint SWP_NOSIZE = 0x0001;
     internal const uint SWP_NOACTIVATE = 0x0010;
     internal const uint SWP_SHOWWINDOW = 0x0040;
+    internal const int SW_HIDE = 0;
+    internal const int SW_SHOWNOACTIVATE = 4;
 
     // ── DWM constants ──────────────────────────────────────────────────
     internal const int DWMWA_EXCLUDED_FROM_PEEK = 12;
@@ -57,6 +59,29 @@ internal static partial class NativeMethods
 
     [LibraryImport("user32.dll", EntryPoint = "SetWindowLongPtrW", SetLastError = true)]
     internal static partial nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool ShowWindow(nint hWnd, int nCmdShow);
+
+    [LibraryImport("user32.dll")]
+    internal static partial nint GetForegroundWindow();
+
+    [LibraryImport("user32.dll")]
+    internal static partial uint GetWindowThreadProcessId(nint hWnd, out uint lpdwProcessId);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    internal static partial bool GetWindowRect(nint hWnd, out RECT lpRect);
+
+    [StructLayout(LayoutKind.Sequential)]
+    internal struct RECT
+    {
+        public int Left;
+        public int Top;
+        public int Right;
+        public int Bottom;
+    }
 
     // ── Dwmapi ─────────────────────────────────────────────────────────
 

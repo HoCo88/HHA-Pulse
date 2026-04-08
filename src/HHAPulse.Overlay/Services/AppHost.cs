@@ -1,4 +1,3 @@
-using HHAPulse.Overlay.Aggregation;
 using HHAPulse.Overlay.Collectors;
 using HHAPulse.Overlay.Ipc;
 using HHAPulse.Overlay.ViewModels;
@@ -33,20 +32,8 @@ public sealed class AppHost : IAsyncDisposable
         // 1. Collect raw telemetry from all collectors.
         var snapshot = await orchestrator.CollectAsync(cancellationToken).ConfigureAwait(false);
 
-        // 2. Run aggregation: bottleneck detection.
-        var perf = snapshot.Performance;
-        if (perf.FrameTimeMilliseconds > 0 && perf.GpuBusyMilliseconds > 0)
-        {
-            snapshot.Performance.Bottleneck = BottleneckDetector.Detect(
-                perf.FrameTimeMilliseconds,
-                perf.GpuBusyMilliseconds,
-                gpuBusyReliable: perf.GpuBusyMilliseconds > 0);
-        }
-
-        // 3. Broadcast to Game Bar widget via named pipe.
         await pipeServer.BroadcastAsync(snapshot, cancellationToken).ConfigureAwait(false);
 
-        // 4. Push to overlay UI if a view model is attached.
         viewModel?.ApplyTelemetry(snapshot);
     }
 

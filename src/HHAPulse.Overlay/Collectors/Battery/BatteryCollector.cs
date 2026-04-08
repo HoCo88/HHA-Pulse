@@ -39,14 +39,15 @@ public sealed class BatteryCollector : IMetricCollector
             snapshot.Battery.ChargePercent = state.RemainingCapacity * 100.0 / state.MaxCapacity;
         }
 
-        // Rate is signed: negative = discharging (mW). Convert to positive watts.
+        // Rate is signed (mW): negative = discharging, positive = charging.
         if (state.Rate < 0)
         {
             snapshot.Battery.DischargeWatts = state.Rate / -1000.0;
         }
-        else
+        else if (state.Rate > 0)
         {
-            snapshot.Battery.DischargeWatts = 0;
+            // Charging: store as ChargeWatts. DischargeWatts stays 0.
+            snapshot.Battery.ChargeWatts = state.Rate / 1000.0;
         }
 
         // EstimatedTime is in seconds, 0xFFFFFFFF means unknown

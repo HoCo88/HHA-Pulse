@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Shared.Models;
 
 namespace HHAPulse.Overlay.Collectors.Gpu;
@@ -19,7 +20,10 @@ public sealed class GpuUsageCollector : IMetricCollector, IDisposable
     {
         int status = PdhOpenQuery(null, IntPtr.Zero, out _queryHandle);
         if (status != 0)
+        {
+            AppLogger.Info($"GPU Usage: PdhOpenQuery failed with status 0x{status:X8}.");
             return Task.CompletedTask;
+        }
 
         status = PdhAddEnglishCounter(
             _queryHandle,
@@ -29,6 +33,7 @@ public sealed class GpuUsageCollector : IMetricCollector, IDisposable
 
         if (status != 0)
         {
+            AppLogger.Info($"GPU Usage: PdhAddEnglishCounter failed with status 0x{status:X8}.");
             PdhCloseQuery(_queryHandle);
             _queryHandle = IntPtr.Zero;
             return Task.CompletedTask;
@@ -57,17 +62,61 @@ public sealed class GpuUsageCollector : IMetricCollector, IDisposable
         if (_collectCount < 3)
             return Task.CompletedTask;
 
-        status = PdhGetFormattedCounterValue(
+        // Use PdhGetFormattedCounterArray to enumerate ALL matching instances
+        // and sum their utilization. The wildcard counter matches multiple
+        // per-process engtype_3D instances. PdhGetFormattedCounterValue only
+        // returns one and often yields 0 on Intel iGPUs.
+        uint bufferSize = 0;
+        uint itemCount = 0;
+
+        // First call: get required buffer size.
+        status = PdhGetFormattedCounterArray(
             _counterHandle,
             PdhFmtDouble,
-            out _,
-            out var counterValue);
+            ref bufferSize,
+            out itemCount,
+            IntPtr.Zero);
 
-        if (status != 0)
+        // PDH_MORE_DATA (0x800007D2) means buffer too small — expected on first call.
+        if (status != PdhMoreData && status != 0)
             return Task.CompletedTask;
 
-        snapshot.AvailableMetrics |= MetricFlags.GpuUsage;
-        snapshot.Gpu.UsagePercent = Math.Clamp(counterValue.doubleValue, 0.0, 100.0);
+        if (bufferSize == 0 || itemCount == 0)
+            return Task.CompletedTask;
+
+        var buffer = Marshal.AllocHGlobal((int)bufferSize);
+        try
+        {
+            status = PdhGetFormattedCounterArray(
+                _counterHandle,
+                PdhFmtDouble,
+                ref bufferSize,
+                out itemCount,
+                buffer);
+
+            if (status != 0)
+                return Task.CompletedTask;
+
+            double totalUtilization = 0;
+            int structSize = Marshal.SizeOf<PDH_FMT_COUNTERVALUE_ITEM>();
+
+            for (int i = 0; i < itemCount; i++)
+            {
+                var itemPtr = buffer + (i * structSize);
+                var item = Marshal.PtrToStructure<PDH_FMT_COUNTERVALUE_ITEM>(itemPtr);
+                if (item.FmtValue.CStatus == 0 && item.FmtValue.doubleValue > 0)
+                {
+                    totalUtilization += item.FmtValue.doubleValue;
+                }
+            }
+
+            snapshot.AvailableMetrics |= MetricFlags.GpuUsage;
+            snapshot.Gpu.UsagePercent = Math.Clamp(totalUtilization, 0.0, 100.0);
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buffer);
+        }
 
         return Task.CompletedTask;
     }
@@ -87,6 +136,7 @@ public sealed class GpuUsageCollector : IMetricCollector, IDisposable
     }
 
     private const uint PdhFmtDouble = 0x00000200;
+    private const int PdhMoreData = unchecked((int)0x800007D2);
 
     [DllImport("pdh.dll", CharSet = CharSet.Unicode)]
     private static extern int PdhOpenQuery(
@@ -105,14 +155,22 @@ public sealed class GpuUsageCollector : IMetricCollector, IDisposable
     private static extern int PdhCollectQueryData(IntPtr hQuery);
 
     [DllImport("pdh.dll")]
-    private static extern int PdhGetFormattedCounterValue(
+    private static extern int PdhGetFormattedCounterArray(
         IntPtr hCounter,
         uint dwFormat,
-        out uint lpdwType,
-        out PDH_FMT_COUNTERVALUE pValue);
+        ref uint lpdwBufferSize,
+        out uint lpdwItemCount,
+        IntPtr ItemBuffer);
 
     [DllImport("pdh.dll")]
     private static extern int PdhCloseQuery(IntPtr hQuery);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PDH_FMT_COUNTERVALUE_ITEM
+    {
+        public IntPtr szName;
+        public PDH_FMT_COUNTERVALUE FmtValue;
+    }
 
     [StructLayout(LayoutKind.Explicit)]
     private struct PDH_FMT_COUNTERVALUE

@@ -1,5 +1,3 @@
-using HHAPulse.Overlay.Settings;
-
 namespace HHAPulse.Overlay.Profiles;
 
 public sealed class GameProfile
@@ -8,7 +6,5 @@ public sealed class GameProfile
 
     public string ExecutableName { get; set; } = string.Empty;
 
-    public OverlayPreset Preset { get; set; } = OverlayPreset.Minimal;
-
-    public List<string> EnabledMetricIds { get; set; } = new();
+    public bool OverlayEnabled { get; set; } = true;
 }

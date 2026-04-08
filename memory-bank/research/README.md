@@ -1,26 +1,21 @@
-# Research Archive
+﻿# HHA Pulse - Research Archive
 
-Research conducted 2026-04-07 informed the v1 architecture, but the current implementation direction is the v4 Store-safe plan:
+This folder is an archive. The active architecture is the operational rewrite from 2026-04-08:
 
-- Paid **HHA Pulse** Store app: WinUI 3 FullTrustProcess, no custom Windows Service.
-- Free **HHA Pulse Widget** Store app: UWP/Game Bar funnel with optional enhanced pipe mode.
-- IPC path: `\\.\pipe\LOCAL\HHAPulse`.
-- PresentMon Service: external user-installed dependency for advanced FPS metrics.
-- PawnIO: optional user-installed dependency only.
-- No public direct-download EXE/MSI distribution.
+- WinUI 3 interactive overlay.
+- Bundled elevated ETW capture service for FPS and frametime.
+- One slim HUD path only.
+- Foreground PID is detected by the overlay and sent to the service.
+- No DLL injection, no graphics hooks, no game memory reads.
+- No DWM/D3DKMT FPS shortcut.
+- No in-game diagnostics, side panel, metric picker, or placeholder vendor telemetry.
 
-Historical research areas:
-
-- Anti-cheat safety: no injection, no game memory reads, no DirectX/Vulkan hooks.
-- VRR safety: WinUI 3 preferred, WPF banned.
-- Windows telemetry APIs: battery, CPU%, RAM, VRAM, display, ADLX, IGCL.
-- Xbox Game Bar SDK: viable companion and conversion funnel.
-- User preference research: metric picker, battery focus, MangoHud-style top bar, FrameGen/bottleneck differentiation.
+Historical research remains useful for anti-cheat safety, VRR safety, Windows telemetry APIs, Game Bar concepts, ADLX/IGCL possibilities, and handheld UX preferences. When historical notes conflict with the current architecture, the current architecture wins.
 
 Key sources:
-- PresentMon GitHub: https://github.com/GameTechDev/PresentMon
-- MangoHud GitHub: https://github.com/flightlessmango/MangoHud
-- GoTweaks GitHub: https://github.com/corando98/GoTweaks
+
+- Microsoft ETW docs: https://learn.microsoft.com/en-us/windows/win32/api/evntrace/nf-evntrace-starttracew
+- Microsoft DXGI video memory docs: https://learn.microsoft.com/en-us/windows/win32/api/dxgi1_4/nf-dxgi1_4-idxgiadapter3-queryvideomemoryinfo
 - Xbox Game Bar SDK: https://learn.microsoft.com/en-us/gaming/game-bar/
 - ADLX SDK: https://gpuopen.com/adlx/
 - IGCL SDK: https://intel.github.io/drivers.gpu.control-library

@@ -1,4 +1,4 @@
-using HHAPulse.Shared.Models;
+﻿using HHAPulse.Shared.Models;
 using HHAPulse.Shared.Protocol;
 using Xunit;
 
@@ -12,20 +12,13 @@ public sealed class MessageSerializerTests
         var snapshot = new TelemetrySnapshot
         {
             TimestampUnixMilliseconds = 1_777_777_777,
-            AvailableMetrics = MetricFlags.Fps | MetricFlags.Battery | MetricFlags.GpuTemperature,
+            AvailableMetrics = MetricFlags.Fps | MetricFlags.Battery | MetricFlags.GpuUsage,
             Performance = new PerformanceMetrics
             {
                 FramesPerSecond = 73,
                 AverageFramesPerSecond = 68,
                 OnePercentLowFramesPerSecond = 52,
-                FrameTimeMilliseconds = 13.7,
-                FrameGeneration = new FrameGenerationMetrics
-                {
-                    IsActive = true,
-                    NativeFramesPerSecond = 37,
-                    DisplayedFramesPerSecond = 73,
-                    Confidence = ConfidenceLevel.Medium
-                }
+                FrameTimeMilliseconds = 13.7
             },
             Battery = new BatteryMetrics
             {
@@ -44,8 +37,7 @@ public sealed class MessageSerializerTests
         Assert.Equal(IpcMessageType.TelemetrySnapshot, decoded.MessageType);
         Assert.Equal(snapshot.TimestampUnixMilliseconds, roundTripped.TimestampUnixMilliseconds);
         Assert.Equal(73, roundTripped.Performance.FramesPerSecond);
-        Assert.True(roundTripped.Performance.FrameGeneration.IsActive);
-        Assert.Equal(ConfidenceLevel.Medium, roundTripped.Performance.FrameGeneration.Confidence);
+        Assert.Equal(52, roundTripped.Performance.OnePercentLowFramesPerSecond);
         Assert.Equal(72, roundTripped.Battery.ChargePercent);
     }
 }

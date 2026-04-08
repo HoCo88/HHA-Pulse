@@ -1,9 +1,0 @@
-<Page
-    x:Class="HHAPulse.Overlay.Pages.ProfilesPage"
-    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <StackPanel Padding="24" Spacing="12">
-        <TextBlock Text="Profiles" FontSize="24" />
-        <TextBlock Text="Create per-game profiles for presets and custom metric layouts." />
-    </StackPanel>
-</Page>

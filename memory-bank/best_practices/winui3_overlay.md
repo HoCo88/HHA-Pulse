@@ -1,4 +1,4 @@
-# WinUI 3 Overlay Best Practices (April 2026)
+﻿# WinUI 3 Overlay Best Practices (April 2026)
 
 ## Transparent Window (PROVEN approach)
 
@@ -26,7 +26,7 @@ DwmEnableBlurBehindWindow(hwnd, blurBehind with region);
 compositor.CreateColorBrush(Color.FromArgb(0, 255, 255, 255));
 ```
 
-### Option C: Custom SystemBackdrop (recommended for clean code)
+### Option C: Transparent SystemBackdrop (recommended for clean code)
 ```csharp
 internal class TransparentBackdrop : SystemBackdrop
 {
@@ -41,7 +41,7 @@ internal class TransparentBackdrop : SystemBackdrop
 
 ## Always-On-Top
 
-**Use `SetWindowPos(HWND_TOPMOST)` — NOT `IsAlwaysOnTop`!**
+**Use `SetWindowPos(HWND_TOPMOST)` â€” NOT `IsAlwaysOnTop`!**
 
 `OverlappedPresenter.IsAlwaysOnTop` has a KNOWN BUG: breaks `WS_EX_TRANSPARENT` click-through.
 
@@ -51,7 +51,7 @@ SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACT
 
 ## Click-Through
 
-For a **small top bar** (~40px): no click-through needed — window only covers the bar area.
+For a **small top bar** (~40px): no click-through needed â€” window only covers the bar area.
 
 For **full-screen transparent overlay**:
 ```csharp
@@ -73,8 +73,8 @@ AppWindow.IsShownInSwitchers = false;
 ## Threading
 
 - ALL UI updates must go through `DispatcherQueue.TryEnqueue()`
-- Named pipe callbacks fire on worker threads — ALWAYS dispatch
-- `TryEnqueue` returns bool, not Task — use `TaskCompletionSource` if you need await
+- Named pipe callbacks fire on worker threads â€” ALWAYS dispatch
+- `TryEnqueue` returns bool, not Task â€” use `TaskCompletionSource` if you need await
 
 ## XAML Memory Leaks
 
@@ -85,12 +85,13 @@ AppWindow.IsShownInSwitchers = false;
 
 ## Deployment
 
-- `WindowsAppSDKSelfContained=true` — eliminates runtime dependency (+200MB but reliable)
-- Unpackaged WinUI 3 silently fails if SDK runtime missing — self-contained avoids this
+- `WindowsAppSDKSelfContained=true` â€” eliminates runtime dependency (+200MB but reliable)
+- Unpackaged WinUI 3 silently fails if SDK runtime missing â€” self-contained avoids this
 - Use `dotnet publish` for EXE, `msbuild` for MSIX (NOT `dotnet build` for UWP/wapproj)
 
 ## Reference Projects (April 2026)
-- GuildOfCalamity/Transparency — best current transparent window example
-- castorix/WinUI3_SwapChainPanel_Layered — full D3D pipeline with click-through
-- WinUICommunity — production-quality backdrop helpers
-- WinUIEx NuGet — TransparentTintBackdrop + window extensions
+- GuildOfCalamity/Transparency â€” best current transparent window example
+- castorix/WinUI3_SwapChainPanel_Layered â€” full D3D pipeline with click-through
+- WinUICommunity â€” production-quality backdrop helpers
+- WinUIEx NuGet â€” TransparentTintBackdrop + window extensions
+

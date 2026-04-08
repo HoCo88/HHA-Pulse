@@ -1,45 +1,23 @@
-# Code Signing & Distribution Best Practices
+﻿# Code Signing & Distribution Best Practices
 
-> HHA Pulse v1 is Microsoft Store-only. Store MSIX signing is handled by Microsoft. EV/MSI guidance below is historical reference for non-Store experiments and does not apply to v1 public distribution.
+Current operational build uses a normal desktop overlay plus an elevated local capture service. Microsoft Store-only guidance is historical and not the active blocker.
 
-## EV Code Signing Certificate
+## Signing Guidance
 
-- **Get EV cert early** — standard certs need 2-8 weeks to build SmartScreen reputation
-- EV certs provide IMMEDIATE SmartScreen trust
-- EV is REQUIRED for WHQL driver submission
-- EV certs use hardware security token — private key cannot be exported
-- When renewing standard certs, reputation does NOT transfer — EV avoids this problem
+- Sign all distributed EXE/DLL/MSI/service binaries.
+- Timestamp every signature with RFC 3161.
+- Avoid packers, obfuscators, self-modifying code, and suspicious memory patterns.
+- Before public release, submit signed binaries to Microsoft Defender Security Intelligence if needed.
 
-## Signing Commands
+## Service Distribution Notes
 
-```bash
-# Sign with EV cert (SHA256 + RFC3161 timestamp)
-signtool sign /fd sha256 /tr http://timestamp.digicert.com /td sha256 /a HHAPulse.exe
-```
+- The capture service install requires one-time admin approval.
+- Test install/uninstall on a clean VM before release.
+- Configure service display name and description clearly.
+- Keep the service local-only: no network listeners, no analytics, no telemetry.
 
-- Always timestamp signatures (`/tr` with RFC 3161) — without timestamp, signature expires with cert
-- Sign everything: EXE, DLL, MSI installer, driver .sys file
+## EV / Trusted Signing
 
-## WHQL Driver Signing
-
-- Kernel-mode drivers on Windows 10+ REQUIRE either:
-  1. **WHQL Certification** — full HLK test suite, Microsoft logo (highest trust)
-  2. **Attestation Signing** — Microsoft countersigns without testing (lower trust)
-- Submit via Windows Hardware Dev Center (partner.microsoft.com)
-- PawnIO driver must be signed before it can load on Secure Boot systems
-
-## Windows Defender False Positives
-
-- Before release: submit signed binary to Microsoft Defender Security Intelligence portal
-- Each new version may need resubmission
-- Avoid: packers (UPX), obfuscation, self-modifying code, suspicious memory patterns
-- If flagged: submit to Defender portal — expect 1-3 day turnaround
-- Consider Microsoft's Trusted Signing service — maintains reputation across renewals
-
-## MSI Installer
-
-- Sign the MSI itself (not just contained binaries)
-- Include proper version info in all binaries (FileVersion, ProductVersion)
-- Pre-configure service recovery options during install
-- Use WiX or Advanced Installer (well-known frameworks, less suspicious to AV)
-- Test on clean VMs before every release
+- EV or Microsoft Trusted Signing helps SmartScreen reputation.
+- EV is required for some kernel-driver workflows, but the current FPS capture service is user-mode ETW and does not install a driver.
+- If future hardware telemetry requires a driver, driver signing becomes a separate project with its own threat model.

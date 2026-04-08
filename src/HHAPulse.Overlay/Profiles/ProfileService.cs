@@ -20,8 +20,8 @@ public sealed class ProfileService
         }
 
         await using var stream = File.OpenRead(profilesPath);
-        return await JsonSerializer.DeserializeAsync<List<GameProfile>>(stream, JsonOptions, cancellationToken).ConfigureAwait(false)
-            ?? Array.Empty<GameProfile>();
+        var result = await JsonSerializer.DeserializeAsync<List<GameProfile>>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
+        return result ?? (IReadOnlyList<GameProfile>)Array.Empty<GameProfile>();
     }
 
     public async Task SaveAsync(IEnumerable<GameProfile> profiles, CancellationToken cancellationToken)

@@ -25,7 +25,7 @@ public sealed class SettingsService
 
         await using var stream = File.OpenRead(settingsPath);
         var settings = await JsonSerializer.DeserializeAsync<AppSettings>(stream, JsonOptions, cancellationToken).ConfigureAwait(false);
-        return settings ?? AppSettings.CreateDefault();
+        return Normalize(settings ?? AppSettings.CreateDefault());
     }
 
     public async Task SaveAsync(AppSettings settings, CancellationToken cancellationToken)
@@ -38,5 +38,22 @@ public sealed class SettingsService
 
         await using var stream = File.Create(settingsPath);
         await JsonSerializer.SerializeAsync(stream, settings, JsonOptions, cancellationToken).ConfigureAwait(false);
+    }
+
+    private static AppSettings Normalize(AppSettings settings)
+    {
+        if (settings.ActivePreset != OverlayPreset.Hud && settings.ActivePreset != OverlayPreset.Off)
+        {
+            settings.ActivePreset = OverlayPreset.Hud;
+        }
+
+        settings.EnabledMetricIds.Clear();
+
+        if (settings.UpdateInterval <= TimeSpan.Zero)
+        {
+            settings.UpdateInterval = TimeSpan.FromSeconds(1);
+        }
+
+        return settings;
     }
 }

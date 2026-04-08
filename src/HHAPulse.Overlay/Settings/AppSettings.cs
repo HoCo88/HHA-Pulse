@@ -6,8 +6,6 @@ public sealed class AppSettings
 
     public OverlayEdge TopBarPosition { get; set; }
 
-    public PanelEdge SidePanelPosition { get; set; }
-
     public double BackgroundOpacity { get; set; }
 
     public double TextOpacity { get; set; }
@@ -16,35 +14,30 @@ public sealed class AppSettings
 
     public TimeSpan UpdateInterval { get; set; }
 
-    public int SidePanelWidthPixels { get; set; }
-
     public List<string> EnabledMetricIds { get; set; } = new();
+
+    public OverlayShowMode ShowMode { get; set; }
 
     public static AppSettings CreateDefault()
     {
         return new AppSettings
         {
-            ActivePreset = OverlayPreset.Minimal,
+            ActivePreset = OverlayPreset.Hud,
             TopBarPosition = OverlayEdge.Top,
-            SidePanelPosition = PanelEdge.Right,
             BackgroundOpacity = 0.85,
             TextOpacity = 1.0,
             FontSize = OverlayFontSize.Medium,
             UpdateInterval = TimeSpan.FromSeconds(1),
-            SidePanelWidthPixels = 260,
-            EnabledMetricIds = new List<string> { "fps", "battery" }
+            EnabledMetricIds = new List<string>(),
+            ShowMode = OverlayShowMode.Always
         };
     }
 }
 
 public enum OverlayPreset
 {
-    Minimal = 0,
-    Standard = 1,
-    Tuner = 2,
-    Diagnostic = 3,
-    Custom = 4,
-    Off = 5
+    Hud = 0,
+    Off = 1
 }
 
 public enum OverlayEdge
@@ -53,15 +46,15 @@ public enum OverlayEdge
     Bottom = 1
 }
 
-public enum PanelEdge
-{
-    Left = 0,
-    Right = 1
-}
-
 public enum OverlayFontSize
 {
     Small = 0,
     Medium = 1,
     Large = 2
+}
+
+public enum OverlayShowMode
+{
+    Always = 0,
+    InGameOnly = 1
 }

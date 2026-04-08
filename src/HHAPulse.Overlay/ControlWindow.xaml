@@ -1,0 +1,27 @@
+<Window
+    x:Class="HHAPulse.Overlay.ControlWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Grid Background="#FF101014" Padding="22">
+        <StackPanel Spacing="16">
+            <TextBlock Text="HHA Pulse" Foreground="White" FontSize="28" FontWeight="SemiBold" />
+            <TextBlock Text="FPS, frametime, CPU, GPU, RAM, VRAM, battery, and refresh rate." Foreground="#FFCCCCCC" TextWrapping="Wrap" />
+            <StackPanel Spacing="8">
+                <TextBlock Text="Overlay visibility" Foreground="#FFFFCC66" FontWeight="SemiBold" />
+                <StackPanel Orientation="Horizontal" Spacing="8">
+                    <Button x:Name="ShowAlwaysButton" Content="Always" MinHeight="40" Click="OnShowAlwaysClicked" />
+                    <Button x:Name="ShowInGameButton" Content="In-game only" MinHeight="40" Click="OnShowInGameClicked" />
+                    <Button Content="Show / hide" MinHeight="40" Click="OnToggleOverlayClicked" />
+                </StackPanel>
+                <TextBlock x:Name="ShowModeDescription" Text="Overlay is always visible." Foreground="#FFCCCCCC" TextWrapping="Wrap" />
+            </StackPanel>
+            <StackPanel Spacing="8">
+                <TextBlock Text="FPS tracking" Foreground="#FFFFCC66" FontWeight="SemiBold" />
+                <TextBlock x:Name="CaptureStatusText" Text="Capture service not connected." Foreground="#FFCCCCCC" TextWrapping="Wrap" />
+                <Button Content="Enable FPS tracking" HorizontalAlignment="Left" MinHeight="40" Click="OnEnableCaptureClicked" />
+            </StackPanel>
+            <TextBlock x:Name="LogPathText" Foreground="#FF999999" TextWrapping="Wrap" />
+            <Button Content="Exit HHA Pulse" HorizontalAlignment="Left" MinHeight="40" Click="OnExitClicked" />
+        </StackPanel>
+    </Grid>
+</Window>

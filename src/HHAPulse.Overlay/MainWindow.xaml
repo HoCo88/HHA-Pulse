@@ -4,6 +4,6 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:controls="using:HHAPulse.Overlay.Controls">
     <Grid Background="Transparent">
-        <controls:TopBarControl />
+        <controls:TopBarControl x:Name="TopBar" HorizontalAlignment="Left" VerticalAlignment="Top" />
     </Grid>
 </Window>

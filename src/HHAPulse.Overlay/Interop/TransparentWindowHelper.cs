@@ -39,9 +39,12 @@ internal static class TransparentWindowHelper
             0, 0, 0, 0,
             NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
 
-        // 4. Set extended window styles: tool window (hides from taskbar) + no-activate.
+        // 4. Set extended window styles: tool window, no-activate, layered + transparent (click-through).
         var exStyle = NativeMethods.GetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE);
-        exStyle |= NativeMethods.WS_EX_TOOLWINDOW | NativeMethods.WS_EX_NOACTIVATE;
+        exStyle |= NativeMethods.WS_EX_TOOLWINDOW
+                 | NativeMethods.WS_EX_NOACTIVATE
+                 | NativeMethods.WS_EX_LAYERED
+                 | NativeMethods.WS_EX_TRANSPARENT;
         NativeMethods.SetWindowLongPtr(hwnd, NativeMethods.GWL_EXSTYLE, exStyle);
 
         // 5. Hide from Alt-Tab / Task View.

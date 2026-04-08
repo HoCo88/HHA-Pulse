@@ -88,13 +88,14 @@ public sealed class PipeClient : IAsyncDisposable
         await DisposePipeAsync().ConfigureAwait(false);
     }
 
-    private async ValueTask DisposePipeAsync()
+    private ValueTask DisposePipeAsync()
     {
         if (_pipe is not null)
         {
-            await _pipe.DisposeAsync().ConfigureAwait(false);
+            _pipe.Dispose();
             _pipe = null;
         }
+        return default;
     }
 
     private static async Task ReadExactlyAsync(Stream input, byte[] buffer, CancellationToken cancellationToken)

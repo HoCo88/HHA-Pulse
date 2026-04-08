@@ -1,4 +1,5 @@
 using HHAPulse.Shared.Models;
+using HHAPulse.Overlay.Diagnostics;
 
 namespace HHAPulse.Overlay.Collectors;
 
@@ -19,9 +20,10 @@ public sealed class CollectorOrchestrator
             {
                 await collector.InitializeAsync(cancellationToken).ConfigureAwait(false);
             }
-            catch
+            catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // Individual collectors must not prevent the app from starting.
+                AppLogger.Error($"Collector '{collector.Name}' failed to initialize.", ex);
             }
         }
     }
@@ -48,9 +50,10 @@ public sealed class CollectorOrchestrator
             {
                 throw; // Re-throw for clean shutdown.
             }
-            catch
+            catch (Exception ex)
             {
                 // Failure isolation is deliberate. Surface per-collector status later via dependency state.
+                AppLogger.Error($"Collector '{collector.Name}' failed during collection.", ex);
             }
         }
 

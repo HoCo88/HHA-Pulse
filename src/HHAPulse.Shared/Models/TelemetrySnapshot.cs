@@ -53,47 +53,6 @@ public sealed class PerformanceMetrics
 
     [Key(5)]
     public double GpuBusyMilliseconds { get; set; }
-
-    [Key(6)]
-    public double InputLatencyMilliseconds { get; set; }
-
-    [Key(7)]
-    public FrameGenerationMetrics FrameGeneration { get; set; } = new();
-
-    [Key(8)]
-    public BottleneckMetrics Bottleneck { get; set; } = new();
-}
-
-[MessagePackObject]
-public sealed class FrameGenerationMetrics
-{
-    [Key(0)]
-    public bool IsActive { get; set; }
-
-    [Key(1)]
-    public double NativeFramesPerSecond { get; set; }
-
-    [Key(2)]
-    public double DisplayedFramesPerSecond { get; set; }
-
-    [Key(3)]
-    public ConfidenceLevel Confidence { get; set; }
-}
-
-[MessagePackObject]
-public sealed class BottleneckMetrics
-{
-    [Key(0)]
-    public BottleneckKind Kind { get; set; }
-
-    [Key(1)]
-    public ConfidenceLevel Confidence { get; set; }
-
-    [Key(2)]
-    public double FrameTimeMilliseconds { get; set; }
-
-    [Key(3)]
-    public double GpuBusyMilliseconds { get; set; }
 }
 
 [MessagePackObject]
@@ -169,6 +128,9 @@ public sealed class BatteryMetrics
 
     [Key(7)]
     public bool IsCharging { get; set; }
+
+    [Key(8)]
+    public double ChargeWatts { get; set; }
 }
 
 [MessagePackObject]
@@ -207,14 +169,26 @@ public sealed class DisplayMetrics
 public sealed class DependencyState
 {
     [Key(0)]
-    public bool PresentMonAvailable { get; set; }
+    public bool CaptureServiceConnected { get; set; }
 
     [Key(1)]
     public bool PawnIoAvailable { get; set; }
 
     [Key(2)]
-    public string PresentMonStatusMessage { get; set; } = string.Empty;
+    public string CaptureServiceStatusMessage { get; set; } = string.Empty;
 
     [Key(3)]
     public string PawnIoStatusMessage { get; set; } = string.Empty;
+
+    [Key(4)]
+    public bool GpuTelemetryAvailable { get; set; }
+
+    [Key(5)]
+    public string GpuTelemetryStatusMessage { get; set; } = string.Empty;
+
+    [Key(6)]
+    public uint CaptureTargetProcessId { get; set; }
+
+    [Key(7)]
+    public string CaptureTargetProcessName { get; set; } = string.Empty;
 }

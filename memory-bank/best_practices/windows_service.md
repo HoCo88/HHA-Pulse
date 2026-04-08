@@ -1,13 +1,11 @@
-# Windows Service Best Practices — Reference Only
+﻿# Windows Service Best Practices
 
-HHA Pulse v1 does **not** implement or ship a custom Windows Service. The paid overlay app runs as a packaged WinUI 3 FullTrustProcess in the current user session.
+HHA Pulse uses a local Windows service for ETW FPS capture.
 
-Keep this file only as historical reference for future non-Store experiments. Do not add service install, service recovery, LocalSystem, `sc.exe`, or packaged service work to v1.
+Rules:
 
-## v1 Rules
-
-- No HHA Pulse NT service.
-- No LocalSystem helper process.
-- No `sc.exe create` or service recovery configuration.
-- No bundled driver install flow.
-- PresentMon Service and PawnIO are external user-installed dependencies only.
+- The overlay detects the foreground game PID in the interactive user session.
+- The service never calls `GetForegroundWindow` from Session 0 to decide the target game.
+- The service owns the ETW session and stops capture when no target PID/client is active.
+- Service IPC must allow the interactive user to connect while preserving LocalSystem/Admin control.
+- The in-game HUD must fail closed: stale or missing service frames show `FPS --`, never fake values.

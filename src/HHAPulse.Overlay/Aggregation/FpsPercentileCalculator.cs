@@ -11,9 +11,9 @@ public static class FpsPercentileCalculator
 
         var sorted = frameRates.OrderBy(value => value).ToArray();
         return new FpsPercentileResult(
-            Average: frameRates.Average(),
-            OnePercentLow: sorted[PercentileIndex(sorted.Length, 0.01)],
-            ZeroPointOnePercentLow: sorted[PercentileIndex(sorted.Length, 0.001)]);
+            average: frameRates.Average(),
+            onePercentLow: sorted[PercentileIndex(sorted.Length, 0.01)],
+            zeroPointOnePercentLow: sorted[PercentileIndex(sorted.Length, 0.001)]);
     }
 
     private static int PercentileIndex(int count, double percentile)
