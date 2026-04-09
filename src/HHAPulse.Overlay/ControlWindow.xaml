@@ -98,6 +98,20 @@
                 </Grid>
             </StackPanel>
 
+            <!-- Diagnostics section -->
+            <StackPanel Spacing="10">
+                <TextBlock Text="DIAGNOSTICS" Foreground="#FF666680" FontSize="11" FontWeight="SemiBold" CharacterSpacing="80" />
+                <Grid Background="#FF16161E" CornerRadius="8" Padding="16,14,16,14">
+                    <StackPanel Spacing="8">
+                        <TextBlock x:Name="RuntimeStatusText" Text="Telemetry runtime pending." Foreground="#FFCCCCDD" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock x:Name="GpuStatusText" Text="GPU telemetry pending." Foreground="#FFCCCCDD" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock x:Name="TargetStatusText" Text="Target: none" Foreground="#FF888899" FontSize="12" TextWrapping="Wrap" />
+                        <TextBlock x:Name="MetricStatusText" Text="Metric health pending." Foreground="#FF888899" FontSize="12" TextWrapping="Wrap" />
+                        <Button Content="Open log folder" HorizontalAlignment="Left" MinHeight="32" Click="OnOpenLogClicked" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+
             <!-- Footer -->
             <StackPanel Spacing="12">
                 <TextBlock x:Name="LogPathText" Foreground="#FF444455" FontSize="11" TextWrapping="Wrap" />

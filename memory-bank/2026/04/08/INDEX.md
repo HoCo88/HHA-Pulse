@@ -19,7 +19,7 @@ Major UI redesign: metrics grouped by hardware component instead of individual c
 - **FPS group**: FPS + AVG + 1% + 0.1% + FrameGen (auto) + sparkline graph. 2 sub-rows at 3+ metrics, graph spans both rows.
 - **Frametime**: separate component with own sparkline graph. Label "Frametime" not "FT".
 - **CPU**: `CPU 45% 12W` — all CPU metrics inline under one label.
-- **GPU**: `GPU 85% 72°C 15.2W 4.2/8G` — usage + temp + power + VRAM all under "GPU" label. No separate VRAM cell.
+- **GPU**: `GPU 85% 72°C 2400rpm 4.2/8G` — usage + temp + fan + VRAM all under "GPU" label. GPU watts stay hidden until real. No separate VRAM cell.
 - **RAM**: `RAM 14.3/31.5G`.
 - **System**: BAT + value, Hz icon + value.
 
@@ -29,19 +29,38 @@ Single row is always tried first. The bar measures actual rendered width. Only s
 
 ### Presets (restored)
 
-- Minimal (2), Standard (6), Tuner (11), Custom (all 17), Off.
+- Minimal (2), Standard (6), Tuner (11), Custom (all 18), Off.
 - Custom mode has toggle switches in Control Window.
 - Cycle: Minimal → Standard → Tuner → Off → Minimal.
 
 ## D3DKMT GPU Perf Data Collector
 
-New `GpuPerfDataCollector` reads GPU temp, power, fan RPM via `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` from gdi32.dll. Same API as Windows Task Manager. No vendor SDK, no elevation, WDDM 2.4+.
+New `GpuPerfDataCollector` reads GPU temp and fan RPM via `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` from gdi32.dll. Same API as Windows Task Manager. No vendor SDK, no elevation, WDDM 2.4+.
 
 ### Key findings (verified via web search)
 
-- **Power field**: [MS docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata) say "tenths of percentage of TDP" (not watts). Some drivers may report watts. Overlay uses heuristic: 0–100 → `%`, >100 → `W`. Init log dumps raw value for hardware validation.
+- **Power field**: [MS docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata) say "tenths of percentage of TDP" (not watts). Do NOT display this as GPU watts. Current code logs `PowerRaw` in diagnostics only and hides `gpu_power` until a validated true-watts source exists.
 - **Struct alignment**: Must use `LayoutKind.Explicit` with `[FieldOffset]` because of `D3DKMT_ALIGN64` padding after the `uint PhysicalAdapterIndex` field.
-- **Intel iGPU support**: UNKNOWN — never tested with fresh binary (see stale DLL issue below).
+- **Intel iGPU support**: UNKNOWN until the freshly built overlay is launched and the log is checked.
+
+## Telemetry Stabilization (Evening)
+
+Implemented after the stale DLL diagnosis:
+
+- `Directory.Packages.props`: Windows App SDK updated from `1.6.250205002` to `1.8.260317003`; .NET remains on .NET 8.
+- Startup runtime guard added in `TelemetryContractGuard`: logs loaded `HHAPulse.Shared.dll` path, version, and MVID, checks required `GpuMetrics` properties, and fails clearly if the runtime binary is stale.
+- `TelemetrySnapshot` now carries append-only diagnostics fields: shared assembly identity, telemetry contract status, capture target identity, and per-metric health via `MetricStatus`.
+- Control window now has a Diagnostics section: capture/GPU telemetry status, target process, loaded shared DLL identity, metric health summary, and Open log folder button.
+- `CollectorOrchestrator` now logs collector init/collection failures once instead of spamming every tick.
+- `GpuPerfDataCollector` now prefers a display-attached adapter (`NumOfSources > 0`) and logs selected LUID/source count.
+- `VramCollector` logs selected DXGI adapter details. Intel iGPU VRAM hide logic still needs hardware verification.
+- `gpu_fan` is now a real metric path: shared model, D3DKMT collector, compact formatter, grouped GPU HUD row, Custom picker, Tuner preset, and tests.
+- `gpu_power` remains a known Custom metric for a future true-watts source, but is NOT in Tuner and is NOT populated from D3DKMT raw power.
+- FPS model now has append-only `AppFramesPerSecond`, `PresentFramesPerSecond`, `DisplayFramesPerSecond`, and `HybridPresentDetected` fields. Current ETW service still fills them as scaffolding; deeper PresentMon-style parsing remains future work.
+- Added `scripts/rebuild-clean.cmd` / `.ps1`: shuts down dotnet build servers, optionally stops running `HHAPulse*` processes, cleans selected output folders, and builds a selected target. Default target is Overlay, not full solution, because this machine lacks native/packaging workloads.
+- Added `scripts/test-clean.cmd` / `.ps1`: runs focused Overlay/Shared/All test projects with `--disable-build-servers`, `UseSharedCompilation=false`, `MSBuildNodeReuse=false`, and a final `dotnet build-server shutdown`.
+
+Important correction: GPU power/TDP must be real watts or hidden. Do not reintroduce `% TDP` in the HUD, and do not map D3DKMT `PowerRaw / 10` into `Gpu.PowerWatts`.
 
 ## What Works (Verified on Intel hardware)
 
@@ -64,25 +83,27 @@ New `GpuPerfDataCollector` reads GPU temp, power, fan RPM via `D3DKMTQueryAdapte
 | FPS sparkline graph | **WORKING** | Multi-series (FPS green, 1% yellow, 0.1% orange) |
 | Frametime sparkline | **WORKING** | Separate graph from FPS |
 
-## What Does NOT Work Yet (Needs Fresh Build)
+## What Does NOT Work Yet (Needs Hardware Validation)
 
 | Metric | Status | Root Cause |
 |--------|--------|------------|
-| GPU temp | Shows `--` | **STALE DLL** — `MissingMethodException: GpuMetrics.set_FanRpm` every tick. D3DKMT init succeeded but CollectAsync crashes on the missing property. |
-| GPU power | Shows `--` | Same stale DLL issue. |
-| GPU fan RPM | Shows `--` | Same stale DLL issue. |
-| VRAM hidden on Intel | **NOT VERIFIED** | Code is correct (`VendorId == 0x8086` check) but never ran with fresh binary. |
+| GPU temp | Shows `--` until runtime validation | Stale DLL issue is guarded now; needs fresh overlay launch and log check on Intel hardware. |
+| GPU power | Shows `--` | Intentional until a validated true-watts GPU power source exists. D3DKMT `PowerRaw` is diagnostic only. |
+| GPU fan RPM | Shows `--` until runtime validation | Stale DLL issue is guarded now; needs fresh overlay launch and log check on Intel hardware. |
+| VRAM hidden on Intel | **NOT VERIFIED** | Code is correct (`VendorId == 0x8086` check) but still needs hardware validation. |
 
 ### The Stale DLL Problem
 
-Every build since the `FanRpm` field was added to `GpuMetrics` has FAILED because the running overlay process (`HHAPulse.Overlay.exe`) locks DLLs in the `bin\Release` output folder. MSBuild retries 10 times then errors with `MSB3027`. The user rebuilds and runs but gets the OLD binary. This means:
+Root cause was confirmed: running overlay/build processes locked output DLLs and the overlay loaded an old `HHAPulse.Shared.dll` without `GpuMetrics.FanRpm`, causing `MissingMethodException: GpuMetrics.set_FanRpm`.
 
-- D3DKMT collector crashes every tick with `MissingMethodException`.
-- VRAM Intel check was never tested.
-- GPU temp/power values were never displayed.
-- All "fix" iterations for GPU data were untested.
+Now addressed by:
 
-**Resolution**: Kill `HHAPulse.Overlay.exe` AND `HHA Pulse FPS Capture.exe` BEFORE building. Both processes lock shared DLLs.
+- Clean Release overlay build succeeded after fixing stale locks/ACL issues.
+- Runtime contract guard logs loaded shared DLL identity and fails early if stale.
+- `scripts/rebuild-clean.cmd` and `scripts/test-clean.cmd` shut down dotnet build servers and avoid MSBuild node reuse/shared compilation.
+- Manual `dotnet test` can still leave worker processes after interruption; prefer `scripts\test-clean.cmd`.
+
+Still needs hardware verification by launching the freshly built overlay and checking logs.
 
 ## Intel iGPU Detection (Verified via web search)
 
@@ -93,19 +114,22 @@ Every build since the `FanRpm` field was added to `GpuMetrics` has FAILED becaus
 
 ## Bugs Found & Fixed
 
-1. **`MissingMethodException: GpuMetrics.set_FanRpm`** — stale `HHAPulse.Shared.dll`. Fix: kill processes before building.
+1. **`MissingMethodException: GpuMetrics.set_FanRpm`** — stale `HHAPulse.Shared.dll`. Fix: runtime contract guard + clean rebuild/test wrappers + kill running overlay/capture processes before rebuild when needed.
 2. **Empty `settings.json` crash** — `File.Create()` truncates; `JsonException` on next launch. Fix: `SettingsService` checks `stream.Length == 0` and catches `JsonException`.
 3. **Two-row triggered too aggressively** — element count included separators (`CPU + Sep + GPU + Sep + BAT = 5 > 2`). Then fixed to component count but threshold was wrong. **Final fix**: measure actual width, split only if exceeds screen.
 4. **`MainWindow.TopBar` inaccessible** — XAML `x:Name` is private. Fix: `MainWindow.ApplyOpacity()` / `ApplyTextSize()` public methods.
 5. **Battery icon unreadable** — Segoe Fluent Icons `\uE996` too small/ambiguous at 13px. Fix: replaced with "BAT" text.
-6. **D3DKMT Power field semantics** — MS docs say "tenths of % TDP", not watts. Fix: heuristic display (0-100 = %, >100 = W). Init log dumps raw value.
+6. **D3DKMT Power field semantics** — MS docs say "tenths of % TDP", not watts. Final fix: never show this as watts; log `PowerRaw` for diagnostics only and hide `gpu_power` until a true-watts source exists.
 7. **`CollectorOrchestrator` didn't dispose collectors** — D3DKMT adapter handle leaked. Fix: implements `IDisposable`.
+8. **Stale shared binary guard missing** — fix: startup `TelemetryContractGuard` logs `HHAPulse.Shared.dll` path/version/MVID and fails clearly on a bad contract.
+9. **Manual dotnet cleanup during tests** — fix: added `scripts\test-clean.cmd` wrapper with build-server shutdown in `finally`.
 
 ## Build Status
 
-- Build: 0 warnings, 0 errors.
-- Tests: 21/21 overlay, 4/4 shared.
-- **CRITICAL**: User has never run a fresh build since FanRpm was added. All GPU perf data is untested on hardware.
+- Release overlay build: 0 warnings, 0 errors.
+- Overlay tests: 25/25 passed from user-run `dotnet test tests\HHAPulse.Overlay.Tests\HHAPulse.Overlay.Tests.csproj -c Debug -p:Platform=x64 --no-restore`.
+- Shared tests: 4/4 passed via `scripts\test-clean.cmd -Target Shared -Configuration Debug -NoRestore`.
+- Full solution test still fails on this machine because VS/native packaging targets are missing: `Microsoft.Cpp.Default.props`, `Microsoft.Windows.UI.Xaml.CSharp.targets`, and `Microsoft.DesktopBridge.targets`.
 
 ## Research Sources
 
@@ -118,8 +142,10 @@ Every build since the `FanRpm` field was added to `GpuMetrics` has FAILED becaus
 
 ## Next Steps
 
-1. **Kill processes and rebuild** — Critical. No GPU perf data, no VRAM fix, no layout fixes have been tested on hardware.
-2. **Check log after fresh build** — Look for `GPU Perf: D3DKMT initialized. Test read:` line to see if Intel iGPU reports temp/power.
-3. **Check log for VRAM** — Should show `VRAM: Intel iGPU detected... VRAM metric hidden.`
-4. **Validate D3DKMT Power raw value** — Log shows raw value. Determine if Intel reports % or W.
-5. **Test with a game running** — FPS/frametime/lows need the capture service connected with a target PID.
+1. Launch fresh Release overlay and check log for `Loaded HHAPulse.Shared.dll:` with the expected current path/MVID.
+2. Check log for `GPU Perf: D3DKMT initialized. Test read:` and confirm whether Intel reports temp and fan RPM.
+3. Check Diagnostics panel for GPU telemetry status and metric health.
+4. Check log for VRAM adapter selection / Intel iGPU hide path.
+5. Add a real GPU-watts collector before showing `gpu_power` in Tuner. Do NOT use D3DKMT `PowerRaw` as watts.
+6. Test with a game running. FPS/frametime/lows need the capture service connected with a target PID.
+7. For local loops, prefer `scripts\test-clean.cmd -Target Overlay -Configuration Debug -NoRestore` and `scripts\rebuild-clean.cmd -Target Overlay -Configuration Release -StopRunning`.

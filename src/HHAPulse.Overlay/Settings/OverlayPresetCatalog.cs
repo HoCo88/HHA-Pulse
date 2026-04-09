@@ -19,6 +19,7 @@ public static class OverlayPresetCatalog
     public const string GpuUsage = "gpu";
     public const string GpuTemp = "gpu_temp";
     public const string GpuPower = "gpu_power";
+    public const string GpuFan = "gpu_fan";
     public const string Vram = "vram";
 
     // ── System ──
@@ -46,10 +47,7 @@ public static class OverlayPresetCatalog
         Battery
     };
 
-    // Tuner: everything with a real data source AND a meaningful unit.
-    // GpuPower is excluded because D3DKMT only gives % of TDP — not watts.
-    // Without knowing the GPU's TDP wattage, the percentage is meaningless
-    // to users. It stays in AllMetricIds for Custom mode power users.
+    // Tuner: everything with a real data source and a meaningful display unit.
     private static readonly string[] TunerMetrics =
     {
         Fps,
@@ -58,7 +56,7 @@ public static class OverlayPresetCatalog
         CpuUsage,
         GpuUsage,
         GpuTemp,
-        GpuPower,
+        GpuFan,
         Ram,
         Vram,
         RefreshRate,
@@ -82,6 +80,7 @@ public static class OverlayPresetCatalog
         GpuUsage,
         GpuTemp,
         GpuPower,
+        GpuFan,
         Ram,
         Vram,
         TotalPower,

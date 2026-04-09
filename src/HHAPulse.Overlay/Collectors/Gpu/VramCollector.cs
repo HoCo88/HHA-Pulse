@@ -8,6 +8,7 @@ public sealed class VramCollector : IMetricCollector
 {
     private IDXGIFactory1? factory;
     private bool loggedFailure;
+    private bool loggedAdapter;
 
     public string Name => "VRAM";
 
@@ -50,6 +51,11 @@ public sealed class VramCollector : IMetricCollector
                 }
 
                 var desc = adapter.Description1;
+                if (!loggedAdapter)
+                {
+                    loggedAdapter = true;
+                    AppLogger.Info($"VRAM: Selected adapter '{desc.Description}' VendorId=0x{desc.VendorId:X4}, DedicatedVRAM={desc.DedicatedVideoMemory / (1024 * 1024)}MB.");
+                }
 
                 // Intel iGPUs (vendor 0x8086) have no dedicated VRAM — skip.
                 // AMD APUs report usable VRAM through the local segment.

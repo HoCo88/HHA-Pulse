@@ -17,6 +17,7 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
     private bool _initialized;
     private bool _loggedFailure;
     private bool _disposed;
+    private string _statusMessage = "D3DKMT GPU perf data not initialized.";
 
     // Capabilities queried once at init.
     private double _temperatureMaxCelsius;
@@ -60,9 +61,21 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                     return Task.CompletedTask;
                 }
 
-                // Use the first adapter (primary GPU).
+                // Prefer the display-attached adapter so D3DKMT perf data lines up
+                // with the same primary adapter DXGI uses for VRAM.
                 var adapterInfo = Marshal.PtrToStructure<D3DKMT_ADAPTERINFO>(buffer);
+                for (var i = 0; i < enumAdapters.NumAdapters; i++)
+                {
+                    var current = Marshal.PtrToStructure<D3DKMT_ADAPTERINFO>(buffer + (i * structSize));
+                    if (current.NumOfSources > 0)
+                    {
+                        adapterInfo = current;
+                        break;
+                    }
+                }
+
                 _adapterHandle = adapterInfo.hAdapter;
+                AppLogger.Info($"GPU Perf: Selected adapter LUID={adapterInfo.AdapterLuid.HighPart:X8}:{adapterInfo.AdapterLuid.LowPart:X8}, Sources={adapterInfo.NumOfSources}.");
             }
             finally
             {
@@ -123,7 +136,8 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                 {
                     testPerf = Marshal.PtrToStructure<D3DKMT_ADAPTER_PERFDATA>(testPtr);
                     _initialized = true;
-                    AppLogger.Info($"GPU Perf: D3DKMT initialized. VendorHint=adapter0. Test read: Temp={testPerf.Temperature / 10.0:0.0}C, PowerRaw={testPerf.Power} (/{10.0:0.0}={testPerf.Power / 10.0:0.0}), FanRPM={testPerf.FanRPM}, MemFreq={testPerf.MemoryFrequency}Hz.");
+                    _statusMessage = "D3DKMT GPU perf data initialized.";
+                    AppLogger.Info($"GPU Perf: D3DKMT initialized. VendorHint=adapter0. Test read: Temp={testPerf.Temperature / 10.0:0.0}C, PowerRaw={testPerf.Power}, FanRPM={testPerf.FanRPM}, MemFreq={testPerf.MemoryFrequency}Hz.");
                 }
                 else
                 {
@@ -146,7 +160,14 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
     public Task CollectAsync(TelemetrySnapshot snapshot, CancellationToken cancellationToken)
     {
         if (!_initialized)
+        {
+            snapshot.Dependencies.GpuTelemetryAvailable = false;
+            snapshot.Dependencies.GpuTelemetryStatusMessage = _statusMessage;
             return Task.CompletedTask;
+        }
+
+        snapshot.Dependencies.GpuTelemetryAvailable = true;
+        snapshot.Dependencies.GpuTelemetryStatusMessage = _statusMessage;
 
         var perfData = new D3DKMT_ADAPTER_PERFDATA { PhysicalAdapterIndex = 0 };
         var query = new D3DKMT_QUERYADAPTERINFO
@@ -181,13 +202,12 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                 }
             }
 
-            // Power: Microsoft docs say "tenths of percentage of TDP" (1 = 0.1%).
-            // Some drivers may report differently. We store the raw/10 value
-            // and display with context once we see real hardware values.
+            // Power: D3DKMT exposes a raw driver power field, but not a
+            // validated watt value. Do not surface it as GPU watts.
             if (perfData.Power > 0)
             {
-                snapshot.AvailableMetrics |= MetricFlags.GpuPower;
-                snapshot.Gpu.PowerWatts = perfData.Power / 10.0;
+                snapshot.Dependencies.GpuTelemetryStatusMessage =
+                    $"{_statusMessage} D3DKMT PowerRaw={perfData.Power} is hidden until a true GPU watt source is available.";
             }
 
             // Fan RPM.
@@ -222,6 +242,7 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
 
     private void LogOnce(string message)
     {
+        _statusMessage = message;
         if (_loggedFailure)
             return;
 

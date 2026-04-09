@@ -31,6 +31,9 @@ public sealed class TelemetrySnapshot
 
     [Key(8)]
     public DependencyState Dependencies { get; set; } = new();
+
+    [Key(9)]
+    public List<MetricStatus> MetricStatuses { get; set; } = new();
 }
 
 [MessagePackObject]
@@ -53,6 +56,18 @@ public sealed class PerformanceMetrics
 
     [Key(5)]
     public double GpuBusyMilliseconds { get; set; }
+
+    [Key(6)]
+    public double AppFramesPerSecond { get; set; }
+
+    [Key(7)]
+    public double PresentFramesPerSecond { get; set; }
+
+    [Key(8)]
+    public double DisplayFramesPerSecond { get; set; }
+
+    [Key(9)]
+    public bool HybridPresentDetected { get; set; }
 }
 
 [MessagePackObject]
@@ -194,4 +209,38 @@ public sealed class DependencyState
 
     [Key(7)]
     public string CaptureTargetProcessName { get; set; } = string.Empty;
+
+    [Key(8)]
+    public string SharedAssemblyPath { get; set; } = string.Empty;
+
+    [Key(9)]
+    public string SharedAssemblyVersion { get; set; } = string.Empty;
+
+    [Key(10)]
+    public string SharedAssemblyMvid { get; set; } = string.Empty;
+
+    [Key(11)]
+    public bool TelemetryContractValid { get; set; } = true;
+
+    [Key(12)]
+    public string TelemetryContractStatusMessage { get; set; } = string.Empty;
+}
+
+[MessagePackObject]
+public sealed class MetricStatus
+{
+    [Key(0)]
+    public string MetricId { get; set; } = string.Empty;
+
+    [Key(1)]
+    public string Source { get; set; } = string.Empty;
+
+    [Key(2)]
+    public bool IsAvailable { get; set; }
+
+    [Key(3)]
+    public long LastSuccessUnixMilliseconds { get; set; }
+
+    [Key(4)]
+    public string StatusMessage { get; set; } = string.Empty;
 }

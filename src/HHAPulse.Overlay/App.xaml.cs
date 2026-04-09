@@ -70,6 +70,7 @@ public partial class App : Application
 
         var assembly = Assembly.GetExecutingAssembly();
         AppLogger.Info($"Starting HHA Pulse Overlay {assembly.GetName().Version}. Path: {assembly.Location}. Arguments: '{args.Arguments}'. Log: {AppLogger.LogPath}");
+        TelemetryContractGuard.ThrowIfInvalid();
         shutdownCts = new CancellationTokenSource();
 
         // Load settings.

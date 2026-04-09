@@ -17,7 +17,7 @@ The overlay owns foreground-window detection in the user session and sends the t
 | Frame Gen FPS | ETW (auto-detected via `MetricFlags.FrameGen`) | `CaptureServiceCollector` | Service (elevated) |
 | CPU usage | `GetSystemTimes` delta | `CpuUsageCollector` | User |
 | GPU usage | PDH `\GPU Engine(*engtype_3D*)\Utilization Percentage` | `GpuUsageCollector` | User |
-| GPU temp / power / fan | `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll | `GpuPerfDataCollector` | User (no elevation) |
+| GPU temp / fan / raw power diagnostics | `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll | `GpuPerfDataCollector` | User (no elevation) |
 | RAM | `GlobalMemoryStatusEx` | `RamCollector` | User |
 | VRAM | Vortice.DXGI `IDXGIAdapter3.QueryVideoMemoryInfo` | `VramCollector` | User |
 | Battery / charge / discharge | `CallNtPowerInformation` | `BatteryCollector` | User |
@@ -27,7 +27,8 @@ The overlay owns foreground-window detection in the user session and sends the t
 
 - CPU temperature / power: needs MSR access (PawnIO) or WMI — no collector yet.
 - Input latency: needs PresentMon ETW parsing — not in capture service yet.
-- System total power: falls back to battery discharge watts; CPU+GPU sum only if both available.
+- GPU power in watts: hidden until a validated true-watts source exists.
+- System total power: falls back to battery discharge watts; CPU+GPU sum only if both component watt readings are real.
 
 ## GPU Detection
 
@@ -44,10 +45,10 @@ GPU vendor and type are detected via `DXGI_ADAPTER_DESC1`:
 
 ## D3DKMT GPU Perf Data
 
-`D3DKMTQueryAdapterInfo` with `KMTQAITYPE_ADAPTERPERFDATA` (type 62) reads GPU temperature, power draw, and fan RPM directly from the Windows kernel via gdi32.dll. This is the same API Windows Task Manager uses. No vendor SDK, no elevation.
+`D3DKMTQueryAdapterInfo` with `KMTQAITYPE_ADAPTERPERFDATA` (type 62) reads GPU temperature, fan RPM, and a raw power field directly from the Windows kernel via gdi32.dll. This is the same API Windows Task Manager uses. No vendor SDK, no elevation.
 
 - **Temperature**: stored in deci-Celsius (raw / 10 = °C).
-- **Power**: [MS docs say "tenths of percentage of TDP"](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata) (raw / 10 = % TDP). Some vendor drivers may report watts instead. The overlay uses a heuristic: values 0–100 display as `%`, values >100 display as `W`.
+- **Power**: [MS docs say "tenths of percentage of TDP"](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata). The overlay does NOT display this as watts. `PowerRaw` is log/diagnostic data only until a validated true-watts source exists.
 - **Fan RPM**: direct RPM value.
 - **Struct layout**: Uses `LayoutKind.Explicit` with manual `[FieldOffset]` attributes to match `D3DKMT_ALIGN64` padding in the native header.
 - **Intel iGPU support**: unknown — the init test-read gracefully handles failure (shows `--`).
@@ -60,7 +61,7 @@ Component-grouped HUD bar. Metrics grouped by hardware component:
 - **FPS group**: FPS + AVG + 1% + 0.1% + FrameGen (auto-detected) + sparkline graph. Stacks to 2 sub-rows when 3+ metrics active, graph spans both rows.
 - **Frametime**: separate from FPS, own sparkline graph. Label "Frametime" not "FT".
 - **CPU**: `CPU 45% 12W` — usage + power inline under one label.
-- **GPU**: `GPU 85% 72°C 15.2W 4.2/8G` — usage + temp + power + VRAM all under "GPU" label.
+- **GPU**: `GPU 85% 72°C 2400rpm 4.2/8G` — usage + temp + fan + VRAM under one label. GPU watts stay hidden until real.
 - **RAM**: `RAM 14.3/31.5G`.
 - **System**: battery icon + value, Hz icon + value (Segoe Fluent Icons).
 
@@ -70,8 +71,8 @@ Component-grouped HUD bar. Metrics grouped by hardware component:
 
 - **Minimal**: FPS + Battery (2 metrics).
 - **Standard**: FPS + 1% low + Frametime + CPU + GPU + Battery (6 metrics).
-- **Tuner**: All metrics with real data sources (11 metrics).
-- **Custom**: user toggles individual metrics from all 17 known IDs.
+- **Tuner**: All metrics with real data sources and meaningful display units (11 metrics).
+- **Custom**: user toggles individual metrics from all 18 known IDs.
 - **Off**: hidden.
 
 Cycle: Minimal → Standard → Tuner → Off → Minimal (Custom is manual only).
@@ -93,6 +94,7 @@ Persisted to `%LOCALAPPDATA%\HHAPulse\settings.json`. Includes:
 
 ## Known Issues (as of 2026-04-08 evening)
 
-- **GPU temp/power/fan never tested on hardware** — every build since `FanRpm` was added failed due to file locks from running overlay process. D3DKMT init succeeds but `CollectAsync` crashes with `MissingMethodException` on the stale DLL. Must kill processes before building.
-- **VRAM Intel hide never tested** — same stale DLL issue.
+- **GPU temp/fan still need hardware validation** — stale DLL issue is now guarded by runtime contract checks, but the fresh build still needs to be launched on Intel hardware and the log inspected.
+- **GPU watts intentionally hidden** — D3DKMT raw power is not a true watt source.
+- **VRAM Intel hide still needs validation** — logic is implemented, but fresh runtime verification is still pending.
 - **D3DKMT on Intel iGPU** — unknown whether Intel drivers implement `KMTQAITYPE_ADAPTERPERFDATA`. Init test-read will tell us once a fresh build runs.

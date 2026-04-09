@@ -128,6 +128,10 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 OnePercentLowFramesPerSecond = PercentileLowFps(recent, 0.99),
                 ZeroPointOnePercentLowFramesPerSecond = PercentileLowFps(recent, 0.999),
                 FrameTimeMilliseconds = avgFrameTime,
+                AppFramesPerSecond = fps,
+                PresentFramesPerSecond = fps,
+                DisplayFramesPerSecond = 0,
+                HybridPresentDetected = false,
                 GameProcessId = target.ProcessId,
                 GameProcessName = target.ProcessName,
                 TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()

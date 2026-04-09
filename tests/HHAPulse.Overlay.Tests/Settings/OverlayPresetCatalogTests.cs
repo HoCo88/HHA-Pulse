@@ -43,12 +43,13 @@ public sealed class OverlayPresetCatalogTests
         Assert.Contains(OverlayPresetCatalog.OnePercentLow, metrics);
         Assert.Contains(OverlayPresetCatalog.FrameTime, metrics);
         Assert.Contains(OverlayPresetCatalog.GpuTemp, metrics);
-        Assert.Contains(OverlayPresetCatalog.GpuPower, metrics);
+        Assert.Contains(OverlayPresetCatalog.GpuFan, metrics);
         Assert.Contains(OverlayPresetCatalog.Battery, metrics);
         // Metrics without collectors are excluded from Tuner.
         Assert.DoesNotContain(OverlayPresetCatalog.FrameGenFps, metrics);
         Assert.DoesNotContain(OverlayPresetCatalog.InputLatency, metrics);
         Assert.DoesNotContain(OverlayPresetCatalog.CpuPower, metrics);
+        Assert.DoesNotContain(OverlayPresetCatalog.GpuPower, metrics);
     }
 
     [Fact]

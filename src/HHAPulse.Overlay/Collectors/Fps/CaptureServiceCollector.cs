@@ -65,6 +65,10 @@ public sealed class CaptureServiceCollector : IMetricCollector
         snapshot.Performance.ZeroPointOnePercentLowFramesPerSecond = metrics.ZeroPointOnePercentLowFramesPerSecond;
         snapshot.Performance.FrameTimeMilliseconds = metrics.FrameTimeMilliseconds;
         snapshot.Performance.GpuBusyMilliseconds = metrics.GpuBusyMilliseconds;
+        snapshot.Performance.AppFramesPerSecond = metrics.AppFramesPerSecond;
+        snapshot.Performance.PresentFramesPerSecond = metrics.PresentFramesPerSecond;
+        snapshot.Performance.DisplayFramesPerSecond = metrics.DisplayFramesPerSecond;
+        snapshot.Performance.HybridPresentDetected = metrics.HybridPresentDetected;
         snapshot.Dependencies.CaptureTargetProcessId = metrics.GameProcessId;
         snapshot.Dependencies.CaptureTargetProcessName = metrics.GameProcessName;
         return Task.CompletedTask;

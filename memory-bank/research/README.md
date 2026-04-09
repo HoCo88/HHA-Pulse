@@ -14,7 +14,7 @@ This folder is an archive. The active architecture is the operational rewrite fr
 - FPS / frametime / lows / frame gen: ETW via capture service.
 - CPU usage: `GetSystemTimes`.
 - GPU usage: PDH GPU Engine counters.
-- GPU temp / power / fan: `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll. Same as Task Manager.
+- GPU temp / fan / raw power diagnostics: `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll. Same as Task Manager.
 - RAM: `GlobalMemoryStatusEx`.
 - VRAM: Vortice.DXGI. Hidden on Intel iGPU (vendor `0x8086`).
 - Battery: `CallNtPowerInformation`.
@@ -28,10 +28,14 @@ This folder is an archive. The active architecture is the operational rewrite fr
 - More robust iGPU detection: `D3D12_FEATURE_DATA_ARCHITECTURE.UMA` flag. Source: [MS Q&A](https://learn.microsoft.com/en-sg/answers/questions/2134992/how-do-i-filter-gpus-by-type-in-dxgi-(integrated-v).
 
 ### D3DKMT perf data
-- Power field: "tenths of percentage of TDP" per [MS docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata). Some drivers may report watts.
+- Power field: "tenths of percentage of TDP" per [MS docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata). Do not surface this as GPU watts. Current product rule: user-facing power/TDP must be watts or hidden.
 - Temperature: deci-Celsius.
 - Struct needs `LayoutKind.Explicit` for `D3DKMT_ALIGN64` padding.
 - Intel iGPU support: unconfirmed.
+
+### Runtime stability
+- Startup now logs loaded `HHAPulse.Shared.dll` path/version/MVID and validates the runtime telemetry contract before collectors start.
+- Focused local build/test wrappers should shut down dotnet build servers before and after runs to reduce stale output/lock issues.
 
 ### Not yet researched
 - CPU temperature via MSR / PawnIO — need to investigate if this works without kernel driver on modern Windows.

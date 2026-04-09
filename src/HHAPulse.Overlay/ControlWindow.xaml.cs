@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Overlay.Settings;
 using HHAPulse.Overlay.ViewModels;
@@ -36,6 +37,7 @@ public sealed partial class ControlWindow : Window
         [OverlayPresetCatalog.GpuUsage] = "GPU Usage",
         [OverlayPresetCatalog.GpuTemp] = "GPU Temperature",
         [OverlayPresetCatalog.GpuPower] = "GPU Power",
+        [OverlayPresetCatalog.GpuFan] = "GPU Fan",
         [OverlayPresetCatalog.Ram] = "RAM",
         [OverlayPresetCatalog.Vram] = "VRAM",
         [OverlayPresetCatalog.TotalPower] = "System Power",
@@ -97,7 +99,7 @@ public sealed partial class ControlWindow : Window
         {
             OverlayPreset.Minimal => "Minimal: FPS and battery.",
             OverlayPreset.Standard => "Standard: FPS, 1% low, frametime, CPU, GPU, battery.",
-            OverlayPreset.Tuner => "Tuner: all metrics \u2014 FPS graph, frame gen, power, temps, latency.",
+            OverlayPreset.Tuner => "Tuner: FPS graph, GPU temp, GPU fan, memory, refresh, battery.",
             OverlayPreset.Custom => "Custom: tap metrics below to toggle them on or off.",
             OverlayPreset.Off => "Overlay is hidden.",
             _ => "Standard: FPS, 1% low, frametime, CPU, GPU, battery."
@@ -222,6 +224,39 @@ public sealed partial class ControlWindow : Window
         CaptureStatusText.Text = connected
             ? $"Connected: {dependencies.CaptureTargetProcessName}".TrimEnd()
             : "Not connected";
+
+        RuntimeStatusText.Text =
+            $"Shared: v{Blank(dependencies.SharedAssemblyVersion)} MVID {Blank(dependencies.SharedAssemblyMvid)}\n{Blank(dependencies.SharedAssemblyPath)}\n{Blank(dependencies.TelemetryContractStatusMessage)}";
+        GpuStatusText.Text = $"GPU telemetry: {Blank(dependencies.GpuTelemetryStatusMessage)}";
+        TargetStatusText.Text = dependencies.CaptureTargetProcessId == 0
+            ? "Target: none"
+            : $"Target: {dependencies.CaptureTargetProcessName} ({dependencies.CaptureTargetProcessId})";
+
+        var statuses = viewModel.CurrentSnapshot.MetricStatuses;
+        if (statuses.Count == 0)
+        {
+            MetricStatusText.Text = "Metric health pending.";
+        }
+        else
+        {
+            var available = statuses.Count(status => status.IsAvailable);
+            var notable = statuses
+                .Where(status => !status.IsAvailable)
+                .Take(4)
+                .Select(status => $"{DisplayName(status.MetricId)}: {status.StatusMessage}");
+            MetricStatusText.Text = $"Metrics available: {available}/{statuses.Count}" +
+                (notable.Any() ? "\n" + string.Join("\n", notable) : string.Empty);
+        }
+    }
+
+    private static string Blank(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "--" : value;
+    }
+
+    private static string DisplayName(string metricId)
+    {
+        return MetricDisplayNames.GetValueOrDefault(metricId, metricId);
     }
 
     // Preset handlers.
@@ -248,6 +283,23 @@ public sealed partial class ControlWindow : Window
     }
 
     private void OnEnableCaptureClicked(object sender, RoutedEventArgs args) => EnableCaptureRequested?.Invoke();
+
+    private void OnOpenLogClicked(object sender, RoutedEventArgs args)
+    {
+        var directory = Path.GetDirectoryName(AppLogger.LogPath);
+        if (string.IsNullOrEmpty(directory))
+        {
+            return;
+        }
+
+        Directory.CreateDirectory(directory);
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = "explorer.exe",
+            Arguments = directory,
+            UseShellExecute = true
+        });
+    }
 
     // Opacity handlers.
     private void OnBgOpacityChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs args)

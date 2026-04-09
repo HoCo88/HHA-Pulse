@@ -1,4 +1,5 @@
 using HHAPulse.Overlay.Collectors;
+using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Overlay.Ipc;
 using HHAPulse.Overlay.ViewModels;
 
@@ -31,6 +32,8 @@ public sealed class AppHost : IAsyncDisposable
     {
         // 1. Collect raw telemetry from all collectors.
         var snapshot = await orchestrator.CollectAsync(cancellationToken).ConfigureAwait(false);
+        TelemetryContractGuard.ApplyTo(snapshot);
+        snapshot.MetricStatuses = MetricStatusFactory.Create(snapshot);
 
         await pipeServer.BroadcastAsync(snapshot, cancellationToken).ConfigureAwait(false);
 

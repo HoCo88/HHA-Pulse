@@ -61,10 +61,14 @@ public static class MetricFormatterCompact
                     : "--",
                 "--"),
 
-            // D3DKMT reports power as "tenths of %" per MS docs. Value/10 = % of TDP.
-            // If value > 100 it's likely watts from a vendor driver, show as W.
             OverlayPresetCatalog.GpuPower => FormatAvailable(snapshot, MetricFlags.GpuPower,
-                FormatGpuPower(snapshot.Gpu.PowerWatts),
+                FormatGpuPower(snapshot),
+                "--"),
+
+            OverlayPresetCatalog.GpuFan => FormatAvailable(snapshot, MetricFlags.Fan,
+                snapshot.Gpu.FanRpm > 0
+                    ? $"{snapshot.Gpu.FanRpm:0}rpm"
+                    : "--",
                 "--"),
 
             // ── Memory ──
@@ -98,13 +102,9 @@ public static class MetricFormatterCompact
 
     private static string FpsValue(double value) => value > 0 ? $"{value:0}" : "--";
 
-    private static string FormatGpuPower(double value)
+    private static string FormatGpuPower(TelemetrySnapshot snapshot)
     {
-        if (value <= 0) return "--";
-        // Heuristic: D3DKMT says "% of TDP". Values 0-100 are %.
-        // If a vendor driver reports watts, values > 100 are common (e.g. 150W).
-        // Below 100 → show as % TDP. Above 100 → likely watts.
-        return value <= 100 ? $"{value:0}%" : $"{value:0.0}W";
+        return snapshot.Gpu.PowerWatts > 0 ? $"{snapshot.Gpu.PowerWatts:0.0}W" : "--";
     }
 
     private static string FpsValueWithUnit(double value) => value > 0 ? $"{value:0}fps" : "--fps";

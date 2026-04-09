@@ -6,6 +6,8 @@ namespace HHAPulse.Overlay.Collectors;
 public sealed class CollectorOrchestrator : IDisposable
 {
     private readonly IReadOnlyList<IMetricCollector> collectors;
+    private readonly HashSet<string> loggedCollectionFailures = new(StringComparer.Ordinal);
+    private readonly HashSet<string> loggedInitializationFailures = new(StringComparer.Ordinal);
 
     public CollectorOrchestrator(IEnumerable<IMetricCollector> collectors)
     {
@@ -34,7 +36,7 @@ public sealed class CollectorOrchestrator : IDisposable
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 // Individual collectors must not prevent the app from starting.
-                AppLogger.Error($"Collector '{collector.Name}' failed to initialize.", ex);
+                LogInitializationFailureOnce(collector, ex);
             }
         }
     }
@@ -64,10 +66,26 @@ public sealed class CollectorOrchestrator : IDisposable
             catch (Exception ex)
             {
                 // Failure isolation is deliberate. Surface per-collector status later via dependency state.
-                AppLogger.Error($"Collector '{collector.Name}' failed during collection.", ex);
+                LogCollectionFailureOnce(collector, ex);
             }
         }
 
         return snapshot;
+    }
+
+    private void LogInitializationFailureOnce(IMetricCollector collector, Exception exception)
+    {
+        if (loggedInitializationFailures.Add(collector.Name))
+        {
+            AppLogger.Error($"Collector '{collector.Name}' failed to initialize.", exception);
+        }
+    }
+
+    private void LogCollectionFailureOnce(IMetricCollector collector, Exception exception)
+    {
+        if (loggedCollectionFailures.Add(collector.Name))
+        {
+            AppLogger.Error($"Collector '{collector.Name}' failed during collection.", exception);
+        }
     }
 }

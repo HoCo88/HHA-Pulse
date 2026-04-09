@@ -27,4 +27,33 @@ public sealed class MetricFormatterTests
 
         Assert.Equal("GPU 0%", MetricFormatter.FormatMetric(OverlayPresetCatalog.GpuUsage, snapshot));
     }
+
+    [Fact]
+    public void CompactFormatter_ShowsGpuPowerOnlyAsWatts()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.GpuPower,
+            Gpu = { PowerWatts = 18.4 }
+        };
+
+        Assert.Equal("18.4W", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuPower, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_ShowsGpuFanOnlyWhenAvailable()
+    {
+        var unavailable = new TelemetrySnapshot
+        {
+            Gpu = { FanRpm = 2400 }
+        };
+        var available = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fan,
+            Gpu = { FanRpm = 2400 }
+        };
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuFan, unavailable));
+        Assert.Equal("2400rpm", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuFan, available));
+    }
 }

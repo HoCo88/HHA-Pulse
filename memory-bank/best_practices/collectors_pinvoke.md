@@ -51,10 +51,10 @@ Use `PdhGetFormattedCounterArray` for wildcard counters so all 3D engine instanc
 ### Key details
 
 - **Temperature**: stored in deci-Celsius. Raw value / 10 = °C.
-- **Power**: [MS docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata) say "tenths of percentage of TDP" (raw / 10 = % of TDP). Some vendor drivers may report watts. Use heuristic: 0–100 = `%`, >100 = `W`.
+- **Power**: [MS docs](https://learn.microsoft.com/en-us/windows-hardware/drivers/ddi/d3dkmthk/ns-d3dkmthk-_d3dkmt_adapter_perfdata) say "tenths of percentage of TDP" (raw / 10 = % of TDP). Do not expose this as GPU watts. Product rule: user-facing power/TDP must be watts or hidden. Keep D3DKMT `PowerRaw` diagnostic-only until a validated true-watts source exists.
 - **Fan RPM**: direct RPM value.
 - **Struct layout**: Must use `LayoutKind.Explicit` with `[FieldOffset]` to match `D3DKMT_ALIGN64` padding. After `PhysicalAdapterIndex` (uint at offset 0), there's 4 bytes padding before the first `ulong` field at offset 8.
-- **Adapter enumeration**: `D3DKMTEnumAdapters2` two-call pattern (count then fill). Uses first adapter (index 0).
+- **Adapter enumeration**: `D3DKMTEnumAdapters2` two-call pattern (count then fill). Prefer a display-attached adapter (`NumOfSources > 0`) instead of blindly using adapter 0.
 - **Disposal**: `D3DKMTCloseAdapter` must be called on shutdown. `CollectorOrchestrator` implements `IDisposable` and disposes collectors.
 - **Init test read**: A test query at init confirms driver support. If it fails, the collector stays disabled and logs once.
 - **Intel iGPU**: May not support ADAPTERPERFDATA — init handles failure gracefully. No documentation confirms Intel iGPU support.

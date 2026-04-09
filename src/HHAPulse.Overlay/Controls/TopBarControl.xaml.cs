@@ -38,7 +38,8 @@ public sealed partial class TopBarControl : UserControl
     private static readonly string[] GpuMetrics =
     {
         OverlayPresetCatalog.GpuUsage, OverlayPresetCatalog.GpuTemp,
-        OverlayPresetCatalog.GpuPower, OverlayPresetCatalog.Vram
+        OverlayPresetCatalog.GpuPower, OverlayPresetCatalog.GpuFan,
+        OverlayPresetCatalog.Vram
     };
 
     private static readonly string[] MemoryMetrics =
@@ -526,6 +527,7 @@ public sealed partial class TopBarControl : UserControl
     {
         OverlayPresetCatalog.GpuTemp => TempOrange,
         OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.CpuPower => PowerYellow,
+        OverlayPresetCatalog.GpuFan => HzSilver,
         OverlayPresetCatalog.Vram => RamPurple,
         _ => primary
     };

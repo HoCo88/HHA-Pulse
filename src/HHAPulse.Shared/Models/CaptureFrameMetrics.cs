@@ -31,4 +31,16 @@ public sealed class CaptureFrameMetrics
 
     [Key(8)]
     public long TimestampUnixMilliseconds { get; set; }
+
+    [Key(9)]
+    public double AppFramesPerSecond { get; set; }
+
+    [Key(10)]
+    public double PresentFramesPerSecond { get; set; }
+
+    [Key(11)]
+    public double DisplayFramesPerSecond { get; set; }
+
+    [Key(12)]
+    public bool HybridPresentDetected { get; set; }
 }
