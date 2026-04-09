@@ -38,11 +38,12 @@ public sealed class OverlayPresetCatalogTests
     {
         var metrics = OverlayPresetCatalog.GetMetricIds(OverlayPreset.Tuner, Array.Empty<string>());
 
-        Assert.Equal(11, metrics.Count);
+        Assert.Equal(12, metrics.Count);
         Assert.Contains(OverlayPresetCatalog.Fps, metrics);
         Assert.Contains(OverlayPresetCatalog.OnePercentLow, metrics);
         Assert.Contains(OverlayPresetCatalog.FrameTime, metrics);
         Assert.Contains(OverlayPresetCatalog.GpuTemp, metrics);
+        Assert.Contains(OverlayPresetCatalog.GpuClock, metrics);
         Assert.Contains(OverlayPresetCatalog.GpuFan, metrics);
         Assert.Contains(OverlayPresetCatalog.Battery, metrics);
         // Metrics without collectors are excluded from Tuner.
@@ -72,7 +73,7 @@ public sealed class OverlayPresetCatalogTests
     {
         var metrics = OverlayPresetCatalog.GetMetricIds(OverlayPreset.Custom, Array.Empty<string>());
 
-        Assert.Equal(11, metrics.Count);
+        Assert.Equal(12, metrics.Count);
     }
 
     [Fact]

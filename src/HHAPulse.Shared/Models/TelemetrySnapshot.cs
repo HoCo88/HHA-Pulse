@@ -224,6 +224,33 @@ public sealed class DependencyState
 
     [Key(12)]
     public string TelemetryContractStatusMessage { get; set; } = string.Empty;
+
+    [Key(13)]
+    public string GpuTelemetrySource { get; set; } = "D3DKMT";
+
+    [Key(14)]
+    public string GpuTemperatureSource { get; set; } = string.Empty;
+
+    [Key(15)]
+    public string GpuTemperatureStatusMessage { get; set; } = string.Empty;
+
+    [Key(16)]
+    public string GpuPowerSource { get; set; } = string.Empty;
+
+    [Key(17)]
+    public string GpuPowerStatusMessage { get; set; } = string.Empty;
+
+    [Key(18)]
+    public string GpuFanSource { get; set; } = string.Empty;
+
+    [Key(19)]
+    public string GpuFanStatusMessage { get; set; } = string.Empty;
+
+    [Key(20)]
+    public string GpuClockSource { get; set; } = string.Empty;
+
+    [Key(21)]
+    public string GpuClockStatusMessage { get; set; } = string.Empty;
 }
 
 [MessagePackObject]

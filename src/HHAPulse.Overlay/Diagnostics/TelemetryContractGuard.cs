@@ -7,6 +7,7 @@ public static class TelemetryContractGuard
 {
     private static readonly string[] RequiredGpuProperties =
     {
+        "ClockMegahertz",
         "FanRpm",
         "PowerWatts",
         "TemperatureCelsius",

@@ -24,39 +24,45 @@ public sealed class BatteryCollector : IMetricCollector
             out state,
             (uint)Marshal.SizeOf<SYSTEM_BATTERY_STATE>());
 
-        if (status != 0)
+        if (status != 0 || !state.BatteryPresent)
+        {
             return Task.CompletedTask;
-
-        if (!state.BatteryPresent)
-            return Task.CompletedTask;
+        }
 
         snapshot.AvailableMetrics |= MetricFlags.Battery;
-
         snapshot.Battery.IsCharging = state.Charging || state.AcOnLine;
 
         if (state.MaxCapacity > 0)
         {
-            snapshot.Battery.ChargePercent = state.RemainingCapacity * 100.0 / state.MaxCapacity;
+            snapshot.Battery.ChargePercent = ComputeChargePercent(state.RemainingCapacity, state.MaxCapacity);
         }
 
-        // Rate is signed (mW): negative = discharging, positive = charging.
         if (state.Rate < 0)
         {
             snapshot.Battery.DischargeWatts = state.Rate / -1000.0;
         }
         else if (state.Rate > 0)
         {
-            // Charging: store as ChargeWatts. DischargeWatts stays 0.
             snapshot.Battery.ChargeWatts = state.Rate / 1000.0;
         }
 
-        // EstimatedTime is in seconds, 0xFFFFFFFF means unknown
         if (state.EstimatedTime != 0xFFFFFFFF && state.EstimatedTime > 0)
         {
             snapshot.Battery.EstimatedMinutesRemaining = state.EstimatedTime / 60.0;
         }
 
         return Task.CompletedTask;
+    }
+
+    internal static double ComputeChargePercent(uint remainingCapacity, uint maxCapacity)
+    {
+        if (maxCapacity == 0)
+        {
+            return 0d;
+        }
+
+        double rawPercent = remainingCapacity * 100.0 / maxCapacity;
+        return Math.Clamp(rawPercent, 0d, 100d);
     }
 
     private const int SystemBatteryStateLevel = 5;

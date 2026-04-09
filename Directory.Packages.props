@@ -13,6 +13,7 @@
     <PackageVersion Include="Microsoft.Gaming.XboxGameBar" Version="7.3.2511061" />
     <PackageVersion Include="Microsoft.Diagnostics.Tracing.TraceEvent" Version="3.1.29" />
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.4" />
+    <PackageVersion Include="NvAPIWrapper.Net" Version="0.8.1.101" />
     <PackageVersion Include="Vortice.DXGI" Version="3.8.3" />
   </ItemGroup>
 </Project>

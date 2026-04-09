@@ -38,7 +38,8 @@ public sealed partial class TopBarControl : UserControl
     private static readonly string[] GpuMetrics =
     {
         OverlayPresetCatalog.GpuUsage, OverlayPresetCatalog.GpuTemp,
-        OverlayPresetCatalog.GpuPower, OverlayPresetCatalog.GpuFan,
+        OverlayPresetCatalog.GpuClock, OverlayPresetCatalog.GpuPower,
+        OverlayPresetCatalog.GpuFan,
         OverlayPresetCatalog.Vram
     };
 
@@ -526,6 +527,7 @@ public sealed partial class TopBarControl : UserControl
     private static SolidColorBrush HwColor(string id, SolidColorBrush primary) => id switch
     {
         OverlayPresetCatalog.GpuTemp => TempOrange,
+        OverlayPresetCatalog.GpuClock => HzSilver,
         OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.CpuPower => PowerYellow,
         OverlayPresetCatalog.GpuFan => HzSilver,
         OverlayPresetCatalog.Vram => RamPurple,

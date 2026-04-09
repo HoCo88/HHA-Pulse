@@ -35,6 +35,7 @@ public static class MetricFormatter
             OverlayPresetCatalog.CpuUsage => FormatAvailable(snapshot, MetricFlags.CpuUsage, $"CPU {Percent(snapshot.Cpu.UsagePercent)}", "CPU --"),
             OverlayPresetCatalog.GpuUsage => FormatAvailable(snapshot, MetricFlags.GpuUsage, $"GPU {Percent(snapshot.Gpu.UsagePercent)}", "GPU --"),
             OverlayPresetCatalog.GpuTemp => FormatAvailable(snapshot, MetricFlags.GpuTemperature, $"GPU {Temperature(snapshot.Gpu.TemperatureCelsius)}", "GPU --"),
+            OverlayPresetCatalog.GpuClock => FormatAvailable(snapshot, MetricFlags.GpuClock, $"GPU {snapshot.Gpu.ClockMegahertz:0} MHz", "GPU --"),
             OverlayPresetCatalog.GpuPower => FormatAvailable(snapshot, MetricFlags.GpuPower, $"GPU {Watts(snapshot.Gpu.PowerWatts)}", "GPU --"),
             OverlayPresetCatalog.GpuFan => FormatAvailable(snapshot, MetricFlags.Fan, $"FAN {snapshot.Gpu.FanRpm:0} RPM", "FAN --"),
             OverlayPresetCatalog.Ram => FormatAvailable(snapshot, MetricFlags.Memory, $"RAM {snapshot.Memory.RamUsedMegabytes:0}/{snapshot.Memory.RamTotalMegabytes:0} MB", "RAM --"),

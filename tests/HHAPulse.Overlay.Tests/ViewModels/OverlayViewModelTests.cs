@@ -23,7 +23,7 @@ public sealed class OverlayViewModelTests
     [Theory]
     [InlineData(OverlayPreset.Minimal, 2)]
     [InlineData(OverlayPreset.Standard, 6)]
-    [InlineData(OverlayPreset.Tuner, 11)]
+    [InlineData(OverlayPreset.Tuner, 12)]
     public void ApplySettings_PresetControlsMetricCount(OverlayPreset preset, int expectedCount)
     {
         var viewModel = new OverlayViewModel();

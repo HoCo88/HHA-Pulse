@@ -77,7 +77,7 @@ Version 10.0.0.0 doesn't exist in .NET 8. This means the publish was done with a
 
 ### What D3DKMT is
 
-`D3DKMTQueryAdapterInfo` with `KMTQAITYPE_ADAPTERPERFDATA` (type 25) is a Windows kernel-mode thunk that reads GPU sensor data from the WDDM miniport driver. It's the same API Windows Task Manager uses for its GPU temperature display. Available since WDDM 2.4 / Windows 10 1803.
+`D3DKMTQueryAdapterInfo` with `KMTQAITYPE_ADAPTERPERFDATA` (type 62) is a Windows kernel-mode thunk that reads GPU sensor data from the WDDM miniport driver. It's the same API Windows Task Manager uses for its GPU temperature display. Available since WDDM 2.4 / Windows 10 1803.
 
 ### Why it was chosen
 
@@ -264,7 +264,7 @@ Every monitoring tool that reliably shows GPU sensors uses vendor-specific SDKs:
 ```
 HHAPulse.Native (C++ DLL — flat C exports for P/Invoke)
   |-- ADLX wrapper:  LoadLibrary("amdadlx64.dll") from AMD driver
-  |-- IGCL wrapper:   LoadLibrary("ControlLib.dll") from Intel driver
+  |-- IGCL wrapper:   probe Intel driver runtimes ("ControlLib.dll", then "igcl64.dll")
   |
 HHAPulse.Overlay (C# WinUI 3)
   |-- AdlxGpuCollector      (AMD — via native wrapper)
@@ -455,7 +455,7 @@ LHM requires admin + WinRing0 kernel driver. This fails Store certification, get
 
 ### Windows Energy Meter Interface (EMI)
 
-Windows EMI exposes RAPL (Running Average Power Limit) energy data via WMI through a user-mode power service. It requires a **battery** on the device — which all handhelds have (ROG Ally, Legion Go, MSI Claw, Steam Deck).
+Windows EMI exposes energy counters through a device interface plus `DeviceIoControl`, not WMI. It requires a **battery** on the device - which all handhelds have (ROG Ally, Legion Go, MSI Claw, Steam Deck).
 
 - **Standard user** — no admin, no kernel driver
 - **Store safe** — no restricted components
@@ -593,9 +593,9 @@ All APIs are safe to call from a background thread. None require the UI/main thr
 
 | Anti-Cheat | Detects vendor SDK calls? | What it actually detects |
 |------------|---------------------------|--------------------------|
-| EasyAntiCheat (EAC) | **No** | DLL injection, suspicious memory allocation, thread creation in game process |
+| EasyAntiCheat (EAC) | **Game-dependent** | DLL injection, suspicious memory allocation, thread creation in game process. External overlays still depend on per-title policy. |
 | BattlEye | **No** | "No one is banned for using non-hack programs like overlays" (BattlEye statement) |
-| Riot Vanguard | **No** | Blocks vulnerable kernel drivers (WinRing0, RTCore64.sys). Moving toward user-mode detection. |
+| Riot Vanguard | **Risky / no guarantee** | Blocks vulnerable kernel drivers (WinRing0, RTCore64.sys) and has aggressive kernel-level monitoring. |
 | FACEIT | **No** (for SDK calls) | Blocks specific kernel drivers by certificate. Blocks PawnIO. |
 
 ### What DOES trigger anti-cheat (none apply to HHA Pulse)
@@ -631,7 +631,7 @@ Project rule: "NEVER inject DLLs into game processes. NEVER hook DirectX/Vulkan.
 
 ### How we detect frame generation
 
-**PresentMon ETW.** PresentMon captures ETW (Event Tracing for Windows) present events from OUTSIDE the game process. It analyzes event patterns to distinguish:
+**PresentMon ETW.** PresentMon captures ETW (Event Tracing for Windows) present events from OUTSIDE the game process. In modern PresentMon builds (v2.5.0+), frame classification is exposed via `FrameType`, and the capture service consumes that output rather than inventing its own heuristic. It analyzes event patterns to distinguish:
 - App/rendered frames (the game engine's actual output)
 - Displayed/presented frames (what the display shows, including generated frames)
 
@@ -720,7 +720,7 @@ A separate GPT-generated recovery plan was provided for comparison. Each of its 
 - [ ] Non-matching GPU: vendor SDK disabled, D3DKMT fallback, no power shown
 - [ ] 1Hz polling < 1ms CPU per tick
 - [ ] VRR works on AMD/Intel handheld
-- [ ] EAC game (Fortnite) and Vanguard game (Valorant) work with overlay
+- [ ] BattlEye smoke test passes; EAC remains game-dependent and Vanguard remains high-risk with no blanket compatibility guarantee
 - [ ] MSIX build passes WACK — no kernel drivers, no vendor DLLs bundled
 
 ---

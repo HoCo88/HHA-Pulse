@@ -18,6 +18,7 @@ public static class OverlayPresetCatalog
     // ── GPU ──
     public const string GpuUsage = "gpu";
     public const string GpuTemp = "gpu_temp";
+    public const string GpuClock = "gpu_clock";
     public const string GpuPower = "gpu_power";
     public const string GpuFan = "gpu_fan";
     public const string Vram = "vram";
@@ -56,6 +57,7 @@ public static class OverlayPresetCatalog
         CpuUsage,
         GpuUsage,
         GpuTemp,
+        GpuClock,
         GpuFan,
         Ram,
         Vram,
@@ -79,6 +81,7 @@ public static class OverlayPresetCatalog
         CpuPower,
         GpuUsage,
         GpuTemp,
+        GpuClock,
         GpuPower,
         GpuFan,
         Ram,

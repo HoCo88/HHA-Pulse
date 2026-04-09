@@ -163,6 +163,26 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
         {
             snapshot.Dependencies.GpuTelemetryAvailable = false;
             snapshot.Dependencies.GpuTelemetryStatusMessage = _statusMessage;
+            if (string.IsNullOrWhiteSpace(snapshot.Dependencies.GpuTemperatureStatusMessage))
+            {
+                snapshot.Dependencies.GpuTemperatureStatusMessage = _statusMessage;
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshot.Dependencies.GpuFanStatusMessage))
+            {
+                snapshot.Dependencies.GpuFanStatusMessage = _statusMessage;
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshot.Dependencies.GpuPowerStatusMessage))
+            {
+                snapshot.Dependencies.GpuPowerStatusMessage = "GPU watts require a vendor SDK (ADLX, IGCL, or NVML).";
+            }
+
+            if (string.IsNullOrWhiteSpace(snapshot.Dependencies.GpuClockStatusMessage))
+            {
+                snapshot.Dependencies.GpuClockStatusMessage = "GPU clock requires a vendor SDK (ADLX, IGCL, or NvAPI).";
+            }
+
             return Task.CompletedTask;
         }
 
@@ -195,6 +215,8 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
             {
                 snapshot.AvailableMetrics |= MetricFlags.GpuTemperature;
                 snapshot.Gpu.TemperatureCelsius = perfData.Temperature / 10.0;
+                snapshot.Dependencies.GpuTemperatureSource = "D3DKMT fallback";
+                snapshot.Dependencies.GpuTemperatureStatusMessage = "GPU temperature from D3DKMT fallback.";
 
                 if (_temperatureMaxCelsius > 0)
                 {
@@ -202,12 +224,15 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                 }
             }
 
-            // Power: D3DKMT exposes a raw driver power field, but not a
-            // validated watt value. Do not surface it as GPU watts.
+            // Power: D3DKMT reports "tenths of % of TDP" — a unitless ratio,
+            // NOT watts. Never set PowerWatts or MetricFlags.GpuPower here.
+            // Only vendor SDK collectors (ADLX, IGCL, NVAPI) provide true
+            // watt readings and are authorised to set GpuPower.
             if (perfData.Power > 0)
             {
+                snapshot.Dependencies.GpuPowerStatusMessage = "D3DKMT reports PowerRaw as a TDP ratio, not watts. GPU power remains hidden until a vendor SDK reports it.";
                 snapshot.Dependencies.GpuTelemetryStatusMessage =
-                    $"{_statusMessage} D3DKMT PowerRaw={perfData.Power} is hidden until a true GPU watt source is available.";
+                    $"{_statusMessage} D3DKMT PowerRaw={perfData.Power} is hidden — not a true watt source.";
             }
 
             // Fan RPM.
@@ -215,6 +240,8 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
             {
                 snapshot.AvailableMetrics |= MetricFlags.Fan;
                 snapshot.Gpu.FanRpm = (int)perfData.FanRPM;
+                snapshot.Dependencies.GpuFanSource = "D3DKMT fallback";
+                snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from D3DKMT fallback.";
             }
         }
         finally

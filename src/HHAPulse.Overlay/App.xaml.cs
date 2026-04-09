@@ -16,6 +16,7 @@ using HHAPulse.Overlay.Settings;
 using HHAPulse.Overlay.ViewModels;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
+using Vortice.DXGI;
 
 namespace HHAPulse.Overlay;
 
@@ -39,9 +40,29 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
+        LoadControlsResources();
         UnhandledException += OnUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
+    }
+
+    /// <summary>
+    /// Loads XamlControlsResources in code-behind so a framework XamlParseException
+    /// (e.g. TabViewButtonBackground in WinAppSDK 1.7+) is recoverable instead of
+    /// crashing during XAML parse before any try-catch can run.
+    /// </summary>
+    private void LoadControlsResources()
+    {
+        try
+        {
+            var xcr = new Microsoft.UI.Xaml.Controls.XamlControlsResources();
+            Resources.MergedDictionaries.Add(xcr);
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("XamlControlsResources failed to load (WinAppSDK theme bug). " +
+                            "The overlay will continue with default resources.", ex);
+        }
     }
 
     protected override async void OnLaunched(LaunchActivatedEventArgs args)
@@ -82,20 +103,44 @@ public partial class App : Application
         AppLogger.Info($"Loaded settings from {settingsPath}. Tick interval: {settings.UpdateInterval}.");
         ApplyStartupPresetCommand(args.Arguments);
 
-        // Create collectors.
+        // Create collectors with vendor-specific GPU telemetry.
         captureServiceCollector = new CaptureServiceCollector();
 
-        var collectors = new IMetricCollector[]
+        var collectors = new List<IMetricCollector>
         {
             captureServiceCollector,
             new BatteryCollector(),
             new CpuUsageCollector(),
+            new CpuPowerCollector(),
             new RamCollector(),
             new GpuUsageCollector(),
             new GpuPerfDataCollector(),
             new VramCollector(),
             new DisplayCollector()
         };
+
+        // Detect GPU vendor via DXGI and add the matching SDK collector.
+        var vendorId = DetectPrimaryGpuVendor();
+        switch (vendorId)
+        {
+            case 0x1002:
+                collectors.Add(new AdlxGpuCollector());
+                AppLogger.Info("GPU vendor: AMD (0x1002). Added ADLX collector.");
+                break;
+            case 0x8086:
+                collectors.Add(new IgclGpuCollector());
+                AppLogger.Info("GPU vendor: Intel (0x8086). Added IGCL collector.");
+                break;
+            case 0x10DE:
+                collectors.Add(new NvApiGpuCollector());
+                AppLogger.Info("GPU vendor: NVIDIA (0x10DE). Added NvAPI collector.");
+                break;
+            default:
+                AppLogger.Info($"GPU vendor: unknown (0x{vendorId:X4}). No vendor SDK collector added; D3DKMT fallback only.");
+                break;
+        }
+
+        AppLogger.Info($"Active collectors: {string.Join(", ", collectors.Select(c => c.Name))}.");
 
         var orchestrator = new CollectorOrchestrator(collectors);
         var pipeServer = new PipeServer();
@@ -434,5 +479,31 @@ public partial class App : Application
     private static void OnUnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs args)
     {
         AppLogger.Error("Unobserved task exception.", args.Exception);
+    }
+
+    /// <summary>
+    /// Enumerates DXGI adapters and returns the VendorId of the primary GPU.
+    /// Returns 0 if detection fails.
+    /// </summary>
+    private static uint DetectPrimaryGpuVendor()
+    {
+        try
+        {
+            if (!DxgiPrimaryAdapterSelector.TryGetPrimaryAdapter(out var adapter, out var description) || adapter is null)
+            {
+                return 0;
+            }
+
+            using (adapter)
+            {
+                AppLogger.Info($"Vendor detect: Primary adapter '{description.Description}' VendorId=0x{description.VendorId:X4}.");
+                return (uint)description.VendorId;
+            }
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("Vendor detect: DXGI enumeration failed.", ex);
+            return 0;
+        }
     }
 }

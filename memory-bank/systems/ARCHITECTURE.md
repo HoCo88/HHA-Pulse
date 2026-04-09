@@ -17,17 +17,33 @@ The overlay owns foreground-window detection in the user session and sends the t
 | Frame Gen FPS | ETW (auto-detected via `MetricFlags.FrameGen`) | `CaptureServiceCollector` | Service (elevated) |
 | CPU usage | `GetSystemTimes` delta | `CpuUsageCollector` | User |
 | GPU usage | PDH `\GPU Engine(*engtype_3D*)\Utilization Percentage` | `GpuUsageCollector` | User |
-| GPU temp / fan / raw power diagnostics | `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll | `GpuPerfDataCollector` | User (no elevation) |
+| GPU temp / fan (fallback) | `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll | `GpuPerfDataCollector` | User (no elevation) |
+| GPU temp / power / fan / clock (AMD) | ADLX v1.4 via `HHAPulse.Native.dll` → `amdadlx64.dll` | `AdlxGpuCollector` | User |
+| GPU temp / power / fan / clock (Intel) | IGCL v1.1 via `HHAPulse.Native.dll` → `ControlLib.dll` / `igcl64.dll` | `IgclGpuCollector` | User |
+| GPU temp / power / fan / clock (NVIDIA) | NvAPIWrapper.Net (NuGet) + NVML P/Invoke → `nvml.dll` | `NvApiGpuCollector` | User |
+| CPU power (watts) | Windows EMI device IOCTLs (picowatt-hour energy deltas) | `CpuPowerCollector` | User |
 | RAM | `GlobalMemoryStatusEx` | `RamCollector` | User |
 | VRAM | Vortice.DXGI `IDXGIAdapter3.QueryVideoMemoryInfo` | `VramCollector` | User |
 | Battery / charge / discharge | `CallNtPowerInformation` | `BatteryCollector` | User |
 | Display Hz | `EnumDisplaySettings` | `DisplayCollector` | User |
 
+### Vendor GPU telemetry architecture (HHAP-0.25+)
+
+GPU vendor is detected at startup via DXGI `VendorId` (unified `DxgiPrimaryAdapterSelector`):
+- `0x1002` (AMD): ADLX collector added. D3DKMT stays as temp/fan fallback.
+- `0x8086` (Intel): IGCL collector added. D3DKMT returns zeros on iGPU — IGCL is the only path.
+- `0x10DE` (NVIDIA): NvAPI+NVML collector added. D3DKMT stays as temp/fan fallback.
+
+Collector ordering: D3DKMT runs first (index 6), vendor collector appended last (index 9+). Last writer wins — vendor SDK overwrites D3DKMT values when available. D3DKMT **never** sets `GpuMetrics.PowerWatts` or `MetricFlags.GpuPower`.
+
+Per-metric source attribution: `DependencyState` has separate `GpuTemperatureSource`, `GpuPowerSource`, `GpuFanSource`, `GpuClockSource` fields (MessagePack Keys 14-21). `MetricStatusFactory` reports the actual source per metric (e.g., "NvAPI" for temp, "NVML" for power).
+
+Native bridge: `HHAPulse.Native.dll` exports flat C functions for AMD and Intel. Vendor DLLs loaded dynamically at runtime — never bundled. Contract headers vendored in `src/HHAPulse.Native/VendorContracts/` with provenance comments.
+
 ### Not yet implemented (show `--`)
 
-- CPU temperature / power: needs MSR access (PawnIO) or WMI — no collector yet.
+- CPU temperature: needs MSR access (PawnIO) or vendor-specific API — no collector yet.
 - Input latency: needs PresentMon ETW parsing — not in capture service yet.
-- GPU power in watts: hidden until a validated true-watts source exists.
 - System total power: falls back to battery discharge watts; CPU+GPU sum only if both component watt readings are real.
 
 ## GPU Detection
@@ -92,9 +108,16 @@ Persisted to `%LOCALAPPDATA%\HHAPulse\settings.json`. Includes:
 - Text size in pixels (user-adjustable via slider, 10-22px).
 - `SettingsService` handles empty/corrupt JSON files gracefully (falls back to defaults).
 
-## Known Issues (as of 2026-04-08 evening)
+## Known Issues (as of 2026-04-09)
 
-- **GPU temp/fan still need hardware validation** — stale DLL issue is now guarded by runtime contract checks, but the fresh build still needs to be launched on Intel hardware and the log inspected.
-- **GPU watts intentionally hidden** — D3DKMT raw power is not a true watt source.
-- **VRAM Intel hide still needs validation** — logic is implemented, but fresh runtime verification is still pending.
-- **D3DKMT on Intel iGPU** — unknown whether Intel drivers implement `KMTQAITYPE_ADAPTERPERFDATA`. Init test-read will tell us once a fresh build runs.
+- **C++ build not yet compiled** — VS 2026 Insiders PlatformToolset mismatch being resolved. NativeTelemetry.cpp reviewed line-by-line but needs one honest `msbuild` + `dumpbin /exports` check.
+- **Hardware validation pending** — Need to test on Lenovo Legion Go (AMD ADLX path) and MSI Claw (Intel IGCL path). NVIDIA path verified via NuGet API audit only.
+- **EMI IOCTL hex values** — Computed from CTL_CODE formula (FILE_DEVICE_UNKNOWN, functions 0-3, METHOD_BUFFERED, FILE_READ_ACCESS). Self-consistent but not yet verified against actual `emi.h` on a machine with Windows SDK headers.
+- **VRR on NVIDIA desktop** — Any topmost HWND (our overlay, Discord, etc.) forces Composed Flip, may break G-Sync in borderless windowed. AMD/Intel FreeSync unaffected. Not our bug, not fixable.
+- **Anti-cheat caveats** — BattlEye safe. EAC is game-dependent. Vanguard is risky. No injection/hooks in our code.
+
+## Audit trail
+
+- Full audit: `memory-bank/2026/04/09/audit-report-HHAP-0.25.md`
+- Research: `memory-bank/2026/04/09/gpu-telemetry-investigation.md`
+- Day log: `memory-bank/2026/04/09/INDEX.md`

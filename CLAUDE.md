@@ -44,6 +44,16 @@ dotnet test tests\HHAPulse.Overlay.Tests\HHAPulse.Overlay.Tests.csproj -c Releas
 
 If sandboxed builds hit `obj` access denied, use escalated execution or clean repo-local `bin`/`obj`. Do not test stale binaries.
 
+## Code Review & Fact-Checking
+
+- **Never review or assess code based on assumptions or "vibes."** Every claim must be backed by evidence.
+- When reviewing code: read the actual source, trace the logic, and verify behavior against API docs or official documentation. If unsure, search online for authoritative sources (MSDN, vendor SDKs, GitHub repos, RFCs).
+- When stating something is wrong: cite the exact line, explain *what* is wrong, *why* it is wrong, and link to the documentation or specification that proves it.
+- When stating something is correct: show *where* the data comes from, what API/function produces it, and confirm it matches the official contract.
+- If a claim cannot be verified from code or documentation, say so explicitly — do not fill the gap with guesses.
+- Deep research is mandatory. Use web search, read vendor docs, check SDK headers, read source code. Go as deep as needed to give a factual answer.
+- Every review finding must include: the file and line, what the code does, what it should do, and the authoritative source that confirms the gap.
+
 ## Security
 
 - The capture service is the only elevated component.

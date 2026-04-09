@@ -1,4 +1,5 @@
 ﻿using HHAPulse.Overlay.Diagnostics;
+using HHAPulse.Overlay.Interop;
 using HHAPulse.Shared.Models;
 using Vortice.DXGI;
 
@@ -31,10 +32,9 @@ public sealed class VramCollector : IMetricCollector
         if (factory is null)
             return Task.CompletedTask;
 
-        var result = factory.EnumAdapters1(0, out var adapter);
-        if (result.Failure || adapter is null)
+        if (!DxgiPrimaryAdapterSelector.TryGetPrimaryAdapter(out var adapter, out _) || adapter is null)
         {
-            LogOnce($"VRAM: EnumAdapters1 failed with HRESULT 0x{result.Code:X8}.");
+            LogOnce("VRAM: Could not resolve the primary display-attached adapter.");
             return Task.CompletedTask;
         }
 

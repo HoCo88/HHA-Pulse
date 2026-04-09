@@ -2,6 +2,7 @@ using System.Diagnostics;
 using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Overlay.Settings;
 using HHAPulse.Overlay.ViewModels;
+using HHAPulse.Shared.Models;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
@@ -36,6 +37,7 @@ public sealed partial class ControlWindow : Window
         [OverlayPresetCatalog.CpuPower] = "CPU Power",
         [OverlayPresetCatalog.GpuUsage] = "GPU Usage",
         [OverlayPresetCatalog.GpuTemp] = "GPU Temperature",
+        [OverlayPresetCatalog.GpuClock] = "GPU Clock",
         [OverlayPresetCatalog.GpuPower] = "GPU Power",
         [OverlayPresetCatalog.GpuFan] = "GPU Fan",
         [OverlayPresetCatalog.Ram] = "RAM",
@@ -227,7 +229,7 @@ public sealed partial class ControlWindow : Window
 
         RuntimeStatusText.Text =
             $"Shared: v{Blank(dependencies.SharedAssemblyVersion)} MVID {Blank(dependencies.SharedAssemblyMvid)}\n{Blank(dependencies.SharedAssemblyPath)}\n{Blank(dependencies.TelemetryContractStatusMessage)}";
-        GpuStatusText.Text = $"GPU telemetry: {Blank(dependencies.GpuTelemetryStatusMessage)}";
+        GpuStatusText.Text = $"GPU telemetry: {Blank(BuildGpuTelemetrySummary(dependencies))}";
         TargetStatusText.Text = dependencies.CaptureTargetProcessId == 0
             ? "Target: none"
             : $"Target: {dependencies.CaptureTargetProcessName} ({dependencies.CaptureTargetProcessId})";
@@ -252,6 +254,28 @@ public sealed partial class ControlWindow : Window
     private static string Blank(string value)
     {
         return string.IsNullOrWhiteSpace(value) ? "--" : value;
+    }
+
+    private static string BuildGpuTelemetrySummary(DependencyState dependencies)
+    {
+        var parts = new List<string>();
+
+        AddGpuSource(parts, "temp", dependencies.GpuTemperatureSource);
+        AddGpuSource(parts, "clock", dependencies.GpuClockSource);
+        AddGpuSource(parts, "power", dependencies.GpuPowerSource);
+        AddGpuSource(parts, "fan", dependencies.GpuFanSource);
+
+        return parts.Count > 0
+            ? string.Join(", ", parts)
+            : dependencies.GpuTelemetryStatusMessage;
+    }
+
+    private static void AddGpuSource(List<string> parts, string metricName, string source)
+    {
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            parts.Add($"{metricName}={source}");
+        }
     }
 
     private static string DisplayName(string metricId)

@@ -16,12 +16,38 @@
     <FileAlignment>512</FileAlignment>
     <ProjectTypeGuids>{A5A43C5B-DE2A-45F8-8E88-3F1D5EFA7B8B};{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}</ProjectTypeGuids>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+    <OutputPath>bin\x64\Debug\</OutputPath>
+    <BaseOutputPath>bin\</BaseOutputPath>
+    <IntermediateOutputPath>obj\x64\Debug\</IntermediateOutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <OutputPath>bin\x64\Release\</OutputPath>
+    <BaseOutputPath>bin\</BaseOutputPath>
+    <IntermediateOutputPath>obj\x64\Release\</IntermediateOutputPath>
+  </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.Gaming.XboxGameBar" />
     <PackageReference Include="MessagePack" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\HHAPulse.Shared\HHAPulse.Shared.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <ApplicationDefinition Include="App.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </ApplicationDefinition>
+    <Page Include="CompactWidget.xaml">
+      <Generator>MSBuild:Compile</Generator>
+      <SubType>Designer</SubType>
+    </Page>
+    <Compile Include="App.xaml.cs" />
+    <Compile Include="CompactWidget.xaml.cs">
+      <DependentUpon>CompactWidget.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="Services\WidgetMetricService.cs" />
+    <AppxManifest Include="Package.appxmanifest" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\Microsoft\WindowsXaml\v$(VisualStudioVersion)\Microsoft.Windows.UI.Xaml.CSharp.targets" />
 </Project>

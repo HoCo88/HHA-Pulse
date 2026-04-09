@@ -10,10 +10,12 @@
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <EnableMsixTooling>true</EnableMsixTooling>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <NativeTelemetryDll>$(MSBuildThisFileDirectory)..\HHAPulse.Native\bin\x64\$(Configuration)\HHAPulse.Native.dll</NativeTelemetryDll>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="System.IO.Pipes.AccessControl" />
+    <PackageReference Include="NvAPIWrapper.Net" />
     <PackageReference Include="Vortice.DXGI" />
   </ItemGroup>
   <ItemGroup>
@@ -28,5 +30,30 @@
       DestinationFiles="@(CaptureServiceOutput->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
       SkipUnchangedFiles="true"
       Condition="'@(CaptureServiceOutput)' != ''" />
+  </Target>
+  <Target Name="CopyNativeTelemetryOutput" AfterTargets="Build;Publish">
+    <Copy
+      SourceFiles="$(NativeTelemetryDll)"
+      DestinationFolder="$(OutDir)"
+      SkipUnchangedFiles="true"
+      Condition="Exists('$(NativeTelemetryDll)')" />
+    <Copy
+      SourceFiles="$(NativeTelemetryDll)"
+      DestinationFolder="$(PublishDir)"
+      SkipUnchangedFiles="true"
+      Condition="'$(PublishDir)' != '' and Exists('$(NativeTelemetryDll)')" />
+  </Target>
+  <Target Name="VerifyNativeTelemetryForPublish" AfterTargets="Publish">
+    <Error
+      Condition="'$(PublishDir)' != '' and !Exists('$(NativeTelemetryDll)')"
+      Text="HHAPulse.Native.dll was not found at '$(NativeTelemetryDll)'. Build HHAPulse.Native with MSBuild before publishing or packaging HHAPulse.Overlay." />
+    <Error
+      Condition="'$(PublishDir)' != '' and !Exists('$(PublishDir)HHAPulse.Native.dll')"
+      Text="HHAPulse.Native.dll was not copied into publish output at '$(PublishDir)'." />
+  </Target>
+  <Target Name="VerifyNativeTelemetryForPackage" BeforeTargets="GenerateAppxPackageOnBuild">
+    <Error
+      Condition="!Exists('$(NativeTelemetryDll)')"
+      Text="HHAPulse.Native.dll was not found at '$(NativeTelemetryDll)'. Build HHAPulse.Native with MSBuild before packaging HHAPulse.Overlay." />
   </Target>
 </Project>

@@ -61,6 +61,12 @@ public static class MetricFormatterCompact
                     : "--",
                 "--"),
 
+            OverlayPresetCatalog.GpuClock => FormatAvailable(snapshot, MetricFlags.GpuClock,
+                snapshot.Gpu.ClockMegahertz > 0
+                    ? $"{snapshot.Gpu.ClockMegahertz:0}MHz"
+                    : "--",
+                "--"),
+
             OverlayPresetCatalog.GpuPower => FormatAvailable(snapshot, MetricFlags.GpuPower,
                 FormatGpuPower(snapshot),
                 "--"),
