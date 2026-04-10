@@ -61,6 +61,25 @@ public sealed class MetricStatusFactoryTests
     }
 
     [Fact]
+    public void Create_KeepsMetricAvailableWhenFlagIsSetButProvenanceIsMissing()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            TimestampUnixMilliseconds = 456,
+            AvailableMetrics = MetricFlags.CpuUsage,
+            Cpu = { UsagePercent = 31 }
+        };
+
+        var statuses = MetricStatusFactory.Create(snapshot);
+
+        var cpu = statuses.Single(status => status.MetricId == OverlayPresetCatalog.CpuUsage);
+        Assert.True(cpu.IsAvailable);
+        Assert.Equal("unknown collector", cpu.Source);
+        Assert.Equal(456, cpu.LastSuccessUnixMilliseconds);
+        Assert.Equal("Metric is available, but no collector reported runtime provenance for it.", cpu.StatusMessage);
+    }
+
+    [Fact]
     public void Create_IncludesAllPresetMetricsIncludingFpsDerivatives()
     {
         var statuses = MetricStatusFactory.Create(new TelemetrySnapshot

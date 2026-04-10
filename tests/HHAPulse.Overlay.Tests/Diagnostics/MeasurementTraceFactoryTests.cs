@@ -80,4 +80,22 @@ public sealed class MeasurementTraceFactoryTests
         Assert.Equal("detected", trace.ValueText);
         Assert.Contains("frameGenFlag=False", trace.PipelineText);
     }
+
+    [Fact]
+    public void Create_MarksUnknownTraceAvailableWhenMetricFlagIsAvailable()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.CpuUsage,
+            Cpu = { UsagePercent = 31 }
+        };
+
+        var statuses = MetricStatusFactory.Create(snapshot);
+        var traces = MeasurementTraceFactory.Create(snapshot, statuses);
+
+        var trace = Assert.Single(traces, item => item.MetricId == OverlayPresetCatalog.CpuUsage);
+        Assert.True(trace.IsAvailable);
+        Assert.Equal("unknown collector", trace.Source);
+        Assert.Equal("available, provenance missing", trace.ValueText);
+    }
 }

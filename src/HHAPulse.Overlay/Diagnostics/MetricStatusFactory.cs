@@ -11,30 +11,30 @@ public static class MetricStatusFactory
         var traces = BuildTraceLookup(snapshot.MeasurementTraces);
         var statuses = new List<MetricStatus>
         {
-            Status(OverlayPresetCatalog.Fps, now, traces),
-            Status(OverlayPresetCatalog.AvgFps, now, traces),
-            Status(OverlayPresetCatalog.OnePercentLow, now, traces),
-            Status(OverlayPresetCatalog.ZeroPointOneLow, now, traces),
-            Status(OverlayPresetCatalog.FrameTime, now, traces),
-            Status(OverlayPresetCatalog.FrameGenFps, now, traces),
-            Status(OverlayPresetCatalog.Battery, now, traces),
-            Status(OverlayPresetCatalog.CpuUsage, now, traces),
-            Status(OverlayPresetCatalog.CpuPower, now, traces),
-            Status(OverlayPresetCatalog.GpuUsage, now, traces),
-            Status(OverlayPresetCatalog.GpuTemp, now, traces),
-            Status(OverlayPresetCatalog.GpuClock, now, traces),
-            Status(OverlayPresetCatalog.GpuPower, now, traces),
-            Status(OverlayPresetCatalog.GpuFan, now, traces),
-            Status(OverlayPresetCatalog.Ram, now, traces),
-            Status(OverlayPresetCatalog.Vram, now, traces),
-            Status(OverlayPresetCatalog.TotalPower, now, traces),
-            Status(OverlayPresetCatalog.RefreshRate, now, traces)
+            Status(OverlayPresetCatalog.Fps, snapshot, now, traces),
+            Status(OverlayPresetCatalog.AvgFps, snapshot, now, traces),
+            Status(OverlayPresetCatalog.OnePercentLow, snapshot, now, traces),
+            Status(OverlayPresetCatalog.ZeroPointOneLow, snapshot, now, traces),
+            Status(OverlayPresetCatalog.FrameTime, snapshot, now, traces),
+            Status(OverlayPresetCatalog.FrameGenFps, snapshot, now, traces),
+            Status(OverlayPresetCatalog.Battery, snapshot, now, traces),
+            Status(OverlayPresetCatalog.CpuUsage, snapshot, now, traces),
+            Status(OverlayPresetCatalog.CpuPower, snapshot, now, traces),
+            Status(OverlayPresetCatalog.GpuUsage, snapshot, now, traces),
+            Status(OverlayPresetCatalog.GpuTemp, snapshot, now, traces),
+            Status(OverlayPresetCatalog.GpuClock, snapshot, now, traces),
+            Status(OverlayPresetCatalog.GpuPower, snapshot, now, traces),
+            Status(OverlayPresetCatalog.GpuFan, snapshot, now, traces),
+            Status(OverlayPresetCatalog.Ram, snapshot, now, traces),
+            Status(OverlayPresetCatalog.Vram, snapshot, now, traces),
+            Status(OverlayPresetCatalog.TotalPower, snapshot, now, traces),
+            Status(OverlayPresetCatalog.RefreshRate, snapshot, now, traces)
         };
 
         return statuses;
     }
 
-    private static MetricStatus Status(string metricId, long now, IReadOnlyDictionary<string, MeasurementTrace> traces)
+    private static MetricStatus Status(string metricId, TelemetrySnapshot snapshot, long now, IReadOnlyDictionary<string, MeasurementTrace> traces)
     {
         if (traces.TryGetValue(metricId, out var trace))
         {
@@ -49,14 +49,43 @@ public static class MetricStatusFactory
             };
         }
 
+        var available = IsMetricFlagAvailable(metricId, snapshot);
         return new MetricStatus
         {
             MetricId = metricId,
             Source = "unknown collector",
-            IsAvailable = false,
-            LastSuccessUnixMilliseconds = 0,
-            StatusMessage = "No collector reported provenance for this metric.",
-            ValidationState = TelemetryValidationState.Unavailable
+            IsAvailable = available,
+            LastSuccessUnixMilliseconds = available ? now : 0,
+            StatusMessage = available
+                ? "Metric is available, but no collector reported runtime provenance for it."
+                : "No collector reported provenance for this metric.",
+            ValidationState = available ? TelemetryValidationState.Verified : TelemetryValidationState.Unavailable
+        };
+    }
+
+    private static bool IsMetricFlagAvailable(string metricId, TelemetrySnapshot snapshot)
+    {
+        return metricId switch
+        {
+            OverlayPresetCatalog.Fps => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps),
+            OverlayPresetCatalog.AvgFps => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps),
+            OverlayPresetCatalog.OnePercentLow => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps),
+            OverlayPresetCatalog.ZeroPointOneLow => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps),
+            OverlayPresetCatalog.FrameTime => snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameTime),
+            OverlayPresetCatalog.FrameGenFps => snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen),
+            OverlayPresetCatalog.Battery => snapshot.AvailableMetrics.HasFlag(MetricFlags.Battery),
+            OverlayPresetCatalog.CpuUsage => snapshot.AvailableMetrics.HasFlag(MetricFlags.CpuUsage),
+            OverlayPresetCatalog.CpuPower => snapshot.AvailableMetrics.HasFlag(MetricFlags.CpuPower),
+            OverlayPresetCatalog.GpuUsage => snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuUsage),
+            OverlayPresetCatalog.GpuTemp => snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuTemperature),
+            OverlayPresetCatalog.GpuClock => snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuClock),
+            OverlayPresetCatalog.GpuPower => snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuPower),
+            OverlayPresetCatalog.GpuFan => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fan),
+            OverlayPresetCatalog.Ram => snapshot.AvailableMetrics.HasFlag(MetricFlags.Memory),
+            OverlayPresetCatalog.Vram => snapshot.AvailableMetrics.HasFlag(MetricFlags.Vram),
+            OverlayPresetCatalog.TotalPower => snapshot.AvailableMetrics.HasFlag(MetricFlags.SystemPower),
+            OverlayPresetCatalog.RefreshRate => snapshot.AvailableMetrics.HasFlag(MetricFlags.Display),
+            _ => false
         };
     }
 

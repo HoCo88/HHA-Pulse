@@ -69,14 +69,16 @@ public static class MeasurementTraceFactory
             MetricId = metricId,
             Collector = "unknown collector",
             Source = "unknown collector",
-            IsAvailable = false,
-            ValueText = "--",
+            IsAvailable = status.IsAvailable,
+            ValueText = status.IsAvailable ? "available, provenance missing" : "--",
             PipelineText = "No runtime provenance trace was recorded for this metric.",
             StatusMessage = string.IsNullOrWhiteSpace(status.StatusMessage)
                 ? "No collector reported provenance for this metric."
                 : status.StatusMessage,
-            ValidationState = TelemetryValidationState.Unavailable,
-            Reason = "No collector reported provenance for this metric."
+            ValidationState = status.IsAvailable ? TelemetryValidationState.Verified : TelemetryValidationState.Unavailable,
+            Reason = status.IsAvailable
+                ? "Metric flag is available, but no collector reported runtime provenance."
+                : "No collector reported provenance for this metric."
         };
     }
 }
