@@ -24,6 +24,7 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
     private string _channelName = string.Empty;
     private EmiMeasurementPoint _previousMeasurement;
     private bool _hasBaseline;
+    private string _statusMessage = "CPU EMI power collector not initialized.";
 
     public string Name => "CPU Power (EMI)";
 
@@ -166,7 +167,26 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
     public Task CollectAsync(TelemetrySnapshot snapshot, CancellationToken cancellationToken)
     {
         if (!_initialized || _deviceHandle is null || _deviceHandle.IsInvalid)
+        {
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "cpu_power",
+                nameof(CpuPowerCollector),
+                "Windows Energy Meter Interface (EMI)",
+                false,
+                "--",
+                "EMI collector unavailable; no CPU/package watt channel accepted this tick",
+                _statusMessage,
+                "EMI energy measurement IOCTLs",
+                "--",
+                "picowatt-hours",
+                "energy delta over elapsed time",
+                "--",
+                "W",
+                TelemetryValidationState.Unavailable,
+                _statusMessage);
             return Task.CompletedTask;
+        }
 
         uint measurementSize = _emiVersion <= EmiContract.VersionV1
             ? (uint)(sizeof(ulong) * 2)
@@ -194,7 +214,64 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
             {
                 snapshot.Cpu.PowerWatts = watts.Value;
                 snapshot.AvailableMetrics |= MetricFlags.CpuPower;
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "cpu_power",
+                    nameof(CpuPowerCollector),
+                    "Windows Energy Meter Interface (EMI)",
+                    true,
+                    $"{watts.Value:0.0}W",
+                    $"channel={_channelName}; version={_emiVersion}; channelIndex={_channelIndex}; channelCount={_channelCount}",
+                    "CPU/package power from Windows EMI energy deltas. Hardware validation is still pending.",
+                    "EMI measurement channel",
+                    $"{measurement.AbsoluteEnergyPicowattHours}",
+                    "picowatt-hours",
+                    "(delta picowatt-hours * 3.6e-9) / elapsed seconds",
+                    $"{watts.Value:0.000}",
+                    "W",
+                    TelemetryValidationState.HardwareValidationPending,
+                    "EMI reported a valid positive energy delta for the selected CPU/package channel.");
             }
+            else
+            {
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "cpu_power",
+                    nameof(CpuPowerCollector),
+                    "Windows Energy Meter Interface (EMI)",
+                    false,
+                    "--",
+                    $"channel={_channelName}; version={_emiVersion}; channelIndex={_channelIndex}; invalid or first delta",
+                    "CPU/package power from EMI was rejected this tick.",
+                    "EMI measurement channel",
+                    $"{measurement.AbsoluteEnergyPicowattHours}",
+                    "picowatt-hours",
+                    "(delta picowatt-hours * 3.6e-9) / elapsed seconds",
+                    "--",
+                    "W",
+                    TelemetryValidationState.Rejected,
+                    "EMI did not produce a valid positive watt delta in the allowed range.");
+            }
+        }
+        else
+        {
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "cpu_power",
+                nameof(CpuPowerCollector),
+                "Windows Energy Meter Interface (EMI)",
+                false,
+                "--",
+                $"channel={_channelName}; version={_emiVersion}; baseline pending",
+                "CPU/package power requires two EMI samples before watts can be computed.",
+                "EMI measurement channel",
+                $"{measurement.AbsoluteEnergyPicowattHours}",
+                "picowatt-hours",
+                "baseline sample only",
+                "--",
+                "W",
+                TelemetryValidationState.Unavailable,
+                "First EMI sample captured as baseline.");
         }
 
         _previousMeasurement = measurement;
@@ -264,6 +341,7 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
 
     private void LogOnce(string message)
     {
+        _statusMessage = message;
         if (_loggedFailure)
             return;
 

@@ -9,12 +9,23 @@ HHA Pulse has two local executables:
 
 The overlay owns foreground-window detection in the user session and sends the target PID to the capture service. The service owns the elevated ETW session and publishes frame metrics back over named pipes. This avoids DLL injection, game hooks, and game memory reads.
 
+## Current Telemetry Truth Update (2026-04-10)
+
+- `input_latency` is a reserved id only and is hidden from the HUD, picker, status cards, and traces until a real input-to-display latency source exists.
+- `total_power` means whole-device battery discharge watts only. CPU+GPU sum is now diagnostics-only because it excludes display, memory, SSD, fans, radios, and platform losses.
+- Battery telemetry now uses `CallNtPowerInformation(SystemBatteryState)` plus battery class `IOCTL_BATTERY_QUERY_INFORMATION` when absolute mWh units are reported; relative capacity units are rejected for Wh conversion.
+- AMD GPU power now prefers ADLX `GPUTotalBoardPower` and falls back to `GPUPower`; Intel IGCL remains energy/time watts; NVIDIA NVML remains milliwatts/1000.
+- D3DKMT `PowerRaw` remains rejected provenance only because it is a TDP ratio, not watts.
+- `AppFramesPerSecond`, `PresentFramesPerSecond`, and `DisplayFramesPerSecond` stay in the MessagePack contract but are zeroed/not-computed until a real PresentMon-grade split exists.
+- Missing runtime provenance is reported as `unknown collector`; diagnostics no longer guess API names from hardcoded fallback literals.
+- The diagnostics label is "Last observed boundary state"; widget client count is not a heartbeat.
+
 ## Data Sources
 
 | Metric | Source | Collector | Elevation |
 |--------|--------|-----------|-----------|
 | FPS / frametime / 1% / 0.1% lows | ETW `HHAPulse_FrameCapture` | `CaptureServiceCollector` | Service (elevated) |
-| Frame Gen FPS | ETW (auto-detected via `MetricFlags.FrameGen`) | `CaptureServiceCollector` | Service (elevated) |
+| Frame generation detection | Intel-PresentMon ETW evidence via `HybridPresentDetected` (diagnostic-only) | `CaptureServiceCollector` | Service (elevated) |
 | CPU usage | `GetSystemTimes` delta | `CpuUsageCollector` | User |
 | GPU usage | PDH `\GPU Engine(*engtype_3D*)\Utilization Percentage` | `GpuUsageCollector` | User |
 | GPU temp / fan (fallback) | `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll | `GpuPerfDataCollector` | User (no elevation) |
@@ -46,6 +57,8 @@ Native bridge: `HHAPulse.Native.dll` exports flat C functions for AMD and Intel.
 - Input latency: needs PresentMon ETW parsing — not in capture service yet.
 - System total power: falls back to battery discharge watts; CPU+GPU sum only if both component watt readings are real.
 
+Note: numeric frame-gen FPS is not implemented. The current runtime only exposes diagnostic detection via `HybridPresentDetected`; `MetricFlags.FrameGen` remains unset.
+
 ## GPU Detection
 
 GPU vendor and type are detected via `DXGI_ADAPTER_DESC1`:
@@ -74,7 +87,7 @@ GPU vendor and type are detected via `DXGI_ADAPTER_DESC1`:
 
 Component-grouped HUD bar. Metrics grouped by hardware component:
 
-- **FPS group**: FPS + AVG + 1% + 0.1% + FrameGen (auto-detected) + sparkline graph. Stacks to 2 sub-rows when 3+ metrics active, graph spans both rows.
+- **FPS group**: FPS + AVG + 1% + 0.1% + sparkline graph. Diagnostic frame-generation detection exists, but the HUD FrameGen metric stays disabled until a validated numeric meaning exists.
 - **Frametime**: separate from FPS, own sparkline graph. Label "Frametime" not "FT".
 - **CPU**: `CPU 45% 12W` — usage + power inline under one label.
 - **GPU**: `GPU 85% 72°C 2400rpm 4.2/8G` — usage + temp + fan + VRAM under one label. GPU watts stay hidden until real.
@@ -88,7 +101,7 @@ Component-grouped HUD bar. Metrics grouped by hardware component:
 - **Minimal**: FPS + Battery (2 metrics).
 - **Standard**: FPS + 1% low + Frametime + CPU + GPU + Battery (6 metrics).
 - **Tuner**: All metrics with real data sources and meaningful display units (11 metrics).
-- **Custom**: user toggles individual metrics from all 18 known IDs.
+- **Custom**: user toggles individual metrics from all 19 known IDs.
 - **Off**: hidden.
 
 Cycle: Minimal → Standard → Tuner → Off → Minimal (Custom is manual only).
@@ -115,6 +128,8 @@ Persisted to `%LOCALAPPDATA%\HHAPulse\settings.json`. Includes:
 - **EMI IOCTL hex values** — Computed from CTL_CODE formula (FILE_DEVICE_UNKNOWN, functions 0-3, METHOD_BUFFERED, FILE_READ_ACCESS). Self-consistent but not yet verified against actual `emi.h` on a machine with Windows SDK headers.
 - **VRR on NVIDIA desktop** — Any topmost HWND (our overlay, Discord, etc.) forces Composed Flip, may break G-Sync in borderless windowed. AMD/Intel FreeSync unaffected. Not our bug, not fixable.
 - **Anti-cheat caveats** — BattlEye safe. EAC is game-dependent. Vanguard is risky. No injection/hooks in our code.
+
+Frame-generation detection note: `IntelPresentMonFrameTypeEvidence` currently uses `PayloadByName("FrameType")` only. Real hardware validation is still required to prove that TraceEvent exposes named payload fields for the provider on driver-instrumented systems.
 
 ## Audit trail
 

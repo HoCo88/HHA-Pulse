@@ -18,6 +18,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
     private readonly ILogger<EtwFrameCapture> logger;
     private readonly object syncRoot = new();
     private readonly List<double> frameTimes = new();
+    private readonly List<double> publishWindowFrameTimes = new();
     private readonly List<double> oneSecondFps = new();
     private TraceEventSession? session;
     private Task? sessionTask;
@@ -25,6 +26,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
     private long lastPublishTicks;
     private uint activePid;
     private string activeProcessName = string.Empty;
+    private bool frameGenDetectedThisInterval;
 
     public EtwFrameCapture(CaptureCoordinator coordinator, ILogger<EtwFrameCapture> logger)
     {
@@ -50,9 +52,11 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 activePid = target.ProcessId;
                 activeProcessName = target.ProcessName;
                 frameTimes.Clear();
+                publishWindowFrameTimes.Clear();
                 oneSecondFps.Clear();
                 lastPresentMs = 0;
                 lastPublishTicks = 0;
+                frameGenDetectedThisInterval = false;
             }
         }
     }
@@ -70,6 +74,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
             session.EnableProvider(DxgiProvider, TraceEventLevel.Verbose, ulong.MaxValue);
             session.EnableProvider(D3D9Provider, TraceEventLevel.Verbose, ulong.MaxValue);
             session.EnableProvider(DxgKrnlProvider, TraceEventLevel.Verbose, ulong.MaxValue);
+            session.EnableProvider(IntelPresentMonFrameTypeEvidence.ProviderGuid, TraceEventLevel.Verbose, ulong.MaxValue);
             session.Source.Dynamic.All += OnEtwEvent;
             logger.LogInformation("ETW frame capture session started.");
             session.Source.Process();
@@ -86,7 +91,13 @@ public sealed class EtwFrameCapture : IAsyncDisposable
         if (target.ProcessId == 0 || data.ProcessID != target.ProcessId)
             return;
 
-        if (!IsPresentEvent(data))
+        if (data.ProviderGuid == IntelPresentMonFrameTypeEvidence.ProviderGuid)
+        {
+            HandleFrameTypeEvent(data);
+            return;
+        }
+
+        if (!EtwPresentEventFilter.IsAppPresentStart(data))
             return;
 
         var nowMs = data.TimeStampRelativeMSec;
@@ -99,7 +110,9 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 if (frameTime is > 0.1 and < 1000)
                 {
                     frameTimes.Add(frameTime);
+                    publishWindowFrameTimes.Add(frameTime);
                     TrimHistory(frameTimes, HistoryWindow.TotalMilliseconds);
+                    TrimHistory(publishWindowFrameTimes, PublishInterval.TotalMilliseconds);
                 }
             }
 
@@ -111,13 +124,14 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 return;
             }
 
-            if (TimeSpan.FromMilliseconds(nowTicks - lastPublishTicks) < PublishInterval || frameTimes.Count == 0)
+            if (TimeSpan.FromMilliseconds(nowTicks - lastPublishTicks) < PublishInterval || publishWindowFrameTimes.Count == 0)
                 return;
 
             lastPublishTicks = nowTicks;
-            var recent = frameTimes.ToArray();
-            var avgFrameTime = recent.Average();
-            var fps = 1000.0 / avgFrameTime;
+            var currentWindow = publishWindowFrameTimes.ToArray();
+            var lowHistory = frameTimes.ToArray();
+            var avgFrameTime = FrameStatisticsCalculator.CalculateAverageFrameTime(currentWindow);
+            var fps = FrameStatisticsCalculator.CalculateFramesPerSecond(currentWindow);
             oneSecondFps.Add(fps);
             TrimCount(oneSecondFps, 60);
 
@@ -125,17 +139,19 @@ public sealed class EtwFrameCapture : IAsyncDisposable
             {
                 FramesPerSecond = fps,
                 AverageFramesPerSecond = oneSecondFps.Count > 0 ? oneSecondFps.Average() : fps,
-                OnePercentLowFramesPerSecond = PercentileLowFps(recent, 0.99),
-                ZeroPointOnePercentLowFramesPerSecond = PercentileLowFps(recent, 0.999),
+                OnePercentLowFramesPerSecond = FrameStatisticsCalculator.PercentileLowFps(lowHistory, 0.99),
+                ZeroPointOnePercentLowFramesPerSecond = FrameStatisticsCalculator.PercentileLowFps(lowHistory, 0.999),
                 FrameTimeMilliseconds = avgFrameTime,
-                AppFramesPerSecond = fps,
-                PresentFramesPerSecond = fps,
+                AppFramesPerSecond = 0,
+                PresentFramesPerSecond = 0,
                 DisplayFramesPerSecond = 0,
-                HybridPresentDetected = false,
+                HybridPresentDetected = frameGenDetectedThisInterval,
                 GameProcessId = target.ProcessId,
                 GameProcessName = target.ProcessName,
                 TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
+            frameGenDetectedThisInterval = false;
+            publishWindowFrameTimes.Clear();
         }
 
         if (metrics is not null)
@@ -144,21 +160,22 @@ public sealed class EtwFrameCapture : IAsyncDisposable
         }
     }
 
-    private static bool IsPresentEvent(TraceEvent data)
+    private void HandleFrameTypeEvent(TraceEvent data)
     {
-        var name = data.EventName;
-        return name.Contains("Present", StringComparison.OrdinalIgnoreCase) &&
-               !name.Contains("History", StringComparison.OrdinalIgnoreCase);
-    }
+        if (!IntelPresentMonFrameTypeEvidence.TryGetGeneratedFrameEvidence(data, out var generatedFrameDetected))
+        {
+            return;
+        }
 
-    private static double PercentileLowFps(double[] frameTimesMs, double percentile)
-    {
-        if (frameTimesMs.Length == 0)
-            return 0;
+        if (!generatedFrameDetected)
+        {
+            return;
+        }
 
-        Array.Sort(frameTimesMs);
-        var index = Math.Clamp((int)Math.Ceiling((frameTimesMs.Length - 1) * percentile), 0, frameTimesMs.Length - 1);
-        return 1000.0 / frameTimesMs[index];
+        lock (syncRoot)
+        {
+            frameGenDetectedThisInterval = true;
+        }
     }
 
     private static void TrimHistory(List<double> samples, double maxTotalMilliseconds)

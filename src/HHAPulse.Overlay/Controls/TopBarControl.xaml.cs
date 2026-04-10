@@ -26,7 +26,7 @@ public sealed partial class TopBarControl : UserControl
 
     private static readonly string[] FrametimeMetrics =
     {
-        OverlayPresetCatalog.FrameTime, OverlayPresetCatalog.InputLatency
+        OverlayPresetCatalog.FrameTime
     };
 
     private static readonly string[] CpuMetrics =
@@ -98,6 +98,7 @@ public sealed partial class TopBarControl : UserControl
     private static readonly SolidColorBrush HzSilver = new(Color.FromArgb(255, 180, 180, 200));
 
     private readonly Dictionary<string, TextBlock> valueBlocks = new(StringComparer.OrdinalIgnoreCase);
+    private readonly List<TextBlock> labelBlocks = new();
     private SparklineGraph? fpsSparkline;
     private SparklineGraph? ftSparkline;
     private OverlayViewModel? viewModel;
@@ -119,6 +120,9 @@ public sealed partial class TopBarControl : UserControl
     {
         foreach (var vb in valueBlocks.Values)
             vb.FontSize = size;
+        var labelSize = Math.Max(size - 1, 10);
+        foreach (var lb in labelBlocks)
+            lb.FontSize = labelSize;
         // Trigger re-measure after size change.
         if (!rebuilding)
         {
@@ -129,8 +133,18 @@ public sealed partial class TopBarControl : UserControl
 
     public void ApplyOpacity(double bgOpacity, double newTextOpacity)
     {
-        byte a = (byte)Math.Clamp(bgOpacity * 255, 0, 255);
-        RootBorder.Background = new SolidColorBrush(Color.FromArgb(a, 16, 16, 32));
+        if (bgOpacity <= 0)
+        {
+            // Fully transparent — no background, just floating text.
+            // Use alpha=1 (not 0) to avoid the black DWM compositor frame.
+            RootBorder.Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0));
+        }
+        else
+        {
+            byte a = (byte)Math.Clamp(bgOpacity * 255, 1, 255);
+            RootBorder.Background = new SolidColorBrush(Color.FromArgb(a, 16, 16, 32));
+        }
+
         textOpacity = newTextOpacity;
         foreach (var vb in valueBlocks.Values) vb.Opacity = textOpacity;
     }
@@ -188,6 +202,7 @@ public sealed partial class TopBarControl : UserControl
         try
         {
             valueBlocks.Clear();
+            labelBlocks.Clear();
             fpsSparkline = null;
             ftSparkline = null;
             RowsPanel.Children.Clear();
@@ -322,7 +337,7 @@ public sealed partial class TopBarControl : UserControl
     {
         var lbl = FpsSubLabels.GetValueOrDefault(id, id);
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, Margin = new Thickness(5, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
-        cell.Children.Add(Txt(lbl, LabelBrush, LabelFontSize));
+        cell.Children.Add(Label(lbl, LabelFontSize));
         var vb = Txt("--fps", FpsColor(id), ValueFontSize, FontWeights.SemiBold);
         valueBlocks[id] = vb;
         cell.Children.Add(vb);
@@ -346,9 +361,9 @@ public sealed partial class TopBarControl : UserControl
         var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) };
         foreach (var id in active)
         {
-            var lbl = id == OverlayPresetCatalog.FrameTime ? "Frametime" : "Latency";
-            var clr = id == OverlayPresetCatalog.FrameTime ? FtTeal : LatAmber;
-            panel.Children.Add(Txt(lbl, LabelBrush, LabelFontSize));
+            var lbl = "Frametime";
+            var clr = FtTeal;
+            panel.Children.Add(Label(lbl, LabelFontSize));
             var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
             vb.Margin = new Thickness(3, 0, 6, 0);
             valueBlocks[id] = vb;
@@ -367,7 +382,7 @@ public sealed partial class TopBarControl : UserControl
         if (active.Length == 0) return null;
 
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
-        cell.Children.Add(Txt(label, LabelBrush, LabelFontSize));
+        cell.Children.Add(Label(label, LabelFontSize));
 
         foreach (var id in active)
         {
@@ -394,7 +409,7 @@ public sealed partial class TopBarControl : UserControl
         if (!ids.Contains(OverlayPresetCatalog.Ram)) return null;
 
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
-        cell.Children.Add(Txt("RAM", LabelBrush, LabelFontSize));
+        cell.Children.Add(Label("RAM", LabelFontSize));
         var vb = Txt("--", RamPurple, ValueFontSize, FontWeights.SemiBold);
         vb.Margin = new Thickness(2, 0, 0, 0);
         valueBlocks[OverlayPresetCatalog.Ram] = vb;
@@ -413,8 +428,7 @@ public sealed partial class TopBarControl : UserControl
         foreach (var id in active)
         {
             var (glyph, isIcon) = SystemLabels.GetValueOrDefault(id, (id, false));
-            var lbl = Txt(glyph, LabelBrush, isIcon ? IconFontSize : LabelFontSize);
-            if (isIcon) lbl.FontFamily = IconFont;
+            var lbl = isIcon ? IconLabel(glyph, IconFontSize) : Label(glyph, LabelFontSize);
             cell.Children.Add(lbl);
 
             var clr = SysColor(id);
@@ -475,6 +489,21 @@ public sealed partial class TopBarControl : UserControl
         Text = text, Foreground = fg, FontSize = size, FontFamily = Font,
         FontWeight = wt ?? FontWeights.Normal, VerticalAlignment = VerticalAlignment.Center
     };
+
+    private TextBlock Label(string text, double size)
+    {
+        var lbl = Txt(text, LabelBrush, size);
+        labelBlocks.Add(lbl);
+        return lbl;
+    }
+
+    private TextBlock IconLabel(string glyph, double size)
+    {
+        var lbl = Txt(glyph, LabelBrush, size);
+        lbl.FontFamily = IconFont;
+        labelBlocks.Add(lbl);
+        return lbl;
+    }
 
     private static StackPanel Row() => new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
 

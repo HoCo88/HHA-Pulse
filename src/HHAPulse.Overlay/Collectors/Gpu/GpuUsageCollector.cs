@@ -112,6 +112,23 @@ public sealed class GpuUsageCollector : IMetricCollector, IDisposable
 
             snapshot.AvailableMetrics |= MetricFlags.GpuUsage;
             snapshot.Gpu.UsagePercent = Math.Clamp(totalUtilization, 0.0, 100.0);
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "gpu",
+                nameof(GpuUsageCollector),
+                "PDH GPU Engine",
+                true,
+                $"{snapshot.Gpu.UsagePercent:0.0}%",
+                $"counter=\\GPU Engine(*engtype_3D*)\\Utilization Percentage; instanceCount={itemCount}; summed3D={totalUtilization:0.000}",
+                "GPU usage from PDH 3D engine counters.",
+                "PdhGetFormattedCounterArray",
+                $"{totalUtilization:0.000}",
+                "%",
+                "sum matching engtype_3D instances; clamp 0..100",
+                $"{snapshot.Gpu.UsagePercent:0.000}",
+                "%",
+                TelemetryValidationState.Verified,
+                "PDH returned formatted 3D engine counter instances.");
         }
         finally
         {

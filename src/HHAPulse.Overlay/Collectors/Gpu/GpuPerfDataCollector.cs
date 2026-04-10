@@ -183,6 +183,24 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                 snapshot.Dependencies.GpuClockStatusMessage = "GPU clock requires a vendor SDK (ADLX, IGCL, or NvAPI).";
             }
 
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "gpu_power",
+                nameof(GpuPerfDataCollector),
+                "D3DKMT_ADAPTER_PERFDATA",
+                false,
+                "--",
+                "D3DKMT unavailable; no vendor watt source accepted yet",
+                snapshot.Dependencies.GpuPowerStatusMessage,
+                "D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)",
+                "--",
+                "0.1% of TDP",
+                "no conversion accepted",
+                "--",
+                "W",
+                TelemetryValidationState.Unavailable,
+                snapshot.Dependencies.GpuPowerStatusMessage);
+
             return Task.CompletedTask;
         }
 
@@ -217,6 +235,23 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                 snapshot.Gpu.TemperatureCelsius = perfData.Temperature / 10.0;
                 snapshot.Dependencies.GpuTemperatureSource = "D3DKMT fallback";
                 snapshot.Dependencies.GpuTemperatureStatusMessage = "GPU temperature from D3DKMT fallback.";
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "gpu_temp",
+                    nameof(GpuPerfDataCollector),
+                    "D3DKMT_ADAPTER_PERFDATA.Temperature",
+                    true,
+                    $"{snapshot.Gpu.TemperatureCelsius:0.0}C",
+                    $"rawTemperature={perfData.Temperature}; maxC={_temperatureMaxCelsius:0.0}; warningC={_temperatureWarningCelsius:0.0}",
+                    snapshot.Dependencies.GpuTemperatureStatusMessage,
+                    "D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)",
+                    perfData.Temperature.ToString(),
+                    "deci-Celsius",
+                    "raw / 10",
+                    $"{snapshot.Gpu.TemperatureCelsius:0.000}",
+                    "C",
+                    TelemetryValidationState.Verified,
+                    "D3DKMT returned a positive deci-Celsius temperature.");
 
                 if (_temperatureMaxCelsius > 0)
                 {
@@ -231,6 +266,23 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
             if (perfData.Power > 0)
             {
                 snapshot.Dependencies.GpuPowerStatusMessage = "D3DKMT reports PowerRaw as a TDP ratio, not watts. GPU power remains hidden until a vendor SDK reports it.";
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "gpu_power",
+                    nameof(GpuPerfDataCollector),
+                    "D3DKMT_ADAPTER_PERFDATA.Power",
+                    false,
+                    "--",
+                    $"PowerRaw={perfData.Power}; unit=0.1% of TDP; flagGpuPower={snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuPower)}",
+                    snapshot.Dependencies.GpuPowerStatusMessage,
+                    "D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)",
+                    perfData.Power.ToString(),
+                    "0.1% of TDP",
+                    "rejected: D3DKMT does not provide a watt baseline",
+                    "--",
+                    "W",
+                    TelemetryValidationState.Rejected,
+                    "D3DKMT power is a raw ratio, not a watt source.");
                 snapshot.Dependencies.GpuTelemetryStatusMessage =
                     $"{_statusMessage} D3DKMT PowerRaw={perfData.Power} is hidden — not a true watt source.";
             }
@@ -242,6 +294,23 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
                 snapshot.Gpu.FanRpm = (int)perfData.FanRPM;
                 snapshot.Dependencies.GpuFanSource = "D3DKMT fallback";
                 snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from D3DKMT fallback.";
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "gpu_fan",
+                    nameof(GpuPerfDataCollector),
+                    "D3DKMT_ADAPTER_PERFDATA.FanRPM",
+                    true,
+                    $"{snapshot.Gpu.FanRpm}rpm",
+                    $"rawFanRpm={perfData.FanRPM}",
+                    snapshot.Dependencies.GpuFanStatusMessage,
+                    "D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)",
+                    perfData.FanRPM.ToString(),
+                    "rpm",
+                    "direct RPM",
+                    snapshot.Gpu.FanRpm.ToString(),
+                    "rpm",
+                    TelemetryValidationState.Verified,
+                    "D3DKMT returned a positive fan RPM.");
             }
         }
         finally

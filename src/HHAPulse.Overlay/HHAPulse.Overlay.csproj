@@ -5,6 +5,7 @@
     <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
     <UseWinUI>true</UseWinUI>
     <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsPackageType>None</WindowsPackageType>
     <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     <PlatformTarget>x64</PlatformTarget>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
@@ -21,7 +22,7 @@
   <ItemGroup>
     <ProjectReference Include="..\HHAPulse.Shared\HHAPulse.Shared.csproj" />
   </ItemGroup>
-  <Target Name="CopyCaptureServiceOutput" AfterTargets="Build">
+  <Target Name="CopyCaptureServiceOutput" AfterTargets="Build;Publish">
     <ItemGroup>
       <CaptureServiceOutput Include="..\HHAPulse.CaptureService\bin\$(Configuration)\net8.0-windows10.0.19041.0\win-x64\**\*" />
     </ItemGroup>
@@ -30,6 +31,11 @@
       DestinationFiles="@(CaptureServiceOutput->'$(OutDir)%(RecursiveDir)%(Filename)%(Extension)')"
       SkipUnchangedFiles="true"
       Condition="'@(CaptureServiceOutput)' != ''" />
+    <Copy
+      SourceFiles="@(CaptureServiceOutput)"
+      DestinationFiles="@(CaptureServiceOutput->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+      SkipUnchangedFiles="true"
+      Condition="'$(PublishDir)' != '' and '@(CaptureServiceOutput)' != ''" />
   </Target>
   <Target Name="CopyNativeTelemetryOutput" AfterTargets="Build;Publish">
     <Copy

@@ -14,12 +14,18 @@
 #define HHAPULSE_GPU_VALID_FAN   0x04
 #define HHAPULSE_GPU_VALID_CLOCK 0x08
 
+#define HHAPULSE_GPU_POWER_SOURCE_UNKNOWN          0
+#define HHAPULSE_GPU_POWER_SOURCE_ADLX_GPU         1
+#define HHAPULSE_GPU_POWER_SOURCE_ADLX_TOTAL_BOARD 2
+#define HHAPULSE_GPU_POWER_SOURCE_IGCL_GPU_ENERGY  3
+
 struct HhaPulseGpuReading {
     double temperatureCelsius;
     double powerWatts;
     int fanRpm;
     double clockMegahertz;
     uint32_t validFlags; // bitmask: 1=temp, 2=power, 4=fan, 8=clock
+    uint32_t powerSourceKind;
 };
 
 extern "C"

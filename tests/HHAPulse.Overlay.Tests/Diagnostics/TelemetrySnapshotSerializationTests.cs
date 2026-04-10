@@ -19,6 +19,19 @@ public sealed class TelemetrySnapshotSerializationTests
         snapshot.Dependencies.GpuFanStatusMessage = "fan";
         snapshot.Dependencies.GpuClockSource = "IGCL";
         snapshot.Dependencies.GpuClockStatusMessage = "clock";
+        snapshot.Dependencies.CapturePayloadAgeMilliseconds = 321;
+        snapshot.Dependencies.WidgetClientCount = 2;
+        snapshot.Dependencies.WidgetPipeStatusMessage = "2 companion client(s) connected.";
+        snapshot.MeasurementTraces.Add(new MeasurementTrace
+        {
+            MetricId = "gpu_power",
+            Collector = "IgclGpuCollector",
+            Source = "IGCL",
+            IsAvailable = true,
+            ValueText = "2.2W",
+            PipelineText = "flagGpuPower=True",
+            StatusMessage = "GPU power from Intel IGCL gpuEnergyCounter/timeStamp delta (2.2W)."
+        });
 
         var bytes = MessagePackSerializer.Serialize(snapshot);
         var roundTripped = MessagePackSerializer.Deserialize<TelemetrySnapshot>(bytes);
@@ -32,5 +45,11 @@ public sealed class TelemetrySnapshotSerializationTests
         Assert.Equal("fan", roundTripped.Dependencies.GpuFanStatusMessage);
         Assert.Equal("IGCL", roundTripped.Dependencies.GpuClockSource);
         Assert.Equal("clock", roundTripped.Dependencies.GpuClockStatusMessage);
+        Assert.Equal(321, roundTripped.Dependencies.CapturePayloadAgeMilliseconds);
+        Assert.Equal(2, roundTripped.Dependencies.WidgetClientCount);
+        Assert.Equal("2 companion client(s) connected.", roundTripped.Dependencies.WidgetPipeStatusMessage);
+        Assert.Single(roundTripped.MeasurementTraces);
+        Assert.Equal("gpu_power", roundTripped.MeasurementTraces[0].MetricId);
+        Assert.Equal("IGCL", roundTripped.MeasurementTraces[0].Source);
     }
 }

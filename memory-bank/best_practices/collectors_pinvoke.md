@@ -95,9 +95,14 @@ For iGPU vs discrete: combine VendorId with `DedicatedVideoMemory` threshold. A 
 
 Use `EnumDisplaySettings` for current refresh rate. Treat 0/1 Hz as hardware default/unknown.
 
-## Frame Gen Auto-Detection
+## Frame Generation Detection
 
-The capture service sets `MetricFlags.FrameGen` when frame generation is detected via ETW. The `OverlayViewModel.FrameGenDetected` property auto-sets to true on first detection, triggering a layout rebuild that adds the FrameGen FPS cell to the FPS component. No user toggle needed.
+Current frame-generation support is detect-only. The capture service may set `CaptureFrameMetrics.HybridPresentDetected` when explicit Intel-PresentMon ETW evidence is seen for the active target, but it does **not** set `MetricFlags.FrameGen` and it does **not** publish a numeric frame-gen FPS value.
+
+Important constraints:
+- Use source-backed ETW evidence only. Do not infer frame generation from FPS ratios, present timing, or heuristics.
+- Keep the HUD metric disabled until a validated numeric display/generated rate exists.
+- The current implementation prefers named payload access (`PayloadByName("FrameType")`). Hardware validation is still required to prove that GPU-driver instrumentation exposes that field through TraceEvent on real systems.
 
 ## Settings Resilience
 

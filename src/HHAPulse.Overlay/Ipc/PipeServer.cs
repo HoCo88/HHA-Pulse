@@ -12,6 +12,8 @@ public sealed class PipeServer : IAsyncDisposable
     private readonly ConcurrentDictionary<Guid, NamedPipeServerStream> clients = new();
     private readonly CancellationTokenSource shutdown = new();
 
+    public int ConnectedClientCount => clients.Count;
+
     public Task StartAsync(CancellationToken cancellationToken)
     {
         _ = AcceptLoopAsync(shutdown.Token);
@@ -79,15 +81,30 @@ public sealed class PipeServer : IAsyncDisposable
     private static NamedPipeServerStream CreateServerStream(bool firstInstance)
     {
         var pipeSecurity = new PipeSecurity();
+        using var currentIdentity = WindowsIdentity.GetCurrent();
 
-        // Current user = full control
+        if (currentIdentity.User is not null)
+        {
+            pipeSecurity.AddAccessRule(new PipeAccessRule(
+                currentIdentity.User,
+                PipeAccessRights.FullControl,
+                AccessControlType.Allow));
+        }
+
         pipeSecurity.AddAccessRule(new PipeAccessRule(
-            WindowsIdentity.GetCurrent().Owner!,
+            new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
             PipeAccessRights.FullControl,
             AccessControlType.Allow));
 
-        // TODO: For cross-package IPC (e.g. Game Bar widget in a separate MSIX),
-        // add the Package SID here. Same-MSIX-package processes share identity.
+        // AppContainer clients such as the Game Bar widget need explicit pipe access.
+        pipeSecurity.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier("S-1-15-2-1"),
+            PipeAccessRights.ReadWrite,
+            AccessControlType.Allow));
+        pipeSecurity.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier("S-1-15-2-2"),
+            PipeAccessRights.ReadWrite,
+            AccessControlType.Allow));
 
         var options = PipeOptions.Asynchronous;
         if (firstInstance)

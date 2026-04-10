@@ -40,7 +40,7 @@ public static class MetricFormatter
             OverlayPresetCatalog.GpuFan => FormatAvailable(snapshot, MetricFlags.Fan, $"FAN {snapshot.Gpu.FanRpm:0} RPM", "FAN --"),
             OverlayPresetCatalog.Ram => FormatAvailable(snapshot, MetricFlags.Memory, $"RAM {snapshot.Memory.RamUsedMegabytes:0}/{snapshot.Memory.RamTotalMegabytes:0} MB", "RAM --"),
             OverlayPresetCatalog.Vram => FormatAvailable(snapshot, MetricFlags.Vram, $"VRAM {snapshot.Gpu.VramUsedMegabytes:0}/{snapshot.Gpu.VramTotalMegabytes:0} MB", "VRAM --"),
-            OverlayPresetCatalog.RefreshRate => FormatAvailable(snapshot, MetricFlags.Display, $"Hz {snapshot.Display.RefreshRateHertz:0}", "Hz --"),
+            OverlayPresetCatalog.RefreshRate => FormatAvailable(snapshot, MetricFlags.Display, $"Hz {RefreshRate(snapshot.Display.RefreshRateHertz)}", "Hz --"),
             _ => metricId
         };
     }
@@ -63,6 +63,11 @@ public static class MetricFormatter
     private static string FpsValue(double value)
     {
         return value > 0 ? $"{value:0}" : "--";
+    }
+
+    private static string RefreshRate(double value)
+    {
+        return value > 1 ? $"{value:0}" : "--";
     }
 
     private static string FormatBatteryPercent(TelemetrySnapshot snapshot)

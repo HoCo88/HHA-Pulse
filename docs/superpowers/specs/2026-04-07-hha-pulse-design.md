@@ -65,7 +65,7 @@ Advanced integrations are external and optional from HHA Pulse's packaging persp
 
 | Integration | Enables | Rule |
 | --- | --- | --- |
-| PresentMon Service | FPS, frametime, GPU Busy, latency, FrameGen | Required for advanced performance metrics; never ship `PresentMonAPI2.dll`; show install prompt when missing |
+| PresentMon Service | Future advanced FPS/frame timing evidence only; input-to-display latency stays hidden until a real source is implemented | Optional future integration; never ship `PresentMonAPI2.dll`; show install prompt when missing |
 | PawnIO | CPU MSR temp, fan speed, RAPL power | Optional only; never bundle, download, or install; detect gracefully |
 
 If PresentMon is missing, the app still runs and displays non-FPS metrics. If PawnIO is missing, CPU temp/fan/RAPL are unavailable but all other metrics continue.
@@ -95,8 +95,8 @@ Security:
 Presets:
 - **Minimal:** FPS + rolling graph + battery percent/time/watts
 - **Standard:** Minimal + CPU/GPU usage and temperatures + frametime
-- **Tuner:** Standard + AVG/1%/0.1% lows + FrameGen + bottleneck + power + max temps
-- **Diagnostic:** Side panel with graphs, frametime table, latency, hardware, battery, display details
+- **Tuner:** Standard + AVG/1%/0.1% lows + diagnostic frame-gen detection + power + max temps
+- **Diagnostic:** Side panel with graphs, frametime table, hardware, battery, display details, and explicit unavailable states for unimplemented metrics
 
 Customization:
 - Metric picker for any preset

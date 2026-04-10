@@ -40,7 +40,6 @@ public partial class App : Application
     public App()
     {
         InitializeComponent();
-        LoadControlsResources();
         UnhandledException += OnUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
@@ -69,6 +68,7 @@ public partial class App : Application
     {
         try
         {
+            LoadControlsResources();
             await LaunchAsync(args);
         }
         catch (Exception ex)
@@ -148,6 +148,9 @@ public partial class App : Application
 
         await appHost.StartAsync(shutdownCts.Token);
         AppLogger.Info("AppHost started.");
+
+        // Auto-install capture service on first launch if not already running.
+        EnsureCaptureServiceInstalled();
 
         // Create and show the overlay window.
         window = new MainWindow();
@@ -438,17 +441,64 @@ public partial class App : Application
         window?.Close();
     }
 
-    private void OnEnableCaptureRequested()
+    private void EnsureCaptureServiceInstalled()
     {
         try
         {
             var serviceExe = Path.Combine(AppContext.BaseDirectory, "HHAPulse.CaptureService.exe");
             if (!File.Exists(serviceExe))
             {
-                AppLogger.Info($"Capture service installer not found at {serviceExe}.");
+                AppLogger.Info($"Capture service not found at {serviceExe}. FPS will show -- until installed.");
                 return;
             }
 
+            // Check if the service is already running by trying to connect to its output pipe.
+            // If the pipe exists, the service is already installed and running.
+            if (File.Exists(@"\\.\pipe\LOCAL\HHAPulse.Capture.Out"))
+            {
+                AppLogger.Info("Capture service already running.");
+                return;
+            }
+
+            // Check if the service is installed (even if stopped) via sc query.
+            var sc = Process.Start(new ProcessStartInfo
+            {
+                FileName = "sc.exe",
+                Arguments = "query HHAPulse.CaptureService",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true
+            });
+
+            if (sc is not null)
+            {
+                var output = sc.StandardOutput.ReadToEnd();
+                sc.WaitForExit(3000);
+
+                if (output.Contains("RUNNING", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppLogger.Info("Capture service is installed and running.");
+                    return;
+                }
+
+                if (output.Contains("STOPPED", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Service is installed but stopped — start it.
+                    Process.Start(new ProcessStartInfo
+                    {
+                        FileName = "sc.exe",
+                        Arguments = "start HHAPulse.CaptureService",
+                        UseShellExecute = true,
+                        Verb = "runas",
+                        CreateNoWindow = true
+                    });
+                    AppLogger.Info("Capture service was stopped. Starting it.");
+                    return;
+                }
+            }
+
+            // Service not installed — install it (one-time UAC prompt).
+            AppLogger.Info("Capture service not installed. Installing now (one-time UAC prompt).");
             Process.Start(new ProcessStartInfo
             {
                 FileName = serviceExe,
@@ -459,8 +509,13 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            AppLogger.Error("Failed to start capture service installer.", ex);
+            AppLogger.Error("Auto-install of capture service failed. FPS will show -- until manually enabled.", ex);
         }
+    }
+
+    private void OnEnableCaptureRequested()
+    {
+        EnsureCaptureServiceInstalled();
     }
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)

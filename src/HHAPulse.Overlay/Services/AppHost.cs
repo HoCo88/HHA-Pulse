@@ -33,7 +33,13 @@ public sealed class AppHost : IAsyncDisposable
         // 1. Collect raw telemetry from all collectors.
         var snapshot = await orchestrator.CollectAsync(cancellationToken).ConfigureAwait(false);
         TelemetryContractGuard.ApplyTo(snapshot);
+        SystemPowerValidator.ApplyTo(snapshot);
+        snapshot.Dependencies.WidgetClientCount = pipeServer.ConnectedClientCount;
+        snapshot.Dependencies.WidgetPipeStatusMessage = pipeServer.ConnectedClientCount > 0
+            ? $"{pipeServer.ConnectedClientCount} companion client(s) last observed during broadcast writes."
+            : "No companion widget clients observed.";
         snapshot.MetricStatuses = MetricStatusFactory.Create(snapshot);
+        snapshot.MeasurementTraces = MeasurementTraceFactory.Create(snapshot, snapshot.MetricStatuses);
 
         await pipeServer.BroadcastAsync(snapshot, cancellationToken).ConfigureAwait(false);
 

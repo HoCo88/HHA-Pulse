@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Shared.Models;
 
 namespace HHAPulse.Overlay.Collectors.Memory;
@@ -27,6 +28,23 @@ public sealed class RamCollector : IMetricCollector
 
         snapshot.Memory.RamTotalMegabytes = totalMb;
         snapshot.Memory.RamUsedMegabytes = totalMb - availMb;
+        MeasurementTraceRecorder.Record(
+            snapshot,
+            "ram",
+            nameof(RamCollector),
+            "GlobalMemoryStatusEx",
+            true,
+            $"{snapshot.Memory.RamUsedMegabytes / 1024:0.0}/{snapshot.Memory.RamTotalMegabytes / 1024:0.0}G",
+            $"totalBytes={status.ullTotalPhys}; availableBytes={status.ullAvailPhys}",
+            "RAM usage from Windows memory status.",
+            "GlobalMemoryStatusEx",
+            $"total={status.ullTotalPhys}; available={status.ullAvailPhys}",
+            "bytes",
+            "bytes / 1024 / 1024",
+            $"usedMb={snapshot.Memory.RamUsedMegabytes:0.000}; totalMb={snapshot.Memory.RamTotalMegabytes:0.000}",
+            "MB",
+            TelemetryValidationState.Verified,
+            "Windows returned physical memory totals.");
 
         return Task.CompletedTask;
     }

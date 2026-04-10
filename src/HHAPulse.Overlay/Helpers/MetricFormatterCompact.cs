@@ -1,4 +1,5 @@
 using HHAPulse.Overlay.Settings;
+using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Shared.Models;
 
 namespace HHAPulse.Overlay.Helpers;
@@ -34,12 +35,6 @@ public static class MetricFormatterCompact
 
             OverlayPresetCatalog.FrameGenFps => FormatAvailable(snapshot, MetricFlags.FrameGen,
                 FpsValueWithUnit(snapshot.Performance.FramesPerSecond), "--fps"),
-
-            OverlayPresetCatalog.InputLatency => FormatAvailable(snapshot, MetricFlags.InputLatency,
-                snapshot.Performance.GpuBusyMilliseconds > 0
-                    ? $"{snapshot.Performance.GpuBusyMilliseconds:0.0}ms"
-                    : "--",
-                "--"),
 
             // ── CPU ──
             OverlayPresetCatalog.CpuUsage => FormatAvailable(snapshot, MetricFlags.CpuUsage,
@@ -92,7 +87,7 @@ public static class MetricFormatterCompact
                 "--"),
 
             OverlayPresetCatalog.RefreshRate => FormatAvailable(snapshot, MetricFlags.Display,
-                $"{snapshot.Display.RefreshRateHertz:0}", "--"),
+                FormatRefreshRate(snapshot.Display.RefreshRateHertz), "--"),
 
             OverlayPresetCatalog.Battery => FormatAvailable(snapshot, MetricFlags.Battery,
                 FormatBatteryCompact(snapshot), "--"),
@@ -113,6 +108,11 @@ public static class MetricFormatterCompact
         return snapshot.Gpu.PowerWatts > 0 ? $"{snapshot.Gpu.PowerWatts:0.0}W" : "--";
     }
 
+    private static string FormatRefreshRate(double refreshRateHertz)
+    {
+        return refreshRateHertz > 1 ? $"{refreshRateHertz:0}" : "--";
+    }
+
     private static string FpsValueWithUnit(double value) => value > 0 ? $"{value:0}fps" : "--fps";
 
     private static string FormatMemoryCompact(double usedMb, double totalMb)
@@ -127,15 +127,12 @@ public static class MetricFormatterCompact
 
     private static string FormatTotalPower(TelemetrySnapshot snapshot)
     {
-        // If battery is discharging, that IS total system power.
-        if (!snapshot.Battery.IsCharging && snapshot.Battery.DischargeWatts > 0)
+        if (SystemPowerValidator.HasValidatedBatteryPower(snapshot))
         {
             return $"{snapshot.Battery.DischargeWatts:0.0}W";
         }
 
-        // Sum available component power readings.
-        var total = snapshot.Cpu.PowerWatts + snapshot.Gpu.PowerWatts;
-        return total > 0 ? $"{total:0.0}W" : "--";
+        return "--";
     }
 
     private static string FormatBatteryCompact(TelemetrySnapshot snapshot)

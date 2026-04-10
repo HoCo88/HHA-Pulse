@@ -56,4 +56,94 @@ public sealed class MetricFormatterTests
         Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuFan, unavailable));
         Assert.Equal("2400rpm", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuFan, available));
     }
+
+    [Fact]
+    public void CompactFormatter_ShowsTotalPowerFromBatteryWhenValidated()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Battery | MetricFlags.SystemPower,
+            Battery =
+            {
+                DischargeWatts = 18.6,
+                IsCharging = false
+            }
+        };
+
+        Assert.Equal("18.6W", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.TotalPower, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_DoesNotShowComponentSumWithoutBothValidatedSources()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.SystemPower | MetricFlags.CpuPower,
+            Cpu = { PowerWatts = 12.5 },
+            Gpu = { PowerWatts = 18.0 }
+        };
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.TotalPower, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_DoesNotShowComponentSumAsTotalPower()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.CpuPower | MetricFlags.GpuPower,
+            Cpu = { PowerWatts = 12.5 },
+            Gpu = { PowerWatts = 18.0 }
+        };
+
+        HHAPulse.Overlay.Diagnostics.SystemPowerValidator.ApplyTo(snapshot);
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.TotalPower, snapshot));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    public void CompactFormatter_HidesRefreshSentinels(double refreshRate)
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Display,
+            Display = { RefreshRateHertz = refreshRate }
+        };
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.RefreshRate, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_ShowsBatteryChargeRateWhenCharging()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Battery,
+            Battery =
+            {
+                ChargePercent = 72,
+                ChargeWatts = 25.4,
+                IsCharging = true
+            }
+        };
+
+        Assert.Equal("72% +25.4W", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Battery, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_KeepsFrameGenUnavailableWithoutMetricFlag()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            Performance =
+            {
+                FramesPerSecond = 118,
+                HybridPresentDetected = true
+            }
+        };
+
+        Assert.Equal("--fps", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.FrameGenFps, snapshot));
+    }
 }

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Shared.Models;
 
 namespace HHAPulse.Overlay.Collectors.Cpu;
@@ -48,6 +49,23 @@ public sealed class CpuUsageCollector : IMetricCollector
                 double cpuPercent = (totalSystem - idleDiff) * 100.0 / totalSystem;
                 snapshot.Cpu.UsagePercent = Math.Clamp(cpuPercent, 0.0, 100.0);
                 snapshot.AvailableMetrics |= MetricFlags.CpuUsage;
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "cpu",
+                    nameof(CpuUsageCollector),
+                    "GetSystemTimes",
+                    true,
+                    $"{snapshot.Cpu.UsagePercent:0.0}%",
+                    $"idleDiff={idleDiff}; kernelDiff={kernelDiff}; userDiff={userDiff}; totalSystem={totalSystem}",
+                    "CPU usage from Windows system time deltas.",
+                    "GetSystemTimes",
+                    $"idle={idle}; kernel={kernel}; user={user}",
+                    "FILETIME ticks",
+                    "(kernel+user-idle)/(kernel+user) * 100",
+                    $"{snapshot.Cpu.UsagePercent:0.000}",
+                    "%",
+                    TelemetryValidationState.Verified,
+                    "Windows GetSystemTimes returned a valid positive time delta.");
             }
         }
 

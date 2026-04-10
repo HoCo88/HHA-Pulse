@@ -55,7 +55,19 @@ public sealed class CaptureServiceCollector : IMetricCollector
             return Task.CompletedTask;
 
         var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(metrics.TimestampUnixMilliseconds);
-        if (age > FreshnessWindow || metrics.FramesPerSecond <= 0)
+        snapshot.Dependencies.CapturePayloadAgeMilliseconds = (long)Math.Max(0, age.TotalMilliseconds);
+
+        if (age > FreshnessWindow)
+        {
+            snapshot.Dependencies.CaptureServiceStatusMessage = $"Capture connected but stale ({age.TotalSeconds:0.0}s old).";
+            return Task.CompletedTask;
+        }
+
+        snapshot.Dependencies.CaptureServiceStatusMessage = metrics.HybridPresentDetected
+            ? $"{status} Frame generation: detected from Intel-PresentMon ETW evidence. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms."
+            : $"{status} Frame generation: not detected in the current capture window. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms.";
+
+        if (metrics.FramesPerSecond <= 0)
             return Task.CompletedTask;
 
         snapshot.AvailableMetrics |= MetricFlags.Fps | MetricFlags.FrameTime;
@@ -71,7 +83,66 @@ public sealed class CaptureServiceCollector : IMetricCollector
         snapshot.Performance.HybridPresentDetected = metrics.HybridPresentDetected;
         snapshot.Dependencies.CaptureTargetProcessId = metrics.GameProcessId;
         snapshot.Dependencies.CaptureTargetProcessName = metrics.GameProcessName;
+        RecordFpsTrace(snapshot, "fps", "FPS", metrics.FramesPerSecond, "present-start intervals -> 1000 / average frame time");
+        RecordFpsTrace(snapshot, "avg_fps", "Average FPS", metrics.AverageFramesPerSecond, "rolling average of one-second FPS windows");
+        RecordFpsTrace(snapshot, "one_percent_low", "1% Low FPS", metrics.OnePercentLowFramesPerSecond, "99th percentile frame time -> FPS");
+        RecordFpsTrace(snapshot, "zero_point_one_low", "0.1% Low FPS", metrics.ZeroPointOnePercentLowFramesPerSecond, "99.9th percentile frame time -> FPS");
+        MeasurementTraceRecorder.Record(
+            snapshot,
+            "frametime",
+            nameof(CaptureServiceCollector),
+            "ETW DXGI/D3D9 PresentStart",
+            true,
+            $"{metrics.FrameTimeMilliseconds:0.0}ms",
+            $"captureConnected={connected}; payloadAgeMs={snapshot.Dependencies.CapturePayloadAgeMilliseconds}; target={metrics.GameProcessName}({metrics.GameProcessId})",
+            snapshot.Dependencies.CaptureServiceStatusMessage,
+            "Microsoft-Windows-DXGI/D3D9 ETW PresentStart",
+            $"{metrics.FrameTimeMilliseconds:0.000}",
+            "ms",
+            "average accepted present interval in publish window",
+            $"{metrics.FrameTimeMilliseconds:0.000}",
+            "ms",
+            TelemetryValidationState.Verified,
+            "Fresh ETW capture payload accepted.");
+        MeasurementTraceRecorder.Record(
+            snapshot,
+            "framegen_fps",
+            nameof(CaptureServiceCollector),
+            "Intel-PresentMon ETW evidence",
+            false,
+            metrics.HybridPresentDetected ? "detected" : "not detected",
+            $"HybridPresentDetected={metrics.HybridPresentDetected}; frameGenFlag={snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen)}; appFps=not computed; presentFps=not computed; displayFps=not computed",
+            "Frame generation detection is diagnostic-only. Numeric FG FPS is not implemented.",
+            "Intel-PresentMon ETW FrameType",
+            metrics.HybridPresentDetected.ToString(),
+            "bool",
+            "boolean detection only; no numeric FPS conversion",
+            "--",
+            "fps",
+            TelemetryValidationState.Unavailable,
+            "Detection-only phase keeps framegen_fps hidden until display/generated rates are validated.");
         return Task.CompletedTask;
+    }
+
+    private static void RecordFpsTrace(TelemetrySnapshot snapshot, string metricId, string label, double value, string conversionRule)
+    {
+        MeasurementTraceRecorder.Record(
+            snapshot,
+            metricId,
+            nameof(CaptureServiceCollector),
+            "ETW DXGI/D3D9 PresentStart",
+            true,
+            $"{value:0.0}",
+            $"captureConnected={snapshot.Dependencies.CaptureServiceConnected}; payloadAgeMs={snapshot.Dependencies.CapturePayloadAgeMilliseconds}; target={snapshot.Dependencies.CaptureTargetProcessName}({snapshot.Dependencies.CaptureTargetProcessId})",
+            $"{label} from fresh capture-service ETW payload.",
+            "Microsoft-Windows-DXGI/D3D9 ETW PresentStart",
+            $"{value:0.000}",
+            "fps",
+            conversionRule,
+            $"{value:0.000}",
+            "fps",
+            TelemetryValidationState.Verified,
+            "Fresh ETW capture payload accepted.");
     }
 
     private async Task RunOutputLoopAsync(CancellationToken cancellationToken)

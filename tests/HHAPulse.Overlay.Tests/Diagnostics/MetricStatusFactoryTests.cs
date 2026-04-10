@@ -25,6 +25,10 @@ public sealed class MetricStatusFactoryTests
         snapshot.Dependencies.GpuPowerStatusMessage = "GPU power from NVIDIA NVML.";
         snapshot.Dependencies.GpuFanSource = "NvAPI";
         snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from NVIDIA NvAPI.";
+        MeasurementTraceRecorder.Record(snapshot, OverlayPresetCatalog.GpuTemp, "GpuPerfDataCollector", "D3DKMT fallback", true, "72C", "test", "GPU temperature from D3DKMT fallback.", "D3DKMTQueryAdapterInfo", "720", "deci-C", "raw / 10", "72", "C", TelemetryValidationState.Verified, "test");
+        MeasurementTraceRecorder.Record(snapshot, OverlayPresetCatalog.GpuClock, "NvApiGpuCollector", "NvAPI", true, "2000MHz", "test", "GPU clock from NVIDIA NvAPI.", "NvAPI", "2000000", "kHz", "kHz / 1000", "2000", "MHz", TelemetryValidationState.Verified, "test");
+        MeasurementTraceRecorder.Record(snapshot, OverlayPresetCatalog.GpuPower, "NvApiGpuCollector", "NVML", true, "12W", "test", "GPU power from NVIDIA NVML.", "NVML", "12000", "mW", "mW / 1000", "12", "W", TelemetryValidationState.Verified, "test");
+        MeasurementTraceRecorder.Record(snapshot, OverlayPresetCatalog.GpuFan, "NvApiGpuCollector", "NvAPI", true, "2400rpm", "test", "GPU fan speed from NVIDIA NvAPI.", "NvAPI", "2400", "rpm", "direct RPM", "2400", "rpm", TelemetryValidationState.Verified, "test");
 
         var statuses = MetricStatusFactory.Create(snapshot);
 
@@ -35,7 +39,7 @@ public sealed class MetricStatusFactoryTests
     }
 
     [Fact]
-    public void Create_UsesVendorFallbackMessagesForUnavailableMetrics()
+    public void Create_ReportsUnknownCollectorWhenProvenanceIsMissing()
     {
         var snapshot = new TelemetrySnapshot
         {
@@ -52,7 +56,22 @@ public sealed class MetricStatusFactoryTests
         var gpuClock = statuses.Single(status => status.MetricId == OverlayPresetCatalog.GpuClock);
 
         Assert.False(gpuPower.IsAvailable);
-        Assert.Equal("Vendor GPU telemetry", gpuClock.Source);
-        Assert.Equal("no vendor SDK", gpuPower.StatusMessage);
+        Assert.Equal("unknown collector", gpuClock.Source);
+        Assert.Equal("No collector reported provenance for this metric.", gpuPower.StatusMessage);
+    }
+
+    [Fact]
+    public void Create_IncludesAllPresetMetricsIncludingFpsDerivatives()
+    {
+        var statuses = MetricStatusFactory.Create(new TelemetrySnapshot
+        {
+            TimestampUnixMilliseconds = 789
+        });
+
+        Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.AvgFps);
+        Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.OnePercentLow);
+        Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.ZeroPointOneLow);
+        Assert.DoesNotContain(statuses, status => status.MetricId == OverlayPresetCatalog.InputLatency);
+        Assert.Equal(18, statuses.Count);
     }
 }

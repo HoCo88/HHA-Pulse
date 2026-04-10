@@ -69,6 +69,7 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
             snapshot.Gpu.TemperatureCelsius = reading.TemperatureCelsius;
             snapshot.Dependencies.GpuTemperatureSource = "ADLX";
             snapshot.Dependencies.GpuTemperatureStatusMessage = "GPU temperature from AMD ADLX.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_temp", nameof(AdlxGpuCollector), "ADLX GPUTemperature", true, $"{reading.TemperatureCelsius:0.0}C", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuTemperatureStatusMessage, "IADLXGPUMetrics::GPUTemperature", $"{reading.TemperatureCelsius:0.000}", "C", "ADLX reports Celsius directly", $"{reading.TemperatureCelsius:0.000}", "C", TelemetryValidationState.HardwareValidationPending, "ADLX returned a bounded temperature; handheld hardware validation still pending.");
         }
 
         if ((reading.ValidFlags & ValidFlagPower) != 0)
@@ -76,7 +77,29 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
             snapshot.AvailableMetrics |= MetricFlags.GpuPower;
             snapshot.Gpu.PowerWatts = reading.PowerWatts;
             snapshot.Dependencies.GpuPowerSource = "ADLX";
-            snapshot.Dependencies.GpuPowerStatusMessage = "GPU power from AMD ADLX.";
+            var sourceName = reading.PowerSourceKind == PowerSourceAdlxTotalBoard
+                ? "ADLX GPUTotalBoardPower"
+                : "ADLX GPUPower";
+            snapshot.Dependencies.GpuPowerStatusMessage = reading.PowerSourceKind == PowerSourceAdlxTotalBoard
+                ? "GPU/APU board power from AMD ADLX GPUTotalBoardPower."
+                : "GPU silicon power from AMD ADLX GPUPower.";
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "gpu_power",
+                nameof(AdlxGpuCollector),
+                sourceName,
+                true,
+                $"{reading.PowerWatts:0.0}W",
+                $"validFlags=0x{reading.ValidFlags:X}; powerSourceKind={reading.PowerSourceKind}; source={sourceName}",
+                snapshot.Dependencies.GpuPowerStatusMessage,
+                sourceName,
+                $"{reading.PowerWatts:0.000}",
+                "W",
+                "ADLX reports watts directly",
+                $"{reading.PowerWatts:0.000}",
+                "W",
+                TelemetryValidationState.HardwareValidationPending,
+                "ADLX produced a positive watt value; handheld hardware validation still pending.");
         }
 
         if ((reading.ValidFlags & ValidFlagFan) != 0)
@@ -85,6 +108,7 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
             snapshot.Gpu.FanRpm = reading.FanRpm;
             snapshot.Dependencies.GpuFanSource = "ADLX";
             snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from AMD ADLX.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(AdlxGpuCollector), "ADLX GPUFanSpeed", true, $"{reading.FanRpm}rpm", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuFanStatusMessage, "IADLXGPUMetrics::GPUFanSpeed", reading.FanRpm.ToString(), "rpm", "ADLX reports RPM directly", reading.FanRpm.ToString(), "rpm", TelemetryValidationState.HardwareValidationPending, "ADLX returned a positive fan RPM; handheld hardware validation still pending.");
         }
 
         if ((reading.ValidFlags & ValidFlagClock) != 0)
@@ -93,6 +117,7 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
             snapshot.Gpu.ClockMegahertz = reading.ClockMegahertz;
             snapshot.Dependencies.GpuClockSource = "ADLX";
             snapshot.Dependencies.GpuClockStatusMessage = "GPU clock from AMD ADLX.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_clock", nameof(AdlxGpuCollector), "ADLX GPUClockSpeed", true, $"{reading.ClockMegahertz:0.0}MHz", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuClockStatusMessage, "IADLXGPUMetrics::GPUClockSpeed", $"{reading.ClockMegahertz:0.000}", "MHz", "ADLX reports MHz directly", $"{reading.ClockMegahertz:0.000}", "MHz", TelemetryValidationState.HardwareValidationPending, "ADLX returned a positive clock; handheld hardware validation still pending.");
         }
 
         return Task.CompletedTask;
@@ -133,6 +158,7 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
     private const uint ValidFlagPower = 0x02;
     private const uint ValidFlagFan   = 0x04;
     private const uint ValidFlagClock = 0x08;
+    private const uint PowerSourceAdlxTotalBoard = 2;
 
     // ── P/Invoke ──
 
@@ -156,5 +182,6 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
         // 4 bytes padding (natural alignment for next double)
         public double ClockMegahertz;      // offset 24
         public uint ValidFlags;            // offset 32
+        public uint PowerSourceKind;        // offset 36
     }
 }

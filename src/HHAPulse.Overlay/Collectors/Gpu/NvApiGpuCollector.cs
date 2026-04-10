@@ -88,6 +88,7 @@ public sealed class NvApiGpuCollector : IMetricCollector, IDisposable
                 snapshot.Gpu.TemperatureCelsius = sensor.CurrentTemperature;
                 snapshot.Dependencies.GpuTemperatureSource = "NvAPI";
                 snapshot.Dependencies.GpuTemperatureStatusMessage = "GPU temperature from NVIDIA NvAPI.";
+                MeasurementTraceRecorder.Record(snapshot, "gpu_temp", nameof(NvApiGpuCollector), "NvAPI thermal sensor", true, $"{sensor.CurrentTemperature:0.0}C", "first NvAPI thermal sensor accepted", snapshot.Dependencies.GpuTemperatureStatusMessage, "NvAPI_GPU_GetThermalSettings", $"{sensor.CurrentTemperature:0.000}", "C", "NvAPIWrapper reports Celsius", $"{sensor.CurrentTemperature:0.000}", "C", TelemetryValidationState.Verified, "NvAPI returned a thermal sensor reading.");
                 break;
             }
         }
@@ -108,6 +109,7 @@ public sealed class NvApiGpuCollector : IMetricCollector, IDisposable
                 snapshot.Gpu.ClockMegahertz = coreClock.Frequency / 1000.0;
                 snapshot.Dependencies.GpuClockSource = "NvAPI";
                 snapshot.Dependencies.GpuClockStatusMessage = "GPU clock from NVIDIA NvAPI.";
+                MeasurementTraceRecorder.Record(snapshot, "gpu_clock", nameof(NvApiGpuCollector), "NvAPI graphics clock", true, $"{snapshot.Gpu.ClockMegahertz:0.0}MHz", $"rawFrequency={coreClock.Frequency}", snapshot.Dependencies.GpuClockStatusMessage, "NvAPIWrapper CurrentClockFrequencies.GraphicsClock", $"{coreClock.Frequency:0.000}", "kHz", "kHz / 1000", $"{snapshot.Gpu.ClockMegahertz:0.000}", "MHz", TelemetryValidationState.Verified, "NvAPIWrapper.Net 0.8.1.101 frequency value is treated as kHz by this collector.");
             }
         }
         catch (Exception ex)
@@ -126,6 +128,7 @@ public sealed class NvApiGpuCollector : IMetricCollector, IDisposable
                 snapshot.Gpu.FanRpm = (int)cooler.CurrentFanSpeedInRPM;
                 snapshot.Dependencies.GpuFanSource = "NvAPI";
                 snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from NVIDIA NvAPI.";
+                MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(NvApiGpuCollector), "NvAPI tach reading", true, $"{snapshot.Gpu.FanRpm}rpm", $"rawRpm={cooler.CurrentFanSpeedInRPM}", snapshot.Dependencies.GpuFanStatusMessage, "NvAPI GPU cooler tach", cooler.CurrentFanSpeedInRPM.ToString(), "rpm", "direct RPM", snapshot.Gpu.FanRpm.ToString(), "rpm", TelemetryValidationState.Verified, "NvAPI returned a tachometer fan reading.");
                 break;
             }
         }
@@ -147,6 +150,23 @@ public sealed class NvApiGpuCollector : IMetricCollector, IDisposable
                     snapshot.Gpu.PowerWatts = milliwatts / 1000.0;
                     snapshot.Dependencies.GpuPowerSource = "NVML";
                     snapshot.Dependencies.GpuPowerStatusMessage = "GPU power from NVIDIA NVML.";
+                    MeasurementTraceRecorder.Record(
+                        snapshot,
+                        "gpu_power",
+                        nameof(NvApiGpuCollector),
+                        "NVML nvmlDeviceGetPowerUsage",
+                        true,
+                        $"{snapshot.Gpu.PowerWatts:0.0}W",
+                        $"rawMilliwatts={milliwatts}; flagGpuPower=True",
+                        snapshot.Dependencies.GpuPowerStatusMessage,
+                        "nvmlDeviceGetPowerUsage",
+                        milliwatts.ToString(),
+                        "mW",
+                        "milliwatts / 1000",
+                        $"{snapshot.Gpu.PowerWatts:0.000}",
+                        "W",
+                        TelemetryValidationState.Verified,
+                        "NVML returned a positive milliwatt reading.");
                 }
             }
             catch (Exception ex)

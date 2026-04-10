@@ -34,6 +34,9 @@ public sealed class TelemetrySnapshot
 
     [Key(9)]
     public List<MetricStatus> MetricStatuses { get; set; } = new();
+
+    [Key(10)]
+    public List<MeasurementTrace> MeasurementTraces { get; set; } = new();
 }
 
 [MessagePackObject]
@@ -251,6 +254,21 @@ public sealed class DependencyState
 
     [Key(21)]
     public string GpuClockStatusMessage { get; set; } = string.Empty;
+
+    [Key(22)]
+    public long CapturePayloadAgeMilliseconds { get; set; }
+
+    [Key(23)]
+    public int WidgetClientCount { get; set; }
+
+    [Key(24)]
+    public string WidgetPipeStatusMessage { get; set; } = string.Empty;
+
+    [Key(25)]
+    public double ComponentPowerSumWatts { get; set; }
+
+    [Key(26)]
+    public string ComponentPowerStatusMessage { get; set; } = string.Empty;
 }
 
 [MessagePackObject]
@@ -270,4 +288,56 @@ public sealed class MetricStatus
 
     [Key(4)]
     public string StatusMessage { get; set; } = string.Empty;
+
+    [Key(5)]
+    public string ValidationState { get; set; } = string.Empty;
+}
+
+[MessagePackObject]
+public sealed class MeasurementTrace
+{
+    [Key(0)]
+    public string MetricId { get; set; } = string.Empty;
+
+    [Key(1)]
+    public string Collector { get; set; } = string.Empty;
+
+    [Key(2)]
+    public string Source { get; set; } = string.Empty;
+
+    [Key(3)]
+    public bool IsAvailable { get; set; }
+
+    [Key(4)]
+    public string ValueText { get; set; } = string.Empty;
+
+    [Key(5)]
+    public string PipelineText { get; set; } = string.Empty;
+
+    [Key(6)]
+    public string StatusMessage { get; set; } = string.Empty;
+
+    [Key(7)]
+    public string ApiContract { get; set; } = string.Empty;
+
+    [Key(8)]
+    public string RawValue { get; set; } = string.Empty;
+
+    [Key(9)]
+    public string RawUnit { get; set; } = string.Empty;
+
+    [Key(10)]
+    public string ConversionRule { get; set; } = string.Empty;
+
+    [Key(11)]
+    public string ConvertedValue { get; set; } = string.Empty;
+
+    [Key(12)]
+    public string ConvertedUnit { get; set; } = string.Empty;
+
+    [Key(13)]
+    public string ValidationState { get; set; } = string.Empty;
+
+    [Key(14)]
+    public string Reason { get; set; } = string.Empty;
 }

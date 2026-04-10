@@ -30,7 +30,7 @@ Evidence: [audit-report-HHAP-0.25.md](audit-report-HHAP-0.25.md)
 - "EMI via WMI" → actually device IOCTLs via SetupAPI
 - EAC is game-dependent, not blanket safe
 - Vanguard is risky, not safe
-- PresentMon 2.5.0+ has FrameType metric
+- PresentMon added provider-backed frame-type support; local HHA Pulse implementation remains diagnostic-only until hardware validation proves the runtime path
 
 ### Phase 4: Recovery plan + rebuild
 Recovery plan v2 → final plan. Key decisions:
@@ -54,8 +54,33 @@ Verified via web search:
 - **NvAPIWrapper.Net**: LGPL-3.0 confirmed. All API calls verified against NuGet XML docs.
 - **ADLX SDK license**: Unclear, "ADLX SDK License Agreement" referenced but not publicly accessible.
 
+### Phase 6: Desktop recovery + detect-only frame generation
+
+Implemented and verified in the repo:
+- Fixed blocker defects: `total_power` truth gating, `0%` opacity black render path, widget pipe DACL/connectivity
+- Replaced the old control surface with a six-section settings shell: `General`, `Overlay`, `Metrics`, `FPS Capture`, `Widget`, `About`
+- Restored the widget as a companion surface with explicit standalone/enhanced modes and Store/support entry points
+- Added detect-only frame-generation diagnostics in the capture service:
+  - Intel-PresentMon provider subscribed in `EtwFrameCapture`
+  - `HybridPresentDetected` now comes from explicit ETW evidence only
+  - no FPS math changed
+  - `MetricFlags.FrameGen` intentionally remains unset
+  - HUD frame-gen FPS stays unavailable
+
+Verification:
+- `HHAPulse.Shared.Tests`: 4/4 passed
+- `HHAPulse.Overlay.Tests`: 43/43 passed
+- `HHAPulse.CaptureService.Tests`: 8/8 passed
+- Total: 55/55 green
+- Release workflow captured in `docs/release-validation-checklist.md`
+
+Open machine/hardware validation:
+- Build `HHAPulse.Native` with the local VS toolchain and verify exports
+- Build/package the widget and verify Game Bar activation
+- Test detect-only frame generation on real hardware. Current implementation uses `PayloadByName("FrameType")`; if that path does not resolve on instrumented drivers, a verified raw-layout fallback will be needed
+
 ### Current status
-- All managed code verified ✅ (39/39 tests)
+- All managed code verified ✅ (55/55 tests)
 - Vendor contract headers vendored with provenance ✅
 - Native C++ code reviewed line-by-line ✅
 - **Blocker: C++ build not yet compiled** — VS 2026 Insiders installed but PlatformToolset mismatch being resolved

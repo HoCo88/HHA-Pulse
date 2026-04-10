@@ -43,6 +43,19 @@ public sealed class MessageSerializerTests
                     LastSuccessUnixMilliseconds = 1_777_777_777,
                     StatusMessage = "Available."
                 }
+            },
+            MeasurementTraces =
+            {
+                new MeasurementTrace
+                {
+                    MetricId = "gpu_power",
+                    Collector = "NvApiGpuCollector",
+                    Source = "NVML",
+                    IsAvailable = true,
+                    ValueText = "18.5W",
+                    PipelineText = "flagGpuPower=True; source=NVML",
+                    StatusMessage = "GPU power from NVIDIA NVML."
+                }
             }
         };
 
@@ -63,5 +76,8 @@ public sealed class MessageSerializerTests
         Assert.Equal(72, roundTripped.Battery.ChargePercent);
         Assert.Single(roundTripped.MetricStatuses);
         Assert.Equal("gpu_fan", roundTripped.MetricStatuses[0].MetricId);
+        Assert.Single(roundTripped.MeasurementTraces);
+        Assert.Equal("gpu_power", roundTripped.MeasurementTraces[0].MetricId);
+        Assert.Equal("NVML", roundTripped.MeasurementTraces[0].Source);
     }
 }

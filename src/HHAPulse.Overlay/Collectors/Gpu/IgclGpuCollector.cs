@@ -72,6 +72,7 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
             snapshot.Gpu.TemperatureCelsius = reading.TemperatureCelsius;
             snapshot.Dependencies.GpuTemperatureSource = "IGCL";
             snapshot.Dependencies.GpuTemperatureStatusMessage = "GPU temperature from Intel IGCL.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_temp", nameof(IgclGpuCollector), "IGCL gpuCurrentTemperature", true, $"{reading.TemperatureCelsius:0.0}C", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuTemperatureStatusMessage, "ctlPowerTelemetryGet", $"{reading.TemperatureCelsius:0.000}", "C", "IGCL validated Celsius unit", $"{reading.TemperatureCelsius:0.000}", "C", TelemetryValidationState.HardwareValidationPending, "IGCL returned a bounded temperature; handheld hardware validation still pending.");
         }
 
         // First tick after init has no energy delta — skip power to avoid
@@ -85,7 +86,24 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
             snapshot.AvailableMetrics |= MetricFlags.GpuPower;
             snapshot.Gpu.PowerWatts = reading.PowerWatts;
             snapshot.Dependencies.GpuPowerSource = "IGCL";
-            snapshot.Dependencies.GpuPowerStatusMessage = "GPU power from Intel IGCL energy telemetry.";
+            snapshot.Dependencies.GpuPowerStatusMessage = $"GPU power from Intel IGCL gpuEnergyCounter/timeStamp delta ({reading.PowerWatts:0.0}W).";
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "gpu_power",
+                nameof(IgclGpuCollector),
+                "IGCL gpuEnergyCounter/timeStamp",
+                true,
+                $"{reading.PowerWatts:0.0}W",
+                $"validFlags=0x{reading.ValidFlags:X}; powerSourceKind={reading.PowerSourceKind}",
+                snapshot.Dependencies.GpuPowerStatusMessage,
+                "ctlPowerTelemetryGet",
+                $"{reading.PowerWatts:0.000}",
+                "W",
+                "gpuEnergyCounter joules delta / timeStamp seconds delta",
+                $"{reading.PowerWatts:0.000}",
+                "W",
+                TelemetryValidationState.HardwareValidationPending,
+                "IGCL produced a valid positive energy/time watt delta; handheld hardware validation still pending.");
         }
 
         // Fan is typically unavailable on iGPU (validFlags bit 2 = 0).
@@ -95,6 +113,7 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
             snapshot.Gpu.FanRpm = reading.FanRpm;
             snapshot.Dependencies.GpuFanSource = "IGCL";
             snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from Intel IGCL.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(IgclGpuCollector), "IGCL fanSpeed", true, $"{reading.FanRpm}rpm", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuFanStatusMessage, "ctlPowerTelemetryGet", reading.FanRpm.ToString(), "rpm", "IGCL validated RPM unit", reading.FanRpm.ToString(), "rpm", TelemetryValidationState.HardwareValidationPending, "IGCL returned a positive fan RPM; handheld hardware validation still pending.");
         }
 
         if ((reading.ValidFlags & ValidFlagClock) != 0)
@@ -103,6 +122,7 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
             snapshot.Gpu.ClockMegahertz = reading.ClockMegahertz;
             snapshot.Dependencies.GpuClockSource = "IGCL";
             snapshot.Dependencies.GpuClockStatusMessage = "GPU clock from Intel IGCL.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_clock", nameof(IgclGpuCollector), "IGCL gpuCurrentClockFrequency", true, $"{reading.ClockMegahertz:0.0}MHz", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuClockStatusMessage, "ctlPowerTelemetryGet", $"{reading.ClockMegahertz:0.000}", "MHz", "IGCL validated MHz unit", $"{reading.ClockMegahertz:0.000}", "MHz", TelemetryValidationState.HardwareValidationPending, "IGCL returned a positive clock; handheld hardware validation still pending.");
         }
 
         return Task.CompletedTask;
@@ -166,5 +186,6 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
         // 4 bytes padding (natural alignment for next double)
         public double ClockMegahertz;      // offset 24
         public uint ValidFlags;            // offset 32
+        public uint PowerSourceKind;        // offset 36
     }
 }

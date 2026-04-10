@@ -480,13 +480,24 @@ extern "C" int HhaPulseAdlxReadGpu(HhaPulseGpuReading* out)
         }
     }
 
-    if (AdlxIsSupported(s_adlxMetricsSupport, s_adlxMetricsSupport->pVtbl->IsSupportedGPUPower))
+    if (AdlxIsSupported(s_adlxMetricsSupport, s_adlxMetricsSupport->pVtbl->IsSupportedGPUTotalBoardPower))
+    {
+        adlx_double watts = 0.0;
+        if (ADLX_SUCCEEDED(metrics->pVtbl->GPUTotalBoardPower(metrics, &watts)) && watts >= 0.0 && watts < 1000.0)
+        {
+            out->powerWatts = watts;
+            out->validFlags |= HHAPULSE_GPU_VALID_POWER;
+            out->powerSourceKind = HHAPULSE_GPU_POWER_SOURCE_ADLX_TOTAL_BOARD;
+        }
+    }
+    else if (AdlxIsSupported(s_adlxMetricsSupport, s_adlxMetricsSupport->pVtbl->IsSupportedGPUPower))
     {
         adlx_double watts = 0.0;
         if (ADLX_SUCCEEDED(metrics->pVtbl->GPUPower(metrics, &watts)) && watts >= 0.0 && watts < 1000.0)
         {
             out->powerWatts = watts;
             out->validFlags |= HHAPULSE_GPU_VALID_POWER;
+            out->powerSourceKind = HHAPULSE_GPU_POWER_SOURCE_ADLX_GPU;
         }
     }
 
@@ -701,6 +712,7 @@ extern "C" int HhaPulseIgclReadGpu(HhaPulseGpuReading* out)
                 {
                     out->powerWatts = watts;
                     out->validFlags |= HHAPULSE_GPU_VALID_POWER;
+                    out->powerSourceKind = HHAPULSE_GPU_POWER_SOURCE_IGCL_GPU_ENERGY;
                 }
             }
         }

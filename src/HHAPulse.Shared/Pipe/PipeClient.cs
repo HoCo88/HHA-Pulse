@@ -1,4 +1,6 @@
 using System.IO.Pipes;
+using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
 using HHAPulse.Shared.Models;
 using HHAPulse.Shared.Protocol;
 
@@ -6,9 +8,10 @@ namespace HHAPulse.Shared.Pipe;
 
 public sealed class PipeClient : IAsyncDisposable
 {
+    private Stream? _stream;
     private NamedPipeClientStream? _pipe;
 
-    public bool IsConnected => _pipe is { IsConnected: true };
+    public bool IsConnected => _stream is not null;
 
     public async Task ConnectWithRetryAsync(CancellationToken ct)
     {
@@ -21,19 +24,24 @@ public sealed class PipeClient : IAsyncDisposable
             {
                 _pipe = new NamedPipeClientStream(".", PipeConstants.PipeLocalName, PipeDirection.In);
                 await _pipe.ConnectAsync(2000, ct).ConfigureAwait(false);
+                _stream = _pipe;
                 return; // connected
             }
             catch (TimeoutException)
             {
-                _pipe?.Dispose();
-                _pipe = null;
+                await DisposePipeAsync().ConfigureAwait(false);
                 await Task.Delay(delayMs, ct).ConfigureAwait(false);
                 delayMs = Math.Min(delayMs * 2, maxDelayMs);
             }
             catch (IOException)
             {
-                _pipe?.Dispose();
-                _pipe = null;
+                await DisposePipeAsync().ConfigureAwait(false);
+                if (TryOpenViaCreateFile(out var fallbackStream))
+                {
+                    _stream = fallbackStream;
+                    return;
+                }
+
                 await Task.Delay(delayMs, ct).ConfigureAwait(false);
                 delayMs = Math.Min(delayMs * 2, maxDelayMs);
             }
@@ -44,7 +52,7 @@ public sealed class PipeClient : IAsyncDisposable
 
     public async Task<TelemetrySnapshot> ReadSnapshotAsync(CancellationToken cancellationToken)
     {
-        if (_pipe is null || !_pipe.IsConnected)
+        if (_stream is null)
         {
             throw new InvalidOperationException("Pipe client is not connected.");
         }
@@ -52,7 +60,7 @@ public sealed class PipeClient : IAsyncDisposable
         try
         {
             var lengthBuffer = new byte[PipeConstants.LengthPrefixBytes];
-            await ReadExactlyAsync(_pipe, lengthBuffer, cancellationToken).ConfigureAwait(false);
+            await ReadExactlyAsync(_stream, lengthBuffer, cancellationToken).ConfigureAwait(false);
             var payloadLength = BitConverter.ToInt32(lengthBuffer, 0);
             if (payloadLength < 0 || payloadLength > PipeConstants.MaxPayloadBytes)
             {
@@ -60,7 +68,7 @@ public sealed class PipeClient : IAsyncDisposable
             }
 
             var payload = new byte[payloadLength];
-            await ReadExactlyAsync(_pipe, payload, cancellationToken).ConfigureAwait(false);
+            await ReadExactlyAsync(_stream, payload, cancellationToken).ConfigureAwait(false);
             var envelope = MessageSerializer.DeserializeEnvelope(payload);
             return MessageSerializer.DeserializePayload<TelemetrySnapshot>(envelope);
         }
@@ -90,6 +98,9 @@ public sealed class PipeClient : IAsyncDisposable
 
     private ValueTask DisposePipeAsync()
     {
+        _stream?.Dispose();
+        _stream = null;
+
         if (_pipe is not null)
         {
             _pipe.Dispose();
@@ -112,4 +123,43 @@ public sealed class PipeClient : IAsyncDisposable
             offset += read;
         }
     }
+
+    private static bool TryOpenViaCreateFile(out FileStream? stream)
+    {
+        stream = null;
+
+        var handle = CreateFileW(
+            PipeConstants.PipeName,
+            GenericRead,
+            FileShareRead | FileShareWrite,
+            IntPtr.Zero,
+            OpenExisting,
+            FileFlagOverlapped,
+            IntPtr.Zero);
+
+        if (handle.IsInvalid)
+        {
+            handle.Dispose();
+            return false;
+        }
+
+        stream = new FileStream(handle, FileAccess.Read, 4096, true);
+        return true;
+    }
+
+    private const uint GenericRead = 0x80000000;
+    private const uint FileShareRead = 0x00000001;
+    private const uint FileShareWrite = 0x00000002;
+    private const uint OpenExisting = 3;
+    private const uint FileFlagOverlapped = 0x40000000;
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
+    private static extern SafeFileHandle CreateFileW(
+        string lpFileName,
+        uint dwDesiredAccess,
+        uint dwShareMode,
+        IntPtr lpSecurityAttributes,
+        uint dwCreationDisposition,
+        uint dwFlagsAndAttributes,
+        IntPtr hTemplateFile);
 }

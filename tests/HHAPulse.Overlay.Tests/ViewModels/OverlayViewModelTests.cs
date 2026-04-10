@@ -58,4 +58,21 @@ public sealed class OverlayViewModelTests
         Assert.Equal(new[] { 90d }, viewModel.FpsHistory);
         Assert.Equal(new[] { 11.1d }, viewModel.FrameTimeHistory);
     }
+
+    [Fact]
+    public void ApplyTelemetry_DoesNotAutoDetectFrameGenWithoutMetricFlag()
+    {
+        var viewModel = new OverlayViewModel();
+
+        viewModel.ApplyTelemetry(new TelemetrySnapshot
+        {
+            Performance =
+            {
+                FramesPerSecond = 120,
+                HybridPresentDetected = true
+            }
+        });
+
+        Assert.False(viewModel.FrameGenDetected);
+    }
 }

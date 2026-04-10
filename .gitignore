@@ -1,7 +1,10 @@
 # Build output
 bin/
 obj/
+obj_check/
+buildobj/
 publish/
+.temp/
 
 # IDE
 .vs/
@@ -47,3 +50,4 @@ logs/
 # Test results
 TestResults/
 coverage/
+obj_fg/

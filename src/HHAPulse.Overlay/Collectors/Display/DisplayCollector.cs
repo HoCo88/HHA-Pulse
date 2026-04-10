@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Shared.Models;
 
 namespace HHAPulse.Overlay.Collectors.Display;
@@ -26,6 +27,26 @@ public sealed class DisplayCollector : IMetricCollector
         snapshot.Display.WidthPixels = dm.dmPelsWidth;
         snapshot.Display.HeightPixels = dm.dmPelsHeight;
         snapshot.Display.RefreshRateHertz = dm.dmDisplayFrequency;
+        var validRefresh = dm.dmDisplayFrequency > 1;
+        MeasurementTraceRecorder.Record(
+            snapshot,
+            "refresh_rate",
+            nameof(DisplayCollector),
+            "EnumDisplaySettings",
+            validRefresh,
+            validRefresh ? $"{dm.dmDisplayFrequency:0}Hz" : "--",
+            $"width={dm.dmPelsWidth}; height={dm.dmPelsHeight}; rawFrequency={dm.dmDisplayFrequency}; vrrSupported=not probed; vrrActive=not probed",
+            validRefresh
+                ? "Display refresh rate from Windows display settings."
+                : "Display refresh raw value is 0 or 1, which Windows treats as hardware default rather than a literal Hz value.",
+            "EnumDisplaySettings(DEVMODE.dmDisplayFrequency)",
+            dm.dmDisplayFrequency.ToString(),
+            "Hz or hardware-default sentinel",
+            "accept only values > 1",
+            validRefresh ? dm.dmDisplayFrequency.ToString() : "--",
+            "Hz",
+            validRefresh ? TelemetryValidationState.Verified : TelemetryValidationState.Rejected,
+            validRefresh ? "Windows returned a concrete refresh rate." : "Raw refresh 0/1 is a sentinel and is hidden.");
 
         return Task.CompletedTask;
     }

@@ -631,11 +631,14 @@ Project rule: "NEVER inject DLLs into game processes. NEVER hook DirectX/Vulkan.
 
 ### How we detect frame generation
 
-**PresentMon ETW.** PresentMon captures ETW (Event Tracing for Windows) present events from OUTSIDE the game process. In modern PresentMon builds (v2.5.0+), frame classification is exposed via `FrameType`, and the capture service consumes that output rather than inventing its own heuristic. It analyzes event patterns to distinguish:
+Superseded note, 2026-04-09:
+The current repo implementation does not use the heuristic described below as shipped behavior. HHA Pulse now has a detect-only path in the capture service that sets `HybridPresentDetected` from explicit Intel-PresentMon ETW evidence only, with no derived FPS math and no HUD frame-gen metric.
+
+**PresentMon ETW.** PresentMon captures ETW (Event Tracing for Windows) present events from OUTSIDE the game process. In modern PresentMon builds, frame classification is exposed via `FrameType`, and the capture service consumes that output rather than inventing its own heuristic. It analyzes event patterns to distinguish:
 - App/rendered frames (the game engine's actual output)
 - Displayed/presented frames (what the display shows, including generated frames)
 
-When displayed FPS consistently exceeds app FPS, frame generation is active.
+Historical heuristic only. This is **not** the shipped rule in the current repo state.
 
 ### Vendor SDKs cannot detect frame generation
 

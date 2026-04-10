@@ -52,6 +52,23 @@ public static class TelemetryContractGuard
         snapshot.Dependencies.SharedAssemblyMvid = info.ModuleVersionId;
         snapshot.Dependencies.TelemetryContractValid = info.IsValid;
         snapshot.Dependencies.TelemetryContractStatusMessage = info.StatusMessage;
+        MeasurementTraceRecorder.Record(
+            snapshot,
+            "telemetry_contract",
+            nameof(TelemetryContractGuard),
+            "HHAPulse.Shared assembly metadata",
+            info.IsValid,
+            info.IsValid ? "valid" : "invalid",
+            $"path={info.AssemblyPath}; version={info.AssemblyVersion}; mvid={info.ModuleVersionId}",
+            info.StatusMessage,
+            "Reflection over TelemetrySnapshot/GpuMetrics contract",
+            info.ModuleVersionId,
+            "MVID",
+            "required property presence check",
+            info.IsValid.ToString(),
+            "bool",
+            info.IsValid ? TelemetryValidationState.Verified : TelemetryValidationState.Rejected,
+            info.StatusMessage);
     }
 
     public static void Log(TelemetryContractInfo info)

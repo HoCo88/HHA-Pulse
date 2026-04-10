@@ -9,7 +9,7 @@ public static class OverlayPresetCatalog
     public const string ZeroPointOneLow = "zero_point_one_low";
     public const string FrameTime = "frametime";
     public const string FrameGenFps = "framegen_fps";
-    public const string InputLatency = "input_latency";
+    public const string InputLatency = "input_latency"; // Reserved until real input-to-display latency exists.
 
     // ── CPU ──
     public const string CpuUsage = "cpu";
@@ -76,7 +76,6 @@ public static class OverlayPresetCatalog
         ZeroPointOneLow,
         FrameTime,
         FrameGenFps,
-        InputLatency,
         CpuUsage,
         CpuPower,
         GpuUsage,

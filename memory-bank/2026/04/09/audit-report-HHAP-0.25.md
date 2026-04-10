@@ -4,6 +4,9 @@
 **Audited by:** 10 independent verification agents + manual code review
 **Scope:** All new code from GPU telemetry overhaul + all existing data pipelines + research MD fact-check
 
+Superseding note, 2026-04-09:
+The local repo implementation now treats frame generation as detect-only. `HybridPresentDetected` is evidence-based, `MetricFlags.FrameGen` remains unset, and numeric frame-gen FPS is intentionally not shipped until hardware validation proves the runtime path.
+
 ---
 
 ## EXECUTIVE SUMMARY
@@ -193,6 +196,10 @@
 ---
 
 ## PART 6: RESEARCH MD CORRECTIONS NEEDED
+
+Superseded note, 2026-04-09:
+- The frame-generation items below predate the local detect-only implementation.
+- Current repo truth: `HybridPresentDetected` is evidence-based, `MetricFlags.FrameGen` remains unset, and numeric frame-gen FPS is intentionally not shipped until hardware validation proves the runtime path.
 
 Update `memory-bank/2026/04/09/gpu-telemetry-investigation.md`:
 

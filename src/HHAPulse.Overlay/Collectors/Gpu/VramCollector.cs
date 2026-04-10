@@ -76,6 +76,25 @@ public sealed class VramCollector : IMetricCollector
                 snapshot.AvailableMetrics |= MetricFlags.Vram;
                 snapshot.Gpu.VramTotalMegabytes = totalBytes / (1024.0 * 1024.0);
                 snapshot.Gpu.VramUsedMegabytes = info.CurrentUsage / (1024.0 * 1024.0);
+                MeasurementTraceRecorder.Record(
+                    snapshot,
+                    "vram",
+                    nameof(VramCollector),
+                    "DXGI QueryVideoMemoryInfo",
+                    true,
+                    $"{snapshot.Gpu.VramUsedMegabytes / 1024:0.0}/{snapshot.Gpu.VramTotalMegabytes / 1024:0.0}G",
+                    $"currentUsageBytes={info.CurrentUsage}; budgetBytes={info.Budget}; dedicatedBytes={desc.DedicatedVideoMemory}; selectedTotalBytes={totalBytes}",
+                    desc.DedicatedVideoMemory > 256UL * 1024UL * 1024UL
+                        ? "VRAM total from DXGI adapter dedicated memory; usage from local memory current usage."
+                        : "VRAM total from DXGI local memory budget; usage from local memory current usage.",
+                    "IDXGIAdapter3.QueryVideoMemoryInfo + DXGI_ADAPTER_DESC1",
+                    $"usage={info.CurrentUsage}; budget={info.Budget}; dedicated={desc.DedicatedVideoMemory}",
+                    "bytes",
+                    "bytes / 1024 / 1024",
+                    $"usedMb={snapshot.Gpu.VramUsedMegabytes:0.000}; totalMb={snapshot.Gpu.VramTotalMegabytes:0.000}",
+                    "MB",
+                    TelemetryValidationState.Verified,
+                    "DXGI returned local memory usage; total is dedicated memory when available, otherwise local budget.");
             }
             finally
             {
