@@ -22,5 +22,6 @@ public enum MetricFlags : ulong
     Display = 1UL << 14,
     Fan = 1UL << 15,
     SystemPower = 1UL << 16,
-    GpuClock = 1UL << 17
+    GpuClock = 1UL << 17,
+    DeviceTemperature = 1UL << 18
 }

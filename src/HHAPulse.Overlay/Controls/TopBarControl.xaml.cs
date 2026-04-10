@@ -20,8 +20,7 @@ public sealed partial class TopBarControl : UserControl
     private static readonly string[] FpsMetrics =
     {
         OverlayPresetCatalog.Fps, OverlayPresetCatalog.AvgFps,
-        OverlayPresetCatalog.OnePercentLow, OverlayPresetCatalog.ZeroPointOneLow,
-        OverlayPresetCatalog.FrameGenFps
+        OverlayPresetCatalog.OnePercentLow, OverlayPresetCatalog.ZeroPointOneLow
     };
 
     private static readonly string[] FrametimeMetrics =
@@ -31,7 +30,7 @@ public sealed partial class TopBarControl : UserControl
 
     private static readonly string[] CpuMetrics =
     {
-        OverlayPresetCatalog.CpuUsage, OverlayPresetCatalog.CpuPower
+        OverlayPresetCatalog.CpuUsage, OverlayPresetCatalog.CpuTemp, OverlayPresetCatalog.CpuPower
     };
 
     // GPU + VRAM grouped together — no separate VRAM label needed.
@@ -39,7 +38,6 @@ public sealed partial class TopBarControl : UserControl
     {
         OverlayPresetCatalog.GpuUsage, OverlayPresetCatalog.GpuTemp,
         OverlayPresetCatalog.GpuClock, OverlayPresetCatalog.GpuPower,
-        OverlayPresetCatalog.GpuFan,
         OverlayPresetCatalog.Vram
     };
 
@@ -50,6 +48,7 @@ public sealed partial class TopBarControl : UserControl
 
     private static readonly string[] SystemMetrics =
     {
+        OverlayPresetCatalog.DeviceTemp, OverlayPresetCatalog.GpuFan,
         OverlayPresetCatalog.RefreshRate, OverlayPresetCatalog.Battery,
         OverlayPresetCatalog.TotalPower
     };
@@ -61,7 +60,6 @@ public sealed partial class TopBarControl : UserControl
         [OverlayPresetCatalog.AvgFps] = "AVG",
         [OverlayPresetCatalog.OnePercentLow] = "1%",
         [OverlayPresetCatalog.ZeroPointOneLow] = "0.1%",
-        [OverlayPresetCatalog.FrameGenFps] = "FG",
     };
 
     // System metric icons (Segoe Fluent Icons).
@@ -86,7 +84,6 @@ public sealed partial class TopBarControl : UserControl
     private static readonly SolidColorBrush AvgGreen = new(Color.FromArgb(200, 0, 200, 100));
     private static readonly SolidColorBrush OnePercentYellow = new(Color.FromArgb(255, 255, 200, 60));
     private static readonly SolidColorBrush ZeroPointOneOrange = new(Color.FromArgb(255, 255, 120, 60));
-    private static readonly SolidColorBrush FrameGenLime = new(Color.FromArgb(255, 180, 255, 80));
     private static readonly SolidColorBrush CpuCyan = new(Color.FromArgb(255, 0, 200, 255));
     private static readonly SolidColorBrush GpuRed = new(Color.FromArgb(255, 255, 107, 107));
     private static readonly SolidColorBrush TempOrange = new(Color.FromArgb(255, 255, 140, 80));
@@ -133,17 +130,14 @@ public sealed partial class TopBarControl : UserControl
 
     public void ApplyOpacity(double bgOpacity, double newTextOpacity)
     {
-        if (bgOpacity <= 0)
-        {
-            // Fully transparent — no background, just floating text.
-            // Use alpha=1 (not 0) to avoid the black DWM compositor frame.
-            RootBorder.Background = new SolidColorBrush(Color.FromArgb(1, 0, 0, 0));
-        }
-        else
-        {
-            byte a = (byte)Math.Clamp(bgOpacity * 255, 1, 255);
-            RootBorder.Background = new SolidColorBrush(Color.FromArgb(a, 16, 16, 32));
-        }
+        // With TransparentBackdrop installed on the Window (see
+        // TransparentWindowHelper.MakeOverlay step 0), the SwapChain clear
+        // color is fully transparent, so alpha=0 on the XAML RootBorder
+        // background now composites through to the desktop correctly. No
+        // alpha floor workaround is needed — a single clamp(0..255) path
+        // covers fully-transparent through fully-opaque in one branch.
+        byte a = (byte)Math.Clamp(bgOpacity * 255, 0, 255);
+        RootBorder.Background = new SolidColorBrush(Color.FromArgb(a, 16, 16, 32));
 
         textOpacity = newTextOpacity;
         foreach (var vb in valueBlocks.Values) vb.Opacity = textOpacity;
@@ -172,8 +166,7 @@ public sealed partial class TopBarControl : UserControl
         DispatcherQueue.TryEnqueue(() =>
         {
             if (e.PropertyName is nameof(OverlayViewModel.TopBarMetricIds)
-                or nameof(OverlayViewModel.ActivePreset)
-                or nameof(OverlayViewModel.FrameGenDetected))
+                or nameof(OverlayViewModel.ActivePreset))
             {
                 RebuildMetricViews();
                 return;
@@ -211,7 +204,6 @@ public sealed partial class TopBarControl : UserControl
             if (viewModel is null) { Notify(1, 200); return; }
 
             var ids = new HashSet<string>(viewModel.TopBarMetricIds, StringComparer.OrdinalIgnoreCase);
-            if (viewModel.FrameGenDetected) ids.Add(OverlayPresetCatalog.FrameGenFps);
 
             if (ids.Count == 0)
             {
@@ -339,6 +331,7 @@ public sealed partial class TopBarControl : UserControl
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, Margin = new Thickness(5, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
         cell.Children.Add(Label(lbl, LabelFontSize));
         var vb = Txt("--fps", FpsColor(id), ValueFontSize, FontWeights.SemiBold);
+        vb.MinWidth = ValueMinWidth(id);
         valueBlocks[id] = vb;
         cell.Children.Add(vb);
         return cell;
@@ -365,6 +358,7 @@ public sealed partial class TopBarControl : UserControl
             var clr = FtTeal;
             panel.Children.Add(Label(lbl, LabelFontSize));
             var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
+            vb.MinWidth = ValueMinWidth(id);
             vb.Margin = new Thickness(3, 0, 6, 0);
             valueBlocks[id] = vb;
             panel.Children.Add(vb);
@@ -388,6 +382,7 @@ public sealed partial class TopBarControl : UserControl
         {
             var clr = HwColor(id, primary);
             var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
+            vb.MinWidth = ValueMinWidth(id);
             vb.Margin = new Thickness(2, 0, 2, 0);
             valueBlocks[id] = vb;
             cell.Children.Add(vb);
@@ -411,6 +406,7 @@ public sealed partial class TopBarControl : UserControl
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
         cell.Children.Add(Label("RAM", LabelFontSize));
         var vb = Txt("--", RamPurple, ValueFontSize, FontWeights.SemiBold);
+        vb.MinWidth = ValueMinWidth(OverlayPresetCatalog.Ram);
         vb.Margin = new Thickness(2, 0, 0, 0);
         valueBlocks[OverlayPresetCatalog.Ram] = vb;
         cell.Children.Add(vb);
@@ -425,7 +421,21 @@ public sealed partial class TopBarControl : UserControl
         if (active.Length == 0) return null;
 
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
-        foreach (var id in active)
+        var deviceMetrics = active.Where(id => id is OverlayPresetCatalog.DeviceTemp or OverlayPresetCatalog.GpuFan).ToArray();
+        if (deviceMetrics.Length > 0)
+        {
+            cell.Children.Add(Label("SYS", LabelFontSize));
+            foreach (var id in deviceMetrics)
+            {
+                var vb = Txt("--", HwColor(id, HzSilver), ValueFontSize, FontWeights.SemiBold);
+                vb.MinWidth = ValueMinWidth(id);
+                vb.Margin = new Thickness(2, 0, 2, 0);
+                valueBlocks[id] = vb;
+                cell.Children.Add(vb);
+            }
+        }
+
+        foreach (var id in active.Where(id => id is not OverlayPresetCatalog.DeviceTemp and not OverlayPresetCatalog.GpuFan))
         {
             var (glyph, isIcon) = SystemLabels.GetValueOrDefault(id, (id, false));
             var lbl = isIcon ? IconLabel(glyph, IconFontSize) : Label(glyph, LabelFontSize);
@@ -433,6 +443,7 @@ public sealed partial class TopBarControl : UserControl
 
             var clr = SysColor(id);
             var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
+            vb.MinWidth = ValueMinWidth(id);
             vb.Margin = new Thickness(2, 0, 5, 0);
             valueBlocks[id] = vb;
             cell.Children.Add(vb);
@@ -450,11 +461,8 @@ public sealed partial class TopBarControl : UserControl
         foreach (var pair in valueBlocks)
             pair.Value.Text = MetricFormatterCompact.FormatValue(pair.Key, snap);
 
-        if (!rebuilding)
-        {
-            var w = Measure();
-            if (w != EstimatedWidth) Notify(RowCount, w);
-        }
+        // Value cells have fixed MinWidth, so normal telemetry changes should
+        // not resize or reposition the overlay HWND.
     }
 
     private void UpdateFpsGraph()
@@ -549,16 +557,16 @@ public sealed partial class TopBarControl : UserControl
         OverlayPresetCatalog.AvgFps => AvgGreen,
         OverlayPresetCatalog.OnePercentLow => OnePercentYellow,
         OverlayPresetCatalog.ZeroPointOneLow => ZeroPointOneOrange,
-        OverlayPresetCatalog.FrameGenFps => FrameGenLime,
         _ => FpsGreen
     };
 
     private static SolidColorBrush HwColor(string id, SolidColorBrush primary) => id switch
     {
-        OverlayPresetCatalog.GpuTemp => TempOrange,
+        OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.CpuTemp => TempOrange,
         OverlayPresetCatalog.GpuClock => HzSilver,
         OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.CpuPower => PowerYellow,
         OverlayPresetCatalog.GpuFan => HzSilver,
+        OverlayPresetCatalog.DeviceTemp => TempOrange,
         OverlayPresetCatalog.Vram => RamPurple,
         _ => primary
     };
@@ -569,5 +577,23 @@ public sealed partial class TopBarControl : UserControl
         OverlayPresetCatalog.RefreshRate => HzSilver,
         OverlayPresetCatalog.TotalPower => PowerYellow,
         _ => new SolidColorBrush(Colors.White)
+    };
+
+    internal static double ValueMinWidth(string id) => id switch
+    {
+        OverlayPresetCatalog.Fps => 72,
+        OverlayPresetCatalog.AvgFps => 72,
+        OverlayPresetCatalog.OnePercentLow => 72,
+        OverlayPresetCatalog.ZeroPointOneLow => 72,
+        OverlayPresetCatalog.FrameTime => 68,
+        OverlayPresetCatalog.CpuUsage or OverlayPresetCatalog.GpuUsage => 42,
+        OverlayPresetCatalog.CpuTemp or OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.DeviceTemp => 42,
+        OverlayPresetCatalog.CpuPower or OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.TotalPower => 54,
+        OverlayPresetCatalog.GpuClock => 72,
+        OverlayPresetCatalog.GpuFan => 96,
+        OverlayPresetCatalog.Ram or OverlayPresetCatalog.Vram => 92,
+        OverlayPresetCatalog.Battery => 144,
+        OverlayPresetCatalog.RefreshRate => 28,
+        _ => 48
     };
 }

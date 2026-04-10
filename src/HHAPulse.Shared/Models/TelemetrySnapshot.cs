@@ -269,6 +269,41 @@ public sealed class DependencyState
 
     [Key(26)]
     public string ComponentPowerStatusMessage { get; set; } = string.Empty;
+
+    // DRAM RAPL rail (Intel client SKUs).
+    // Populated by DramPowerEmiCollector when the Intel Energy Meter
+    // Interface exposes a "RAPL_Package<N>_DRAM" channel. Diagnostics
+    // use it as a component rail only; it is not whole-device power.
+
+    [Key(27)]
+    public double DramPowerWatts { get; set; }
+
+    [Key(28)]
+    public string DramPowerSource { get; set; } = string.Empty;
+
+    [Key(29)]
+    public string DramPowerStatusMessage { get; set; } = string.Empty;
+
+    // Device/chassis fan readings. Existing Gpu.FanRpm remains populated
+    // for wire compatibility with older consumers that only know a single
+    // fan field.
+    [Key(30)]
+    public int[] FanRpms { get; set; } = Array.Empty<int>();
+
+    [Key(31)]
+    public string DeviceFanSource { get; set; } = string.Empty;
+
+    [Key(32)]
+    public string DeviceFanStatusMessage { get; set; } = string.Empty;
+
+    [Key(33)]
+    public double DeviceTemperatureCelsius { get; set; }
+
+    [Key(34)]
+    public string DeviceTemperatureSource { get; set; } = string.Empty;
+
+    [Key(35)]
+    public string DeviceTemperatureStatusMessage { get; set; } = string.Empty;
 }
 
 [MessagePackObject]

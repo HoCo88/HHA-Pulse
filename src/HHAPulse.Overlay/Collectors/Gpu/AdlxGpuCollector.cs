@@ -106,8 +106,11 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
         {
             snapshot.AvailableMetrics |= MetricFlags.Fan;
             snapshot.Gpu.FanRpm = reading.FanRpm;
+            snapshot.Dependencies.FanRpms = new[] { reading.FanRpm };
+            snapshot.Dependencies.DeviceFanSource = "ADLX";
+            snapshot.Dependencies.DeviceFanStatusMessage = "Device fan tachometer from AMD ADLX GPUFanSpeed.";
             snapshot.Dependencies.GpuFanSource = "ADLX";
-            snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from AMD ADLX.";
+            snapshot.Dependencies.GpuFanStatusMessage = snapshot.Dependencies.DeviceFanStatusMessage;
             MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(AdlxGpuCollector), "ADLX GPUFanSpeed", true, $"{reading.FanRpm}rpm", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuFanStatusMessage, "IADLXGPUMetrics::GPUFanSpeed", reading.FanRpm.ToString(), "rpm", "ADLX reports RPM directly", reading.FanRpm.ToString(), "rpm", TelemetryValidationState.HardwareValidationPending, "ADLX returned a positive fan RPM; handheld hardware validation still pending.");
         }
 
@@ -182,6 +185,8 @@ public sealed class AdlxGpuCollector : IMetricCollector, IDisposable
         // 4 bytes padding (natural alignment for next double)
         public double ClockMegahertz;      // offset 24
         public uint ValidFlags;            // offset 32
-        public uint PowerSourceKind;        // offset 36
+        public uint PowerSourceKind;       // offset 36
+        public uint TemperatureSourceKind; // offset 40
+        public uint IgclFieldSupportMask;  // offset 44
     }
 }

@@ -292,8 +292,11 @@ public sealed class GpuPerfDataCollector : IMetricCollector, IDisposable
             {
                 snapshot.AvailableMetrics |= MetricFlags.Fan;
                 snapshot.Gpu.FanRpm = (int)perfData.FanRPM;
+                snapshot.Dependencies.FanRpms = new[] { snapshot.Gpu.FanRpm };
+                snapshot.Dependencies.DeviceFanSource = "D3DKMT fallback";
+                snapshot.Dependencies.DeviceFanStatusMessage = "Device fan tachometer from D3DKMT fallback.";
                 snapshot.Dependencies.GpuFanSource = "D3DKMT fallback";
-                snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from D3DKMT fallback.";
+                snapshot.Dependencies.GpuFanStatusMessage = snapshot.Dependencies.DeviceFanStatusMessage;
                 MeasurementTraceRecorder.Record(
                     snapshot,
                     "gpu_fan",

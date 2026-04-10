@@ -12,10 +12,16 @@ The overlay owns foreground-window detection in the user session and sends the t
 ## Current Telemetry Truth Update (2026-04-10)
 
 - `input_latency` is a reserved id only and is hidden from the HUD, picker, status cards, and traces until a real input-to-display latency source exists.
-- `total_power` means whole-device battery discharge watts only. CPU+GPU sum is now diagnostics-only because it excludes display, memory, SSD, fans, radios, and platform losses.
+- `total_power` / Device Power means whole-device battery discharge watts only. On AC it returns `--` unless a real platform/whole-device watt source is accepted. CPU+GPU and RAPL PKG+DRAM component sums are diagnostics-only because they exclude display, SSD, fans, radios, and platform losses.
 - Battery telemetry now uses `CallNtPowerInformation(SystemBatteryState)` plus battery class `IOCTL_BATTERY_QUERY_INFORMATION` when absolute mWh units are reported; relative capacity units are rejected for Wh conversion.
 - AMD GPU power now prefers ADLX `GPUTotalBoardPower` and falls back to `GPUPower`; Intel IGCL remains energy/time watts; NVIDIA NVML remains milliwatts/1000.
 - D3DKMT `PowerRaw` remains rejected provenance only because it is a TDP ratio, not watts.
+- Intel/UMA iGPU VRAM is visible now: PDH GPU memory counters provide used memory, DXGI provides shared capacity/budget, and the 128 MB dedicated aperture is diagnostic-only.
+- Device/chassis fan is a first-class telemetry path. On the MSI test machine it is read by the elevated capture service from `root\WMI:MSI_ACPI.Get_Fan` with read-only calls and displayed as `Fan`, not GPU-only fan.
+- CPU temperature now comes from the elevated capture service via `MSAcpi_ThermalZoneTemperature`.
+- Device/SoC temperature now comes from the elevated capture service via `MSI_ACPI.Get_Temperature` subfeature `0x00` and remains explicitly separate from `gpu_temp`.
+- FPS target routing holds the last valid game target during overlay/Steam/Game Bar foreground switches, and AVG FPS uses a 5-second rolling window.
+- Intel Lunar Lake / Arc 140V GPU temperature is still unavailable from proved Intel/D3DKMT paths. Do not infer it from CPU temperature or MSI device temperature bytes.
 - `AppFramesPerSecond`, `PresentFramesPerSecond`, and `DisplayFramesPerSecond` stay in the MessagePack contract but are zeroed/not-computed until a real PresentMon-grade split exists.
 - Missing runtime provenance is reported as `unknown collector`; diagnostics no longer guess API names from hardcoded fallback literals.
 - The diagnostics label is "Last observed boundary state"; widget client count is not a heartbeat.
@@ -26,6 +32,7 @@ The overlay owns foreground-window detection in the user session and sends the t
 |--------|--------|-----------|-----------|
 | FPS / frametime / 1% / 0.1% lows | ETW `HHAPulse_FrameCapture` | `CaptureServiceCollector` | Service (elevated) |
 | Frame generation detection | Intel-PresentMon ETW evidence via `HybridPresentDetected` (diagnostic-only) | `CaptureServiceCollector` | Service (elevated) |
+| CPU temperature | WMI `MSAcpi_ThermalZoneTemperature` | `CaptureServiceCollector` | Service (elevated) |
 | CPU usage | `GetSystemTimes` delta | `CpuUsageCollector` | User |
 | GPU usage | PDH `\GPU Engine(*engtype_3D*)\Utilization Percentage` | `GpuUsageCollector` | User |
 | GPU temp / fan (fallback) | `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll | `GpuPerfDataCollector` | User (no elevation) |
@@ -34,7 +41,9 @@ The overlay owns foreground-window detection in the user session and sends the t
 | GPU temp / power / fan / clock (NVIDIA) | NvAPIWrapper.Net (NuGet) + NVML P/Invoke → `nvml.dll` | `NvApiGpuCollector` | User |
 | CPU power (watts) | Windows EMI device IOCTLs (picowatt-hour energy deltas) | `CpuPowerCollector` | User |
 | RAM | `GlobalMemoryStatusEx` | `RamCollector` | User |
-| VRAM | Vortice.DXGI `IDXGIAdapter3.QueryVideoMemoryInfo` | `VramCollector` | User |
+| VRAM | PDH GPU memory counters + DXGI `IDXGIAdapter3.QueryVideoMemoryInfo` / `DXGI_ADAPTER_DESC1` | `VramCollector` | User |
+| Device/chassis fan (MSI) | read-only WMI `root\WMI:MSI_ACPI.Get_Fan` | `CaptureServiceCollector` | Service (elevated) |
+| Device/SoC temperature (MSI) | read-only WMI `root\WMI:MSI_ACPI.Get_Temperature` subfeature `0x00` | `CaptureServiceCollector` | Service (elevated) |
 | Battery / charge / discharge | `CallNtPowerInformation` | `BatteryCollector` | User |
 | Display Hz | `EnumDisplaySettings` | `DisplayCollector` | User |
 
@@ -53,9 +62,8 @@ Native bridge: `HHAPulse.Native.dll` exports flat C functions for AMD and Intel.
 
 ### Not yet implemented (show `--`)
 
-- CPU temperature: needs MSR access (PawnIO) or vendor-specific API — no collector yet.
 - Input latency: needs PresentMon ETW parsing — not in capture service yet.
-- System total power: falls back to battery discharge watts; CPU+GPU sum only if both component watt readings are real.
+- System total power / Device Power: battery discharge watts when unplugged; on AC, show `--` unless a real platform/whole-device watt source is accepted. Component sums remain diagnostics-only.
 
 Note: numeric frame-gen FPS is not implemented. The current runtime only exposes diagnostic detection via `HybridPresentDetected`; `MetricFlags.FrameGen` remains unset.
 
@@ -69,7 +77,7 @@ GPU vendor and type are detected via `DXGI_ADAPTER_DESC1`:
 | `DedicatedVideoMemory` | ~128MB | 8GB+ | 512MB–8GB | 4–24GB | 4–24GB |
 
 - **Vendor IDs**: `0x8086` = Intel, `0x1002` = AMD, `0x10DE` = NVIDIA (confirmed via [MS DXGI docs](https://learn.microsoft.com/en-us/windows/win32/api/dxgi/ns-dxgi-dxgi_adapter_desc1)).
-- **VRAM visibility**: Intel iGPU (`VendorId == 0x8086 && DedicatedVideoMemory <= 256MB`) → VRAM metric hidden (no real VRAM, shared system memory already shown by RAM). All other GPUs → VRAM shown.
+- **VRAM visibility**: Intel/UMA iGPU (`VendorId == 0x8086 && DedicatedVideoMemory <= 256MB`) is shown as shared/system-backed GPU memory. Used memory comes from PDH GPU memory counters, capacity/budget from DXGI. The small dedicated aperture (for example 128 MB on Arc 140V) is diagnostic-only, not capacity.
 - **Caveat**: Intel iGPUs can report non-zero `DedicatedVideoMemory` ([wgpu issue #683](https://github.com/gfx-rs/wgpu/issues/683)). The VendorId check prevents false positives. A more robust method would be `D3D12_FEATURE_DATA_ARCHITECTURE.UMA` flag but requires creating a D3D12 device.
 
 ## D3DKMT GPU Perf Data
@@ -92,7 +100,7 @@ Component-grouped HUD bar. Metrics grouped by hardware component:
 - **CPU**: `CPU 45% 12W` — usage + power inline under one label.
 - **GPU**: `GPU 85% 72°C 2400rpm 4.2/8G` — usage + temp + fan + VRAM under one label. GPU watts stay hidden until real.
 - **RAM**: `RAM 14.3/31.5G`.
-- **System**: battery icon + value, Hz icon + value (Segoe Fluent Icons).
+- **System**: `SYS` cluster for device/SoC temp and chassis fan, plus battery icon + value and Hz icon + value (Segoe Fluent Icons).
 
 **Row logic**: Always tries single row first. Measures actual rendered width. Splits to two rows (Row 1: performance, Row 2: hardware) only if content exceeds screen width. No arbitrary thresholds.
 
@@ -100,8 +108,8 @@ Component-grouped HUD bar. Metrics grouped by hardware component:
 
 - **Minimal**: FPS + Battery (2 metrics).
 - **Standard**: FPS + 1% low + Frametime + CPU + GPU + Battery (6 metrics).
-- **Tuner**: All metrics with real data sources and meaningful display units (11 metrics).
-- **Custom**: user toggles individual metrics from all 19 known IDs.
+- **Tuner**: All metrics with real data sources and meaningful display units (14 metrics).
+- **Custom**: user toggles individual metrics from all 20 known IDs.
 - **Off**: hidden.
 
 Cycle: Minimal → Standard → Tuner → Off → Minimal (Custom is manual only).

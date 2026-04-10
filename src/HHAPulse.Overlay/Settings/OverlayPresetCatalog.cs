@@ -8,11 +8,11 @@ public static class OverlayPresetCatalog
     public const string OnePercentLow = "one_percent_low";
     public const string ZeroPointOneLow = "zero_point_one_low";
     public const string FrameTime = "frametime";
-    public const string FrameGenFps = "framegen_fps";
     public const string InputLatency = "input_latency"; // Reserved until real input-to-display latency exists.
 
     // ── CPU ──
     public const string CpuUsage = "cpu";
+    public const string CpuTemp = "cpu_temp";
     public const string CpuPower = "cpu_power";
 
     // ── GPU ──
@@ -28,6 +28,7 @@ public static class OverlayPresetCatalog
     public const string TotalPower = "total_power";
     public const string Battery = "battery";
     public const string RefreshRate = "refresh_rate";
+    public const string DeviceTemp = "device_temp";
 
     // ── Presets ──
     // Minimal: glanceable essentials.
@@ -55,9 +56,11 @@ public static class OverlayPresetCatalog
         OnePercentLow,
         FrameTime,
         CpuUsage,
+        CpuTemp,
         GpuUsage,
         GpuTemp,
         GpuClock,
+        DeviceTemp,
         GpuFan,
         Ram,
         Vram,
@@ -75,8 +78,8 @@ public static class OverlayPresetCatalog
         OnePercentLow,
         ZeroPointOneLow,
         FrameTime,
-        FrameGenFps,
         CpuUsage,
+        CpuTemp,
         CpuPower,
         GpuUsage,
         GpuTemp,
@@ -86,6 +89,7 @@ public static class OverlayPresetCatalog
         Ram,
         Vram,
         TotalPower,
+        DeviceTemp,
         RefreshRate,
         Battery
     };

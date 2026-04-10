@@ -37,9 +37,10 @@ public static class MetricFormatter
             OverlayPresetCatalog.GpuTemp => FormatAvailable(snapshot, MetricFlags.GpuTemperature, $"GPU {Temperature(snapshot.Gpu.TemperatureCelsius)}", "GPU --"),
             OverlayPresetCatalog.GpuClock => FormatAvailable(snapshot, MetricFlags.GpuClock, $"GPU {snapshot.Gpu.ClockMegahertz:0} MHz", "GPU --"),
             OverlayPresetCatalog.GpuPower => FormatAvailable(snapshot, MetricFlags.GpuPower, $"GPU {Watts(snapshot.Gpu.PowerWatts)}", "GPU --"),
-            OverlayPresetCatalog.GpuFan => FormatAvailable(snapshot, MetricFlags.Fan, $"FAN {snapshot.Gpu.FanRpm:0} RPM", "FAN --"),
+            OverlayPresetCatalog.GpuFan => FormatAvailable(snapshot, MetricFlags.Fan, $"FAN {MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuFan, snapshot)}", "FAN --"),
             OverlayPresetCatalog.Ram => FormatAvailable(snapshot, MetricFlags.Memory, $"RAM {snapshot.Memory.RamUsedMegabytes:0}/{snapshot.Memory.RamTotalMegabytes:0} MB", "RAM --"),
             OverlayPresetCatalog.Vram => FormatAvailable(snapshot, MetricFlags.Vram, $"VRAM {snapshot.Gpu.VramUsedMegabytes:0}/{snapshot.Gpu.VramTotalMegabytes:0} MB", "VRAM --"),
+            OverlayPresetCatalog.DeviceTemp => FormatAvailable(snapshot, MetricFlags.DeviceTemperature, $"SYS {Temperature(snapshot.Dependencies.DeviceTemperatureCelsius)}", "SYS --"),
             OverlayPresetCatalog.RefreshRate => FormatAvailable(snapshot, MetricFlags.Display, $"Hz {RefreshRate(snapshot.Display.RefreshRateHertz)}", "Hz --"),
             _ => metricId
         };

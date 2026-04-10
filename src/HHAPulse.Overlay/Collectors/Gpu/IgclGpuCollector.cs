@@ -16,6 +16,7 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
     private bool _loggedFailure;
     private bool _disposed;
     private bool _firstTick = true;
+    private bool _loggedValidFlagsDiagnostic;
 
     public string Name => "GPU Sensors (IGCL)";
 
@@ -66,13 +67,59 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
         snapshot.Dependencies.GpuTelemetrySource = "IGCL";
         snapshot.Dependencies.GpuTelemetryStatusMessage = "IGCL GPU telemetry initialized.";
 
+        // One-shot diagnostic: on the first successful read, log which IGCL
+        // telemetry fields the native layer actually populated AND which
+        // ctl_power_telemetry_t.*bSupported flags the driver reported as
+        // true. The extended diagnostic is essential because on Lunar Lake
+        // Arc 140V the primary fields (gpuCurrentTemperature, gpuEnergyCounter,
+        // fanSpeed) return bSupported=false, but the secondary fields
+        // (gpuVrTemp, saVrTemp, totalCardEnergyCounter) might still work.
+        // The log shows which specific secondary path produced the reading.
+        if (!_loggedValidFlagsDiagnostic)
+        {
+            _loggedValidFlagsDiagnostic = true;
+            var present = new List<string>();
+            if ((reading.ValidFlags & ValidFlagTemp) != 0) present.Add("TEMP");
+            if ((reading.ValidFlags & ValidFlagPower) != 0) present.Add("POWER");
+            if ((reading.ValidFlags & ValidFlagFan) != 0) present.Add("FAN");
+            if ((reading.ValidFlags & ValidFlagClock) != 0) present.Add("CLOCK");
+            var presentList = present.Count > 0 ? string.Join("+", present) : "<none>";
+
+            var supportedFields = new List<string>();
+            if ((reading.IgclFieldSupportMask & IgclFieldGpuCurrentTemp) != 0) supportedFields.Add("gpuCurrentTemperature");
+            if ((reading.IgclFieldSupportMask & IgclFieldGpuVrTemp) != 0) supportedFields.Add("gpuVrTemp");
+            if ((reading.IgclFieldSupportMask & IgclFieldSaVrTemp) != 0) supportedFields.Add("saVrTemp");
+            if ((reading.IgclFieldSupportMask & IgclFieldGpuEnergyCounter) != 0) supportedFields.Add("gpuEnergyCounter");
+            if ((reading.IgclFieldSupportMask & IgclFieldTotalCardEnergy) != 0) supportedFields.Add("totalCardEnergyCounter");
+            if ((reading.IgclFieldSupportMask & IgclFieldGpuCurrentClock) != 0) supportedFields.Add("gpuCurrentClockFrequency");
+            if ((reading.IgclFieldSupportMask & IgclFieldGpuEffectiveClock) != 0) supportedFields.Add("gpuEffectiveClock");
+            if ((reading.IgclFieldSupportMask & IgclFieldFanSpeedAny) != 0) supportedFields.Add("fanSpeed[*]");
+            if ((reading.IgclFieldSupportMask & IgclFieldDedicatedTempApi) != 0) supportedFields.Add("ctlTemperatureGetState");
+            if ((reading.IgclFieldSupportMask & IgclFieldDedicatedFanApi) != 0) supportedFields.Add("ctlFanGetState");
+            var supportedList = supportedFields.Count > 0 ? string.Join(", ", supportedFields) : "<none>";
+
+            var tempSourceName = reading.TemperatureSourceKind switch
+            {
+                TempSourceGpuCurrent => "gpuCurrentTemperature",
+                TempSourceGpuVr => "gpuVrTemp",
+                TempSourceSaVr => "saVrTemp",
+                TempSourceDedicatedSensorEnum => "ctlTemperatureGetState",
+                _ => "<none>"
+            };
+
+            AppLogger.Info($"IGCL: First successful read. validFlags=0x{reading.ValidFlags:X2} present=[{presentList}] supportMask=0x{reading.IgclFieldSupportMask:X4} bSupported=[{supportedList}] tempSource={tempSourceName} rawTemp={reading.TemperatureCelsius:0.00}C rawPower={reading.PowerWatts:0.000}W rawFan={reading.FanRpm}rpm rawClock={reading.ClockMegahertz:0.0}MHz powerSourceKind={reading.PowerSourceKind}.");
+        }
+
         if ((reading.ValidFlags & ValidFlagTemp) != 0)
         {
             snapshot.AvailableMetrics |= MetricFlags.GpuTemperature;
             snapshot.Gpu.TemperatureCelsius = reading.TemperatureCelsius;
             snapshot.Dependencies.GpuTemperatureSource = "IGCL";
-            snapshot.Dependencies.GpuTemperatureStatusMessage = "GPU temperature from Intel IGCL.";
-            MeasurementTraceRecorder.Record(snapshot, "gpu_temp", nameof(IgclGpuCollector), "IGCL gpuCurrentTemperature", true, $"{reading.TemperatureCelsius:0.0}C", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuTemperatureStatusMessage, "ctlPowerTelemetryGet", $"{reading.TemperatureCelsius:0.000}", "C", "IGCL validated Celsius unit", $"{reading.TemperatureCelsius:0.000}", "C", TelemetryValidationState.HardwareValidationPending, "IGCL returned a bounded temperature; handheld hardware validation still pending.");
+            var tempSource = reading.TemperatureSourceKind == TempSourceDedicatedSensorEnum
+                ? "ctlTemperatureGetState"
+                : "ctlPowerTelemetryGet";
+            snapshot.Dependencies.GpuTemperatureStatusMessage = $"GPU temperature from Intel IGCL {tempSource}.";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_temp", nameof(IgclGpuCollector), $"IGCL {tempSource}", true, $"{reading.TemperatureCelsius:0.0}C", $"validFlags=0x{reading.ValidFlags:X}; tempSourceKind={reading.TemperatureSourceKind}; supportMask=0x{reading.IgclFieldSupportMask:X}", snapshot.Dependencies.GpuTemperatureStatusMessage, tempSource, $"{reading.TemperatureCelsius:0.000}", "C", "IGCL validated Celsius unit", $"{reading.TemperatureCelsius:0.000}", "C", TelemetryValidationState.HardwareValidationPending, "IGCL returned a bounded temperature; handheld hardware validation still pending.");
         }
 
         // First tick after init has no energy delta — skip power to avoid
@@ -111,9 +158,13 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
         {
             snapshot.AvailableMetrics |= MetricFlags.Fan;
             snapshot.Gpu.FanRpm = reading.FanRpm;
+            snapshot.Dependencies.FanRpms = new[] { reading.FanRpm };
+            snapshot.Dependencies.DeviceFanSource = "IGCL";
+            snapshot.Dependencies.DeviceFanStatusMessage = "Device fan tachometer from Intel IGCL.";
             snapshot.Dependencies.GpuFanSource = "IGCL";
-            snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from Intel IGCL.";
-            MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(IgclGpuCollector), "IGCL fanSpeed", true, $"{reading.FanRpm}rpm", $"validFlags=0x{reading.ValidFlags:X}", snapshot.Dependencies.GpuFanStatusMessage, "ctlPowerTelemetryGet", reading.FanRpm.ToString(), "rpm", "IGCL validated RPM unit", reading.FanRpm.ToString(), "rpm", TelemetryValidationState.HardwareValidationPending, "IGCL returned a positive fan RPM; handheld hardware validation still pending.");
+            snapshot.Dependencies.GpuFanStatusMessage = snapshot.Dependencies.DeviceFanStatusMessage;
+            var fanSource = (reading.IgclFieldSupportMask & IgclFieldDedicatedFanApi) != 0 ? "ctlFanGetState" : "ctlPowerTelemetryGet";
+            MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(IgclGpuCollector), $"IGCL {fanSource}", true, $"{reading.FanRpm}rpm", $"validFlags=0x{reading.ValidFlags:X}; supportMask=0x{reading.IgclFieldSupportMask:X}", snapshot.Dependencies.GpuFanStatusMessage, fanSource, reading.FanRpm.ToString(), "rpm", "IGCL validated RPM unit", reading.FanRpm.ToString(), "rpm", TelemetryValidationState.HardwareValidationPending, "IGCL returned a positive fan RPM; handheld hardware validation still pending.");
         }
 
         if ((reading.ValidFlags & ValidFlagClock) != 0)
@@ -164,6 +215,27 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
     private const uint ValidFlagFan   = 0x04;
     private const uint ValidFlagClock = 0x08;
 
+    // ── Temperature source constants (match NativeTelemetry.h HHAPULSE_GPU_TEMP_SOURCE_*) ──
+
+    private const uint TempSourceNone = 0;
+    private const uint TempSourceGpuCurrent = 1;
+    private const uint TempSourceGpuVr = 2;
+    private const uint TempSourceSaVr = 3;
+    private const uint TempSourceDedicatedSensorEnum = 4;
+
+    // ── IGCL field bSupported bitmap constants (match NativeTelemetry.h HHAPULSE_IGCL_FIELD_*) ──
+
+    private const uint IgclFieldGpuCurrentTemp = 0x01;
+    private const uint IgclFieldGpuVrTemp = 0x02;
+    private const uint IgclFieldSaVrTemp = 0x04;
+    private const uint IgclFieldGpuEnergyCounter = 0x08;
+    private const uint IgclFieldTotalCardEnergy = 0x10;
+    private const uint IgclFieldGpuCurrentClock = 0x20;
+    private const uint IgclFieldGpuEffectiveClock = 0x40;
+    private const uint IgclFieldFanSpeedAny = 0x80;
+    private const uint IgclFieldDedicatedTempApi = 0x100;
+    private const uint IgclFieldDedicatedFanApi = 0x200;
+
     // ── P/Invoke ──
 
     [DllImport("HHAPulse.Native.dll", CallingConvention = CallingConvention.Cdecl, ExactSpelling = true)]
@@ -186,6 +258,8 @@ public sealed class IgclGpuCollector : IMetricCollector, IDisposable
         // 4 bytes padding (natural alignment for next double)
         public double ClockMegahertz;      // offset 24
         public uint ValidFlags;            // offset 32
-        public uint PowerSourceKind;        // offset 36
+        public uint PowerSourceKind;       // offset 36
+        public uint TemperatureSourceKind; // offset 40
+        public uint IgclFieldSupportMask;  // offset 44
     }
 }

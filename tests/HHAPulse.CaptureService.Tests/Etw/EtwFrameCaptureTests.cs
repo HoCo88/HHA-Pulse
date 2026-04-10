@@ -45,4 +45,13 @@ public sealed class EtwFrameCaptureTests
 
         Assert.Empty(samples);
     }
+
+    [Fact]
+    public void AverageFpsWindow_IsFiveSecondsForHudResponsiveness()
+    {
+        var field = typeof(EtwFrameCapture).GetField("AverageFpsWindowSeconds", BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(field);
+        Assert.Equal(5, field!.GetValue(null));
+    }
 }

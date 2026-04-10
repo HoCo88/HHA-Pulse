@@ -25,14 +25,15 @@ public sealed partial class ControlWindow
         [OverlayPresetCatalog.OnePercentLow] = "1% Low FPS",
         [OverlayPresetCatalog.ZeroPointOneLow] = "0.1% Low FPS",
         [OverlayPresetCatalog.FrameTime] = "Frame Time",
-        [OverlayPresetCatalog.FrameGenFps] = "Frame Gen FPS",
         [OverlayPresetCatalog.CpuUsage] = "CPU Usage",
+        [OverlayPresetCatalog.CpuTemp] = "CPU Temperature",
         [OverlayPresetCatalog.CpuPower] = "CPU Power",
         [OverlayPresetCatalog.GpuUsage] = "GPU Usage",
         [OverlayPresetCatalog.GpuTemp] = "GPU Temperature",
         [OverlayPresetCatalog.GpuClock] = "GPU Clock",
         [OverlayPresetCatalog.GpuPower] = "GPU Power",
-        [OverlayPresetCatalog.GpuFan] = "GPU Fan",
+        [OverlayPresetCatalog.GpuFan] = "Fan",
+        [OverlayPresetCatalog.DeviceTemp] = "Device Temperature",
         [OverlayPresetCatalog.Ram] = "RAM",
         [OverlayPresetCatalog.Vram] = "VRAM",
         [OverlayPresetCatalog.TotalPower] = "Device Power",
@@ -48,12 +49,12 @@ public sealed partial class ControlWindow
             OverlayPresetCatalog.AvgFps,
             OverlayPresetCatalog.OnePercentLow,
             OverlayPresetCatalog.ZeroPointOneLow,
-            OverlayPresetCatalog.FrameTime,
-            OverlayPresetCatalog.FrameGenFps
+            OverlayPresetCatalog.FrameTime
         }),
         ("CPU", new[]
         {
             OverlayPresetCatalog.CpuUsage,
+            OverlayPresetCatalog.CpuTemp,
             OverlayPresetCatalog.CpuPower
         }),
         ("GPU", new[]
@@ -62,11 +63,12 @@ public sealed partial class ControlWindow
             OverlayPresetCatalog.GpuTemp,
             OverlayPresetCatalog.GpuClock,
             OverlayPresetCatalog.GpuPower,
-            OverlayPresetCatalog.GpuFan,
             OverlayPresetCatalog.Vram
         }),
         ("System", new[]
         {
+            OverlayPresetCatalog.DeviceTemp,
+            OverlayPresetCatalog.GpuFan,
             OverlayPresetCatalog.Ram,
             OverlayPresetCatalog.TotalPower,
             OverlayPresetCatalog.RefreshRate,

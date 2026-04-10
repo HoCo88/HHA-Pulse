@@ -2,6 +2,7 @@ using HHAPulse.Overlay.Collectors;
 using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Overlay.Ipc;
 using HHAPulse.Overlay.ViewModels;
+using HHAPulse.Shared.Models;
 
 namespace HHAPulse.Overlay.Services;
 
@@ -28,7 +29,7 @@ public sealed class AppHost : IAsyncDisposable
         await pipeServer.StartAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    public async Task TickAsync(CancellationToken cancellationToken)
+    public async Task<TelemetrySnapshot> TickAsync(CancellationToken cancellationToken)
     {
         // 1. Collect raw telemetry from all collectors.
         var snapshot = await orchestrator.CollectAsync(cancellationToken).ConfigureAwait(false);
@@ -44,6 +45,7 @@ public sealed class AppHost : IAsyncDisposable
         await pipeServer.BroadcastAsync(snapshot, cancellationToken).ConfigureAwait(false);
 
         viewModel?.ApplyTelemetry(snapshot);
+        return snapshot;
     }
 
     public async ValueTask DisposeAsync()

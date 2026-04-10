@@ -16,9 +16,9 @@ public static class MetricStatusFactory
             Status(OverlayPresetCatalog.OnePercentLow, snapshot, now, traces),
             Status(OverlayPresetCatalog.ZeroPointOneLow, snapshot, now, traces),
             Status(OverlayPresetCatalog.FrameTime, snapshot, now, traces),
-            Status(OverlayPresetCatalog.FrameGenFps, snapshot, now, traces),
             Status(OverlayPresetCatalog.Battery, snapshot, now, traces),
             Status(OverlayPresetCatalog.CpuUsage, snapshot, now, traces),
+            Status(OverlayPresetCatalog.CpuTemp, snapshot, now, traces),
             Status(OverlayPresetCatalog.CpuPower, snapshot, now, traces),
             Status(OverlayPresetCatalog.GpuUsage, snapshot, now, traces),
             Status(OverlayPresetCatalog.GpuTemp, snapshot, now, traces),
@@ -28,6 +28,7 @@ public static class MetricStatusFactory
             Status(OverlayPresetCatalog.Ram, snapshot, now, traces),
             Status(OverlayPresetCatalog.Vram, snapshot, now, traces),
             Status(OverlayPresetCatalog.TotalPower, snapshot, now, traces),
+            Status(OverlayPresetCatalog.DeviceTemp, snapshot, now, traces),
             Status(OverlayPresetCatalog.RefreshRate, snapshot, now, traces)
         };
 
@@ -72,9 +73,9 @@ public static class MetricStatusFactory
             OverlayPresetCatalog.OnePercentLow => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps),
             OverlayPresetCatalog.ZeroPointOneLow => snapshot.AvailableMetrics.HasFlag(MetricFlags.Fps),
             OverlayPresetCatalog.FrameTime => snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameTime),
-            OverlayPresetCatalog.FrameGenFps => snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen),
             OverlayPresetCatalog.Battery => snapshot.AvailableMetrics.HasFlag(MetricFlags.Battery),
             OverlayPresetCatalog.CpuUsage => snapshot.AvailableMetrics.HasFlag(MetricFlags.CpuUsage),
+            OverlayPresetCatalog.CpuTemp => snapshot.AvailableMetrics.HasFlag(MetricFlags.CpuTemperature),
             OverlayPresetCatalog.CpuPower => snapshot.AvailableMetrics.HasFlag(MetricFlags.CpuPower),
             OverlayPresetCatalog.GpuUsage => snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuUsage),
             OverlayPresetCatalog.GpuTemp => snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuTemperature),
@@ -84,6 +85,7 @@ public static class MetricStatusFactory
             OverlayPresetCatalog.Ram => snapshot.AvailableMetrics.HasFlag(MetricFlags.Memory),
             OverlayPresetCatalog.Vram => snapshot.AvailableMetrics.HasFlag(MetricFlags.Vram),
             OverlayPresetCatalog.TotalPower => snapshot.AvailableMetrics.HasFlag(MetricFlags.SystemPower),
+            OverlayPresetCatalog.DeviceTemp => snapshot.AvailableMetrics.HasFlag(MetricFlags.DeviceTemperature),
             OverlayPresetCatalog.RefreshRate => snapshot.AvailableMetrics.HasFlag(MetricFlags.Display),
             _ => false
         };

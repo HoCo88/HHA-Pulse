@@ -43,4 +43,37 @@ public sealed class CaptureFrameMetrics
 
     [Key(12)]
     public bool HybridPresentDetected { get; set; }
+
+    [Key(13)]
+    public bool HasFrameMetrics { get; set; }
+
+    [Key(14)]
+    public long ServiceTelemetryTimestampUnixMilliseconds { get; set; }
+
+    [Key(15)]
+    public double CpuTemperatureCelsius { get; set; }
+
+    [Key(16)]
+    public string CpuTemperatureSource { get; set; } = string.Empty;
+
+    [Key(17)]
+    public string CpuTemperatureStatusMessage { get; set; } = string.Empty;
+
+    [Key(18)]
+    public int[] FanRpms { get; set; } = Array.Empty<int>();
+
+    [Key(19)]
+    public string DeviceFanSource { get; set; } = string.Empty;
+
+    [Key(20)]
+    public string DeviceFanStatusMessage { get; set; } = string.Empty;
+
+    [Key(21)]
+    public double DeviceTemperatureCelsius { get; set; }
+
+    [Key(22)]
+    public string DeviceTemperatureSource { get; set; } = string.Empty;
+
+    [Key(23)]
+    public string DeviceTemperatureStatusMessage { get; set; } = string.Empty;
 }

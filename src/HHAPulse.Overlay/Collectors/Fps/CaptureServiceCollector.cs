@@ -1,5 +1,6 @@
 using System.IO.Pipes;
 using HHAPulse.Overlay.Diagnostics;
+using HHAPulse.Overlay.Interop;
 using HHAPulse.Shared.Models;
 using HHAPulse.Shared.Protocol;
 
@@ -7,15 +8,18 @@ namespace HHAPulse.Overlay.Collectors.Fps;
 
 public sealed class CaptureServiceCollector : IMetricCollector
 {
-    private static readonly TimeSpan FreshnessWindow = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan LiveFreshnessWindow = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan HeldFreshnessWindow = ForegroundCaptureTargetRouter.DefaultHoldWindow;
     private readonly object syncRoot = new();
     private readonly CancellationTokenSource shutdown = new();
-    private CaptureFrameMetrics? latestMetrics;
+    private CaptureFrameMetrics? latestFrameMetrics;
+    private CaptureFrameMetrics? latestServiceTelemetry;
     private CaptureTarget? target;
     private Task? outputTask;
     private Task? controlTask;
     private bool isConnected;
     private string lastStatus = "Capture service not connected.";
+    private string targetRouteStatus = "targetSource=cleared; no capture target selected";
 
     public string Name => "Capture Service";
 
@@ -28,28 +32,45 @@ public sealed class CaptureServiceCollector : IMetricCollector
         return Task.CompletedTask;
     }
 
-    public void SetTarget(CaptureTarget? captureTarget)
+    public void SetTarget(CaptureTarget? captureTarget, string? routeStatus = null)
     {
         lock (syncRoot)
         {
             target = captureTarget;
+            if (!string.IsNullOrWhiteSpace(routeStatus))
+            {
+                targetRouteStatus = routeStatus;
+            }
         }
     }
 
     public Task CollectAsync(TelemetrySnapshot snapshot, CancellationToken cancellationToken)
     {
         CaptureFrameMetrics? metrics;
+        CaptureFrameMetrics? serviceTelemetry;
+        CaptureTarget? currentTarget;
         bool connected;
         string status;
+        string routeStatus;
         lock (syncRoot)
         {
-            metrics = latestMetrics;
+            metrics = latestFrameMetrics;
+            serviceTelemetry = latestServiceTelemetry;
+            currentTarget = target;
             connected = isConnected;
             status = lastStatus;
+            routeStatus = targetRouteStatus;
         }
 
         snapshot.Dependencies.CaptureServiceConnected = connected;
-        snapshot.Dependencies.CaptureServiceStatusMessage = status;
+        snapshot.Dependencies.CaptureServiceStatusMessage = $"{status} {routeStatus}";
+        if (currentTarget is not null)
+        {
+            snapshot.Dependencies.CaptureTargetProcessId = currentTarget.ProcessId;
+            snapshot.Dependencies.CaptureTargetProcessName = currentTarget.ProcessName;
+        }
+
+        ApplyServiceTelemetry(snapshot, serviceTelemetry);
 
         if (metrics is null)
             return Task.CompletedTask;
@@ -57,15 +78,21 @@ public sealed class CaptureServiceCollector : IMetricCollector
         var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(metrics.TimestampUnixMilliseconds);
         snapshot.Dependencies.CapturePayloadAgeMilliseconds = (long)Math.Max(0, age.TotalMilliseconds);
 
-        if (age > FreshnessWindow)
+        var captureFreshness = age <= LiveFreshnessWindow
+            ? "live"
+            : age <= HeldFreshnessWindow && routeStatus.Contains("targetSource=held", StringComparison.OrdinalIgnoreCase)
+                ? "held"
+                : "stale";
+
+        if (captureFreshness == "stale")
         {
-            snapshot.Dependencies.CaptureServiceStatusMessage = $"Capture connected but stale ({age.TotalSeconds:0.0}s old).";
+            snapshot.Dependencies.CaptureServiceStatusMessage = $"Capture connected but stale ({age.TotalSeconds:0.0}s old). {routeStatus}";
             return Task.CompletedTask;
         }
 
         snapshot.Dependencies.CaptureServiceStatusMessage = metrics.HybridPresentDetected
-            ? $"{status} Frame generation: detected from Intel-PresentMon ETW evidence. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms."
-            : $"{status} Frame generation: not detected in the current capture window. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms.";
+            ? $"{status} captureFreshness={captureFreshness}; {routeStatus} Capture mode: ETW/PDH read-only, no hooks or VRR changes. Frame generation: detected from Intel-PresentMon ETW evidence. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms."
+            : $"{status} captureFreshness={captureFreshness}; {routeStatus} Capture mode: ETW/PDH read-only, no hooks or VRR changes. Frame generation: not detected in the current capture window. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms.";
 
         if (metrics.FramesPerSecond <= 0)
             return Task.CompletedTask;
@@ -84,7 +111,7 @@ public sealed class CaptureServiceCollector : IMetricCollector
         snapshot.Dependencies.CaptureTargetProcessId = metrics.GameProcessId;
         snapshot.Dependencies.CaptureTargetProcessName = metrics.GameProcessName;
         RecordFpsTrace(snapshot, "fps", "FPS", metrics.FramesPerSecond, "present-start intervals -> 1000 / average frame time");
-        RecordFpsTrace(snapshot, "avg_fps", "Average FPS", metrics.AverageFramesPerSecond, "rolling average of one-second FPS windows");
+        RecordFpsTrace(snapshot, "avg_fps", "Average FPS", metrics.AverageFramesPerSecond, "5-second rolling average of one-second FPS windows");
         RecordFpsTrace(snapshot, "one_percent_low", "1% Low FPS", metrics.OnePercentLowFramesPerSecond, "99th percentile frame time -> FPS");
         RecordFpsTrace(snapshot, "zero_point_one_low", "0.1% Low FPS", metrics.ZeroPointOnePercentLowFramesPerSecond, "99.9th percentile frame time -> FPS");
         MeasurementTraceRecorder.Record(
@@ -94,7 +121,7 @@ public sealed class CaptureServiceCollector : IMetricCollector
             "ETW DXGI/D3D9 PresentStart",
             true,
             $"{metrics.FrameTimeMilliseconds:0.0}ms",
-            $"captureConnected={connected}; payloadAgeMs={snapshot.Dependencies.CapturePayloadAgeMilliseconds}; target={metrics.GameProcessName}({metrics.GameProcessId})",
+            $"captureConnected={connected}; captureFreshness={captureFreshness}; routeStatus={routeStatus}; payloadAgeMs={snapshot.Dependencies.CapturePayloadAgeMilliseconds}; target={metrics.GameProcessName}({metrics.GameProcessId})",
             snapshot.Dependencies.CaptureServiceStatusMessage,
             "Microsoft-Windows-DXGI/D3D9 ETW PresentStart",
             $"{metrics.FrameTimeMilliseconds:0.000}",
@@ -104,23 +131,6 @@ public sealed class CaptureServiceCollector : IMetricCollector
             "ms",
             TelemetryValidationState.Verified,
             "Fresh ETW capture payload accepted.");
-        MeasurementTraceRecorder.Record(
-            snapshot,
-            "framegen_fps",
-            nameof(CaptureServiceCollector),
-            "Intel-PresentMon ETW evidence",
-            false,
-            metrics.HybridPresentDetected ? "detected" : "not detected",
-            $"HybridPresentDetected={metrics.HybridPresentDetected}; frameGenFlag={snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen)}; appFps=not computed; presentFps=not computed; displayFps=not computed",
-            "Frame generation detection is diagnostic-only. Numeric FG FPS is not implemented.",
-            "Intel-PresentMon ETW FrameType",
-            metrics.HybridPresentDetected.ToString(),
-            "bool",
-            "boolean detection only; no numeric FPS conversion",
-            "--",
-            "fps",
-            TelemetryValidationState.Unavailable,
-            "Detection-only phase keeps framegen_fps hidden until display/generated rates are validated.");
         return Task.CompletedTask;
     }
 
@@ -143,6 +153,109 @@ public sealed class CaptureServiceCollector : IMetricCollector
             "fps",
             TelemetryValidationState.Verified,
             "Fresh ETW capture payload accepted.");
+    }
+
+    private static void ApplyServiceTelemetry(TelemetrySnapshot snapshot, CaptureFrameMetrics? metrics)
+    {
+        if (metrics is null)
+        {
+            return;
+        }
+
+        if (metrics.CpuTemperatureCelsius > 0)
+        {
+            snapshot.Cpu.TemperatureCelsius = metrics.CpuTemperatureCelsius;
+            snapshot.AvailableMetrics |= MetricFlags.CpuTemperature;
+            var source = Blank(metrics.CpuTemperatureSource, "capture service sensor telemetry");
+            var status = Blank(metrics.CpuTemperatureStatusMessage, "CPU temperature from capture service sensor telemetry.");
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "cpu_temp",
+                nameof(CaptureServiceCollector),
+                source,
+                true,
+                $"{metrics.CpuTemperatureCelsius:0.0}C",
+                $"serviceTelemetryAgeMs={ServiceTelemetryAgeMilliseconds(metrics)}",
+                status,
+                source,
+                $"{metrics.CpuTemperatureCelsius:0.000}",
+                "C",
+                "capture-service ACPI/WMI read",
+                $"{metrics.CpuTemperatureCelsius:0.000}",
+                "C",
+                TelemetryValidationState.HardwareValidationPending,
+                "Capture service returned a bounded CPU temperature.");
+        }
+
+        var fans = metrics.FanRpms.Where(rpm => rpm > 0).ToArray();
+        if (fans.Length > 0)
+        {
+            snapshot.AvailableMetrics |= MetricFlags.Fan;
+            snapshot.Gpu.FanRpm = fans[0];
+            snapshot.Dependencies.FanRpms = fans;
+            snapshot.Dependencies.DeviceFanSource = metrics.DeviceFanSource;
+            snapshot.Dependencies.DeviceFanStatusMessage = metrics.DeviceFanStatusMessage;
+            snapshot.Dependencies.GpuFanSource = metrics.DeviceFanSource;
+            snapshot.Dependencies.GpuFanStatusMessage = metrics.DeviceFanStatusMessage;
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "gpu_fan",
+                nameof(CaptureServiceCollector),
+                Blank(metrics.DeviceFanSource, "capture service device fan telemetry"),
+                true,
+                string.Join("/", fans.Select(rpm => rpm.ToString("0"))) + "rpm",
+                $"serviceTelemetryAgeMs={ServiceTelemetryAgeMilliseconds(metrics)}; fanCount={fans.Length}",
+                Blank(metrics.DeviceFanStatusMessage, "Device/chassis fan tachometers from capture service."),
+                Blank(metrics.DeviceFanSource, "capture service device fan telemetry"),
+                string.Join("/", fans),
+                "rpm",
+                "read-only service telemetry",
+                string.Join("/", fans),
+                "rpm",
+                TelemetryValidationState.HardwareValidationPending,
+                "Capture service returned non-zero device/chassis fan tachometer readings.");
+        }
+
+        if (metrics.DeviceTemperatureCelsius > 0)
+        {
+            snapshot.AvailableMetrics |= MetricFlags.DeviceTemperature;
+            snapshot.Dependencies.DeviceTemperatureCelsius = metrics.DeviceTemperatureCelsius;
+            snapshot.Dependencies.DeviceTemperatureSource = metrics.DeviceTemperatureSource;
+            snapshot.Dependencies.DeviceTemperatureStatusMessage = metrics.DeviceTemperatureStatusMessage;
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "device_temp",
+                nameof(CaptureServiceCollector),
+                Blank(metrics.DeviceTemperatureSource, "capture service device temperature telemetry"),
+                true,
+                $"{metrics.DeviceTemperatureCelsius:0.0}C",
+                $"serviceTelemetryAgeMs={ServiceTelemetryAgeMilliseconds(metrics)}",
+                Blank(metrics.DeviceTemperatureStatusMessage, "Device/SoC temperature from capture service."),
+                Blank(metrics.DeviceTemperatureSource, "capture service device temperature telemetry"),
+                $"{metrics.DeviceTemperatureCelsius:0.000}",
+                "C",
+                "read-only service telemetry; sensor identity is OEM/EC-defined",
+                $"{metrics.DeviceTemperatureCelsius:0.000}",
+                "C",
+                TelemetryValidationState.HardwareValidationPending,
+                "Capture service returned a bounded device/SoC temperature. This does not populate GPU temperature.");
+        }
+    }
+
+    private static long ServiceTelemetryAgeMilliseconds(CaptureFrameMetrics metrics)
+    {
+        if (metrics.ServiceTelemetryTimestampUnixMilliseconds <= 0)
+        {
+            return 0;
+        }
+
+        var age = DateTimeOffset.UtcNow - DateTimeOffset.FromUnixTimeMilliseconds(metrics.ServiceTelemetryTimestampUnixMilliseconds);
+        return (long)Math.Max(0, age.TotalMilliseconds);
+    }
+
+    private static string Blank(string value, string fallback)
+    {
+        return string.IsNullOrWhiteSpace(value) ? fallback : value;
     }
 
     private async Task RunOutputLoopAsync(CancellationToken cancellationToken)
@@ -169,7 +282,11 @@ public sealed class CaptureServiceCollector : IMetricCollector
                         var metrics = MessageSerializer.DeserializePayload<CaptureFrameMetrics>(envelope);
                         lock (syncRoot)
                         {
-                            latestMetrics = metrics;
+                            latestServiceTelemetry = metrics;
+                            if (metrics.HasFrameMetrics)
+                            {
+                                latestFrameMetrics = metrics;
+                            }
                         }
                     }
                 }

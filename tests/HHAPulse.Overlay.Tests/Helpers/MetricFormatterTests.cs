@@ -58,6 +58,35 @@ public sealed class MetricFormatterTests
     }
 
     [Fact]
+    public void CompactFormatter_ShowsMultipleDeviceFans()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fan,
+            Dependencies = { FanRpms = new[] { 2462, 2424 } }
+        };
+
+        Assert.Equal("2462/2424rpm", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.GpuFan, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_ShowsDeviceTemperatureOnlyWhenAvailable()
+    {
+        var unavailable = new TelemetrySnapshot
+        {
+            Dependencies = { DeviceTemperatureCelsius = 64 }
+        };
+        var available = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.DeviceTemperature,
+            Dependencies = { DeviceTemperatureCelsius = 64 }
+        };
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.DeviceTemp, unavailable));
+        Assert.Equal("64\u00B0C", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.DeviceTemp, available));
+    }
+
+    [Fact]
     public void CompactFormatter_ShowsTotalPowerFromBatteryWhenValidated()
     {
         var snapshot = new TelemetrySnapshot
@@ -101,6 +130,23 @@ public sealed class MetricFormatterTests
         Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.TotalPower, snapshot));
     }
 
+    [Fact]
+    public void CompactFormatter_DoesNotShowRaplPackagePlusDramAsDevicePower()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Battery | MetricFlags.CpuPower | MetricFlags.SystemPower,
+            Battery = { IsCharging = true },
+            Cpu = { PowerWatts = 16.2 },
+            Dependencies = { DramPowerWatts = 0.4 }
+        };
+
+        HHAPulse.Overlay.Diagnostics.SystemPowerValidator.ApplyTo(snapshot);
+
+        Assert.False(snapshot.AvailableMetrics.HasFlag(MetricFlags.SystemPower));
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.TotalPower, snapshot));
+    }
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]
@@ -133,17 +179,57 @@ public sealed class MetricFormatterTests
     }
 
     [Fact]
-    public void CompactFormatter_KeepsFrameGenUnavailableWithoutMetricFlag()
+    public void CompactFormatter_CpuTempShowsCelsiusWhenFlagAvailable()
     {
         var snapshot = new TelemetrySnapshot
         {
+            AvailableMetrics = MetricFlags.CpuTemperature,
+            Cpu = { TemperatureCelsius = 62.4 }
+        };
+
+        Assert.Equal("62\u00B0C", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.CpuTemp, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_CpuTempFallsBackWhenFlagMissing()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            Cpu = { TemperatureCelsius = 62.4 }
+        };
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.CpuTemp, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_FpsCellShowsTotalOverAppWhenFrameGenActive()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fps | MetricFlags.FrameGen,
             Performance =
             {
-                FramesPerSecond = 118,
-                HybridPresentDetected = true
+                FramesPerSecond = 120,
+                AppFramesPerSecond = 60
             }
         };
 
-        Assert.Equal("--fps", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.FrameGenFps, snapshot));
+        Assert.Equal("120/60fps", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Fps, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_FpsCellCollapsesWhenFrameGenInactive()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fps,
+            Performance =
+            {
+                FramesPerSecond = 60,
+                AppFramesPerSecond = 60
+            }
+        };
+
+        Assert.Equal("60fps", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Fps, snapshot));
     }
 }

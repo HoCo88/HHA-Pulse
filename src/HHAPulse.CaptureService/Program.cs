@@ -2,10 +2,12 @@ using System.Diagnostics;
 using HHAPulse.CaptureService;
 using HHAPulse.CaptureService.Etw;
 using HHAPulse.CaptureService.Ipc;
+using HHAPulse.CaptureService.Sensors;
+using HHAPulse.Shared.Protocol;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-const string ServiceName = "HHAPulse.Capture";
+const string ServiceName = PipeConstants.CaptureServiceName;
 
 if (args.Length > 0)
 {
@@ -28,6 +30,7 @@ var builder = Host.CreateDefaultBuilder(args)
     {
         services.AddSingleton<CaptureCoordinator>();
         services.AddSingleton<EtwFrameCapture>();
+        services.AddSingleton<CaptureServiceSensorCollector>();
         services.AddSingleton<CapturePipeServer>();
         services.AddHostedService<Worker>();
     });

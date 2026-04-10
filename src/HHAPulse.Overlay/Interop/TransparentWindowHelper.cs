@@ -1,3 +1,5 @@
+using System;
+using HHAPulse.Overlay.Diagnostics;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 
@@ -7,6 +9,33 @@ internal static class TransparentWindowHelper
 {
     internal static void MakeOverlay(Window window)
     {
+        // 0. Install a transparent SwapChain backdrop. Without this, WinUI 3
+        //    clears the DirectX SwapChain to opaque black every frame, so any
+        //    XAML content with alpha < 255 composites on top of that black
+        //    surface and the HUD "transparent" background renders solid black.
+        //    The DWM glass-frame work below (layer 1) only makes the window
+        //    chrome transparent — it does NOT clear the SwapChain interior
+        //    (layer 2). Both layers must be transparent for the final pixel to
+        //    show through to the desktop. See
+        //    memory-bank/best_practices/winui3_overlay.md "Option C".
+        //
+        //    Wrapped in try/catch because the SystemBackdrop setter raises the
+        //    ICompositionSupportsSystemBackdrop.OnTargetConnected hook
+        //    synchronously from inside the setter, and any exception from the
+        //    backdrop's composition code path must NOT prevent the rest of
+        //    MakeOverlay from running — otherwise the window would appear
+        //    with its full system chrome (title bar, borders) and show up as
+        //    a "squared" un-styled window, which is exactly the crash failure
+        //    mode observed in HHAP-0.4.
+        try
+        {
+            window.SystemBackdrop = new TransparentBackdrop();
+        }
+        catch (Exception ex)
+        {
+            AppLogger.Error("TransparentWindowHelper: Failed to assign TransparentBackdrop. Chrome stripping will continue but the HUD background at 0% opacity may render black. See exception for details.", ex);
+        }
+
         var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(window);
 
         // 1. Extend glass frame across the entire window for transparency.

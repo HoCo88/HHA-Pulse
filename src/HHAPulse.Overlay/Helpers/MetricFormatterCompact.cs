@@ -15,8 +15,16 @@ public static class MetricFormatterCompact
         return metricId switch
         {
             // ── Performance ──
+            //
+            // When driver frame generation is active (FrameGen flag set +
+            // a valid AppFramesPerSecond < FramesPerSecond), the FPS cell
+            // shows total/base as "120/60fps" so the user can immediately
+            // see both the effective presented rate and the real app render
+            // rate. When frame gen is off, AppFramesPerSecond equals FramesPerSecond
+            // (by the fallback in EtwFrameCapture) and the cell collapses
+            // to the single "60fps" display.
             OverlayPresetCatalog.Fps => FormatAvailable(snapshot, MetricFlags.Fps,
-                FpsValueWithUnit(snapshot.Performance.FramesPerSecond), "--fps"),
+                FormatTotalOverAppFps(snapshot), "--fps"),
 
             OverlayPresetCatalog.AvgFps => FormatAvailable(snapshot, MetricFlags.Fps,
                 FpsValueWithUnit(snapshot.Performance.AverageFramesPerSecond), "--fps"),
@@ -33,12 +41,15 @@ public static class MetricFormatterCompact
                     : "--",
                 "--"),
 
-            OverlayPresetCatalog.FrameGenFps => FormatAvailable(snapshot, MetricFlags.FrameGen,
-                FpsValueWithUnit(snapshot.Performance.FramesPerSecond), "--fps"),
-
             // ── CPU ──
             OverlayPresetCatalog.CpuUsage => FormatAvailable(snapshot, MetricFlags.CpuUsage,
                 $"{snapshot.Cpu.UsagePercent:0}%", "--%"),
+
+            OverlayPresetCatalog.CpuTemp => FormatAvailable(snapshot, MetricFlags.CpuTemperature,
+                snapshot.Cpu.TemperatureCelsius > 0
+                    ? $"{snapshot.Cpu.TemperatureCelsius:0}\u00B0C"
+                    : "--",
+                "--"),
 
             OverlayPresetCatalog.CpuPower => FormatAvailable(snapshot, MetricFlags.CpuPower,
                 snapshot.Cpu.PowerWatts > 0
@@ -67,9 +78,7 @@ public static class MetricFormatterCompact
                 "--"),
 
             OverlayPresetCatalog.GpuFan => FormatAvailable(snapshot, MetricFlags.Fan,
-                snapshot.Gpu.FanRpm > 0
-                    ? $"{snapshot.Gpu.FanRpm:0}rpm"
-                    : "--",
+                FormatFan(snapshot),
                 "--"),
 
             // ── Memory ──
@@ -84,6 +93,12 @@ public static class MetricFormatterCompact
             // ── System ──
             OverlayPresetCatalog.TotalPower => FormatAvailable(snapshot, MetricFlags.SystemPower,
                 FormatTotalPower(snapshot),
+                "--"),
+
+            OverlayPresetCatalog.DeviceTemp => FormatAvailable(snapshot, MetricFlags.DeviceTemperature,
+                snapshot.Dependencies.DeviceTemperatureCelsius > 0
+                    ? $"{snapshot.Dependencies.DeviceTemperatureCelsius:0}\u00B0C"
+                    : "--",
                 "--"),
 
             OverlayPresetCatalog.RefreshRate => FormatAvailable(snapshot, MetricFlags.Display,
@@ -115,6 +130,32 @@ public static class MetricFormatterCompact
 
     private static string FpsValueWithUnit(double value) => value > 0 ? $"{value:0}fps" : "--fps";
 
+    /// <summary>
+    /// Renders the primary FPS cell. When frame generation is active AND the
+    /// base (app-rendered) FPS is measurably lower than the total FPS, shows
+    /// <c>"{total}/{base}fps"</c> (e.g. <c>"120/60fps"</c>). Otherwise, shows
+    /// just the total <c>"{fps}fps"</c>.
+    /// </summary>
+    private static string FormatTotalOverAppFps(TelemetrySnapshot snapshot)
+    {
+        double total = snapshot.Performance.FramesPerSecond;
+        double app = snapshot.Performance.AppFramesPerSecond;
+        bool frameGenActive =
+            snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen)
+            && app > 0
+            && app < total
+            && total - app >= 1.0;   // ignore sub-1-fps noise between streams
+
+        if (total <= 0)
+        {
+            return "--fps";
+        }
+
+        return frameGenActive
+            ? $"{total:0}/{app:0}fps"
+            : $"{total:0}fps";
+    }
+
     private static string FormatMemoryCompact(double usedMb, double totalMb)
     {
         if (totalMb >= 1024)
@@ -127,12 +168,29 @@ public static class MetricFormatterCompact
 
     private static string FormatTotalPower(TelemetrySnapshot snapshot)
     {
+        // Path 1 — battery discharge rate when unplugged. Whole-device.
         if (SystemPowerValidator.HasValidatedBatteryPower(snapshot))
         {
             return $"{snapshot.Battery.DischargeWatts:0.0}W";
         }
 
+        // Path 2 — on AC, PKG + DRAM from Intel RAPL. Real measured
+        // Intel-documented SoC + memory sum. Excludes display, SSD,
+        // radios, fans, and platform losses. See SystemPowerValidator.
         return "--";
+    }
+
+    private static string FormatFan(TelemetrySnapshot snapshot)
+    {
+        var fans = snapshot.Dependencies.FanRpms
+            .Where(rpm => rpm > 0)
+            .ToArray();
+        if (fans.Length > 0)
+        {
+            return string.Join("/", fans.Select(rpm => rpm.ToString("0"))) + "rpm";
+        }
+
+        return snapshot.Gpu.FanRpm > 0 ? $"{snapshot.Gpu.FanRpm:0}rpm" : "--";
     }
 
     private static string FormatBatteryCompact(TelemetrySnapshot snapshot)

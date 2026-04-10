@@ -5,25 +5,21 @@ namespace HHAPulse.Overlay.Interop;
 
 internal static class ForegroundGameDetector
 {
-    private static readonly HashSet<string> ShellProcesses = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "explorer",
-        "ShellExperienceHost",
-        "SearchHost",
-        "StartMenuExperienceHost",
-        "SystemSettings",
-        "ApplicationFrameHost",
-        "TextInputHost",
-        "LockApp",
-        "HHAPulse.Overlay"
-    };
-
     public static bool IsGameInForeground()
     {
-        return TryGetForegroundGameTarget() is not null;
+        return TryGetForegroundWindowInfo() is { } foreground
+            && ForegroundCaptureTargetRouter.IsForegroundGameCandidate(foreground);
     }
 
     public static CaptureTarget? TryGetForegroundGameTarget()
+    {
+        var foreground = TryGetForegroundWindowInfo();
+        return foreground is not null && ForegroundCaptureTargetRouter.IsForegroundGameCandidate(foreground)
+            ? foreground.ToCaptureTarget(DateTimeOffset.UtcNow)
+            : null;
+    }
+
+    public static ForegroundWindowInfo? TryGetForegroundWindowInfo()
     {
         var hwnd = NativeMethods.GetForegroundWindow();
         if (hwnd == 0)
@@ -38,26 +34,28 @@ internal static class ForegroundGameDetector
 
         int width = rect.Right - rect.Left;
         int height = rect.Bottom - rect.Top;
-        if (width < 1024 || height < 576)
-            return null;
 
         try
         {
             using var process = Process.GetProcessById((int)pid);
-            var name = process.ProcessName;
-            if (ShellProcesses.Contains(name))
-                return null;
-
-            return new CaptureTarget
-            {
-                ProcessId = pid,
-                ProcessName = name,
-                TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
-            };
+            return new ForegroundWindowInfo(pid, process.ProcessName, width, height);
         }
         catch
         {
             return null;
         }
+    }
+}
+
+internal sealed record ForegroundWindowInfo(uint ProcessId, string ProcessName, int Width, int Height)
+{
+    public CaptureTarget ToCaptureTarget(DateTimeOffset now)
+    {
+        return new CaptureTarget
+        {
+            ProcessId = ProcessId,
+            ProcessName = ProcessName,
+            TimestampUnixMilliseconds = now.ToUnixTimeMilliseconds()
+        };
     }
 }

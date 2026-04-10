@@ -6,7 +6,14 @@ namespace HHAPulse.Overlay.ViewModels;
 
 public sealed class OverlayViewModel : ViewModelBase
 {
-    private const int HistorySampleCapacity = 120;
+    // Sparkline history is deliberately short so the graph reflects the
+    // RECENT state (last ~30 seconds at the default 1 Hz tick interval),
+    // not the full session. A larger window ages out slowly and startup
+    // spikes from collector warm-up or frame-gen ramp-up skew the scale
+    // of the sparkline for minutes afterwards, making the recent state
+    // unreadable. 30 samples is enough to see short-term trends and
+    // low-fps dips without the old noise dominating the display.
+    private const int HistorySampleCapacity = 30;
     private readonly RingBuffer<double> fpsHistoryBuffer = new(HistorySampleCapacity);
     private readonly RingBuffer<double> avgFpsHistoryBuffer = new(HistorySampleCapacity);
     private readonly RingBuffer<double> onePercentLowHistoryBuffer = new(HistorySampleCapacity);
@@ -21,7 +28,6 @@ public sealed class OverlayViewModel : ViewModelBase
     private IReadOnlyList<double> onePercentLowHistory = Array.Empty<double>();
     private IReadOnlyList<double> zeroPointOneLowHistory = Array.Empty<double>();
     private IReadOnlyList<double> frameTimeHistory = Array.Empty<double>();
-    private bool frameGenDetected;
 
     public TelemetrySnapshot CurrentSnapshot
     {
@@ -78,20 +84,8 @@ public sealed class OverlayViewModel : ViewModelBase
         TopBarMetricIds = layout.TopBarMetricIds;
     }
 
-    public bool FrameGenDetected
-    {
-        get => frameGenDetected;
-        private set => SetProperty(ref frameGenDetected, value);
-    }
-
     public void ApplyTelemetry(TelemetrySnapshot snapshot)
     {
-        // Auto-detect frame generation from capture service.
-        if (!frameGenDetected && snapshot.AvailableMetrics.HasFlag(MetricFlags.FrameGen))
-        {
-            FrameGenDetected = true;
-        }
-
         UpdateHistory(snapshot);
         CurrentSnapshot = snapshot;
     }

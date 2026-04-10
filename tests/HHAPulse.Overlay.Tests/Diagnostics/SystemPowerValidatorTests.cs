@@ -56,6 +56,23 @@ public sealed class SystemPowerValidatorTests
     }
 
     [Fact]
+    public void ApplyTo_DoesNotSetSystemPowerForRaplPackagePlusDramOnAc()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Battery | MetricFlags.CpuPower | MetricFlags.SystemPower,
+            Battery = { IsCharging = true },
+            Cpu = { PowerWatts = 16.2 },
+            Dependencies = { DramPowerWatts = 0.4 }
+        };
+
+        SystemPowerValidator.ApplyTo(snapshot);
+
+        Assert.False(snapshot.AvailableMetrics.HasFlag(MetricFlags.SystemPower));
+        Assert.Contains("RAPL PKG + DRAM remains diagnostics-only", snapshot.MeasurementTraces.Single().StatusMessage);
+    }
+
+    [Fact]
     public void ApplyTo_RecordsValidatorTraceForBatteryDischarge()
     {
         var snapshot = new TelemetrySnapshot

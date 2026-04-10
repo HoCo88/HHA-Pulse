@@ -186,6 +186,27 @@ namespace
         return item.units == expectedUnits && TryExtractIgclDouble(item, value);
     }
 
+    int TempSensorRank(ctl_temp_sensors_t type)
+    {
+        switch (type)
+        {
+        case CTL_TEMP_SENSORS_GPU:
+            return 0;
+        case CTL_TEMP_SENSORS_GLOBAL:
+            return 1;
+        case CTL_TEMP_SENSORS_MEMORY:
+            return 2;
+        case CTL_TEMP_SENSORS_GPU_MIN:
+            return 3;
+        case CTL_TEMP_SENSORS_GLOBAL_MIN:
+            return 4;
+        case CTL_TEMP_SENSORS_MEMORY_MIN:
+            return 5;
+        default:
+            return 10;
+        }
+    }
+
     // ADLX global state.
     HMODULE s_adlxDll = nullptr;
     IADLXSystem* s_adlxSystem = nullptr;
@@ -205,6 +226,12 @@ namespace
     ctlEnumerateDevicesFn s_igclEnumerateDevices = nullptr;
     ctlGetDevicePropertiesFn s_igclGetDeviceProperties = nullptr;
     ctlPowerTelemetryGetFn s_igclPowerTelemetryGet = nullptr;
+    ctlEnumFansFn s_igclEnumFans = nullptr;
+    ctlFanGetPropertiesFn s_igclFanGetProperties = nullptr;
+    ctlFanGetStateFn s_igclFanGetState = nullptr;
+    ctlEnumTemperatureSensorsFn s_igclEnumTemperatureSensors = nullptr;
+    ctlTemperatureGetPropertiesFn s_igclTemperatureGetProperties = nullptr;
+    ctlTemperatureGetStateFn s_igclTemperatureGetState = nullptr;
     bool s_igclHasBaseline = false;
     double s_igclPreviousEnergyJoules = 0.0;
     double s_igclPreviousTimeSeconds = 0.0;
@@ -578,6 +605,12 @@ extern "C" int HhaPulseIgclInit()
     s_igclEnumerateDevices = reinterpret_cast<ctlEnumerateDevicesFn>(GetProcAddress(s_igclDll, "ctlEnumerateDevices"));
     s_igclGetDeviceProperties = reinterpret_cast<ctlGetDevicePropertiesFn>(GetProcAddress(s_igclDll, "ctlGetDeviceProperties"));
     s_igclPowerTelemetryGet = reinterpret_cast<ctlPowerTelemetryGetFn>(GetProcAddress(s_igclDll, "ctlPowerTelemetryGet"));
+    s_igclEnumFans = reinterpret_cast<ctlEnumFansFn>(GetProcAddress(s_igclDll, "ctlEnumFans"));
+    s_igclFanGetProperties = reinterpret_cast<ctlFanGetPropertiesFn>(GetProcAddress(s_igclDll, "ctlFanGetProperties"));
+    s_igclFanGetState = reinterpret_cast<ctlFanGetStateFn>(GetProcAddress(s_igclDll, "ctlFanGetState"));
+    s_igclEnumTemperatureSensors = reinterpret_cast<ctlEnumTemperatureSensorsFn>(GetProcAddress(s_igclDll, "ctlEnumTemperatureSensors"));
+    s_igclTemperatureGetProperties = reinterpret_cast<ctlTemperatureGetPropertiesFn>(GetProcAddress(s_igclDll, "ctlTemperatureGetProperties"));
+    s_igclTemperatureGetState = reinterpret_cast<ctlTemperatureGetStateFn>(GetProcAddress(s_igclDll, "ctlTemperatureGetState"));
     if (!s_igclInit || !s_igclClose || !s_igclEnumerateDevices || !s_igclGetDeviceProperties || !s_igclPowerTelemetryGet)
     {
         HhaPulseIgclShutdown();
@@ -673,11 +706,141 @@ extern "C" int HhaPulseIgclReadGpu(HhaPulseGpuReading* out)
         return -3;
     }
 
+    // Diagnostic: capture bSupported bitmap for all IGCL fields we
+    // care about. Reported back to C# via igclFieldSupportMask so the
+    // one-shot first-read log can show exactly which fields Intel's
+    // driver exposes on this specific adapter. Zero risk — these are
+    // simple reads of booleans already in the struct we own.
+    if (telemetry.gpuCurrentTemperature.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_GPU_CURRENT_TEMP;
+    }
+    if (telemetry.gpuVrTemp.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_GPU_VR_TEMP;
+    }
+    if (telemetry.saVrTemp.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_SA_VR_TEMP;
+    }
+    if (telemetry.gpuEnergyCounter.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_GPU_ENERGY_COUNTER;
+    }
+    if (telemetry.totalCardEnergyCounter.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_TOTAL_CARD_ENERGY;
+    }
+    if (telemetry.gpuCurrentClockFrequency.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_GPU_CURRENT_CLOCK;
+    }
+    if (telemetry.gpuEffectiveClock.bSupported)
+    {
+        out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_GPU_EFFECTIVE_CLOCK;
+    }
+    for (int fanIndex = 0; fanIndex < CTL_FAN_COUNT; ++fanIndex)
+    {
+        if (telemetry.fanSpeed[fanIndex].bSupported)
+        {
+            out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_FAN_SPEED_ANY;
+            break;
+        }
+    }
+
+    // ── Temperature selection ──
+    //
+    // Try the canonical gpuCurrentTemperature field first. If Intel's
+    // driver reports it as bSupported=false (observed on Lunar Lake
+    // Arc 140V), fall back to the voltage-regulator temperatures
+    // gpuVrTemp and saVrTemp. These are physical silicon sensors on
+    // the VR block near the GPU and System Agent, declared in the
+    // same ctl_power_telemetry_t struct. Source: intel igcl_api.h
+    // lines declaring gpuVrTemp / vramVrTemp / saVrTemp fields;
+    // see IgclTelemetryContract.h:222-224.
+    //
+    // The VR temp is NOT the same as GPU die temperature — it is
+    // generally a few degrees cooler under load and can be warmer at
+    // idle. We report whichever we actually used back to C# via
+    // temperatureSourceKind so the HUD can label the source if
+    // desired and the diagnostic log has the ground truth.
     double value = 0.0;
     if (TryReadIgclTelemetryValue(telemetry.gpuCurrentTemperature, CTL_UNITS_TEMPERATURE_CELSIUS, &value) && value > -50.0 && value < 200.0)
     {
         out->temperatureCelsius = value;
         out->validFlags |= HHAPULSE_GPU_VALID_TEMP;
+        out->temperatureSourceKind = HHAPULSE_GPU_TEMP_SOURCE_GPU_CURRENT;
+    }
+    else if (TryReadIgclTelemetryValue(telemetry.gpuVrTemp, CTL_UNITS_TEMPERATURE_CELSIUS, &value) && value > -50.0 && value < 200.0)
+    {
+        out->temperatureCelsius = value;
+        out->validFlags |= HHAPULSE_GPU_VALID_TEMP;
+        out->temperatureSourceKind = HHAPULSE_GPU_TEMP_SOURCE_GPU_VR;
+    }
+    else if (TryReadIgclTelemetryValue(telemetry.saVrTemp, CTL_UNITS_TEMPERATURE_CELSIUS, &value) && value > -50.0 && value < 200.0)
+    {
+        out->temperatureCelsius = value;
+        out->validFlags |= HHAPULSE_GPU_VALID_TEMP;
+        out->temperatureSourceKind = HHAPULSE_GPU_TEMP_SOURCE_SA_VR;
+    }
+
+    if ((out->validFlags & HHAPULSE_GPU_VALID_TEMP) == 0 &&
+        s_igclEnumTemperatureSensors && s_igclTemperatureGetState)
+    {
+        uint32_t temperatureCount = 0;
+        ctl_result_t tempEnumResult = s_igclEnumTemperatureSensors(s_igclDevice, &temperatureCount, nullptr);
+        if (tempEnumResult == CTL_RESULT_SUCCESS && temperatureCount > 0 && temperatureCount < 32)
+        {
+            ctl_temp_handle_t* temperatureHandles = new (std::nothrow) ctl_temp_handle_t[temperatureCount];
+            if (temperatureHandles)
+            {
+                ctl_result_t tempHandlesResult = s_igclEnumTemperatureSensors(s_igclDevice, &temperatureCount, temperatureHandles);
+                if (tempHandlesResult == CTL_RESULT_SUCCESS)
+                {
+                    out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_DEDICATED_TEMP_API;
+                    double selectedTemperature = 0.0;
+                    int selectedRank = 100;
+                    for (uint32_t index = 0; index < temperatureCount; ++index)
+                    {
+                        if (!temperatureHandles[index])
+                        {
+                            continue;
+                        }
+
+                        int rank = 9;
+                        if (s_igclTemperatureGetProperties)
+                        {
+                            ctl_temp_properties_t properties = {};
+                            properties.Size = sizeof(properties);
+                            properties.Version = 1;
+                            if (s_igclTemperatureGetProperties(temperatureHandles[index], &properties) == CTL_RESULT_ERROR_UNSUPPORTED_VERSION)
+                            {
+                                properties.Version = 0;
+                                s_igclTemperatureGetProperties(temperatureHandles[index], &properties);
+                            }
+                            rank = TempSensorRank(properties.type);
+                        }
+
+                        double temperature = 0.0;
+                        if (s_igclTemperatureGetState(temperatureHandles[index], &temperature) == CTL_RESULT_SUCCESS &&
+                            temperature > -50.0 && temperature < 200.0 && rank < selectedRank)
+                        {
+                            selectedTemperature = temperature;
+                            selectedRank = rank;
+                        }
+                    }
+
+                    if (selectedRank < 100)
+                    {
+                        out->temperatureCelsius = selectedTemperature;
+                        out->validFlags |= HHAPULSE_GPU_VALID_TEMP;
+                        out->temperatureSourceKind = HHAPULSE_GPU_TEMP_SOURCE_IGCL_SENSOR_ENUM;
+                    }
+                }
+
+                delete[] temperatureHandles;
+            }
+        }
     }
 
     if (TryReadIgclTelemetryValue(telemetry.gpuCurrentClockFrequency, CTL_UNITS_FREQUENCY_MHZ, &value) && value > 0.0 && value < 10000.0)
@@ -696,9 +859,78 @@ extern "C" int HhaPulseIgclReadGpu(HhaPulseGpuReading* out)
         }
     }
 
+    if ((out->validFlags & HHAPULSE_GPU_VALID_FAN) == 0 &&
+        s_igclEnumFans && s_igclFanGetState)
+    {
+        uint32_t fanCount = 0;
+        ctl_result_t fanEnumResult = s_igclEnumFans(s_igclDevice, &fanCount, nullptr);
+        if (fanEnumResult == CTL_RESULT_SUCCESS && fanCount > 0 && fanCount < 32)
+        {
+            ctl_fan_handle_t* fanHandles = new (std::nothrow) ctl_fan_handle_t[fanCount];
+            if (fanHandles)
+            {
+                ctl_result_t fanHandlesResult = s_igclEnumFans(s_igclDevice, &fanCount, fanHandles);
+                if (fanHandlesResult == CTL_RESULT_SUCCESS)
+                {
+                    out->igclFieldSupportMask |= HHAPULSE_IGCL_FIELD_DEDICATED_FAN_API;
+                    for (uint32_t index = 0; index < fanCount; ++index)
+                    {
+                        if (!fanHandles[index])
+                        {
+                            continue;
+                        }
+
+                        bool rpmSupported = true;
+                        if (s_igclFanGetProperties)
+                        {
+                            ctl_fan_properties_t properties = {};
+                            properties.Size = sizeof(properties);
+                            properties.Version = 1;
+                            ctl_result_t propertiesResult = s_igclFanGetProperties(fanHandles[index], &properties);
+                            if (propertiesResult == CTL_RESULT_ERROR_UNSUPPORTED_VERSION)
+                            {
+                                properties.Version = 0;
+                                propertiesResult = s_igclFanGetProperties(fanHandles[index], &properties);
+                            }
+                            rpmSupported = propertiesResult != CTL_RESULT_SUCCESS ||
+                                (properties.supportedUnits & (1u << CTL_FAN_SPEED_UNITS_RPM)) != 0;
+                        }
+
+                        int32_t fanRpm = 0;
+                        if (rpmSupported &&
+                            s_igclFanGetState(fanHandles[index], CTL_FAN_SPEED_UNITS_RPM, &fanRpm) == CTL_RESULT_SUCCESS &&
+                            fanRpm > 0 && fanRpm < 20000)
+                        {
+                            out->fanRpm = fanRpm;
+                            out->validFlags |= HHAPULSE_GPU_VALID_FAN;
+                            break;
+                        }
+                    }
+                }
+
+                delete[] fanHandles;
+            }
+        }
+    }
+
+    // ── Power selection ──
+    //
+    // Prefer the primary gpuEnergyCounter. If Lunar Lake returns
+    // bSupported=false on it (observed), fall back to
+    // totalCardEnergyCounter which represents the entire add-in-card
+    // energy including VR losses — it's a superset on discrete GPUs
+    // but on integrated SoCs it may still be populated when the GPU
+    // subset isn't.
     double energyJoules = 0.0;
     double timeSeconds = 0.0;
-    if (TryReadIgclTelemetryValue(telemetry.gpuEnergyCounter, CTL_UNITS_ENERGY_JOULES, &energyJoules) &&
+    bool usedPrimaryEnergy = TryReadIgclTelemetryValue(telemetry.gpuEnergyCounter, CTL_UNITS_ENERGY_JOULES, &energyJoules);
+    bool usedFallbackEnergy = false;
+    if (!usedPrimaryEnergy)
+    {
+        usedFallbackEnergy = TryReadIgclTelemetryValue(telemetry.totalCardEnergyCounter, CTL_UNITS_ENERGY_JOULES, &energyJoules);
+    }
+
+    if ((usedPrimaryEnergy || usedFallbackEnergy) &&
         TryReadIgclTelemetryValue(telemetry.timeStamp, CTL_UNITS_TIME_SECONDS, &timeSeconds))
     {
         if (s_igclHasBaseline)
@@ -712,7 +944,9 @@ extern "C" int HhaPulseIgclReadGpu(HhaPulseGpuReading* out)
                 {
                     out->powerWatts = watts;
                     out->validFlags |= HHAPULSE_GPU_VALID_POWER;
-                    out->powerSourceKind = HHAPULSE_GPU_POWER_SOURCE_IGCL_GPU_ENERGY;
+                    out->powerSourceKind = usedPrimaryEnergy
+                        ? HHAPULSE_GPU_POWER_SOURCE_IGCL_GPU_ENERGY
+                        : HHAPULSE_GPU_POWER_SOURCE_IGCL_TOTAL_CARD_ENERGY;
                 }
             }
         }
@@ -732,6 +966,12 @@ extern "C" void HhaPulseIgclShutdown()
     s_igclPreviousEnergyJoules = 0.0;
     s_igclPreviousTimeSeconds = 0.0;
     s_igclPowerTelemetryGet = nullptr;
+    s_igclTemperatureGetState = nullptr;
+    s_igclTemperatureGetProperties = nullptr;
+    s_igclEnumTemperatureSensors = nullptr;
+    s_igclFanGetState = nullptr;
+    s_igclFanGetProperties = nullptr;
+    s_igclEnumFans = nullptr;
     s_igclGetDeviceProperties = nullptr;
     s_igclEnumerateDevices = nullptr;
     s_igclInit = nullptr;

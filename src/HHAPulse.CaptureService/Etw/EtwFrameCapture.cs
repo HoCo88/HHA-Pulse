@@ -13,6 +13,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
     private static readonly Guid DxgKrnlProvider = new("802EC45A-1E99-4B83-9920-87C98277BA9D");
     private static readonly TimeSpan PublishInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan HistoryWindow = TimeSpan.FromSeconds(60);
+    private const int AverageFpsWindowSeconds = 5;
 
     private readonly CaptureCoordinator coordinator;
     private readonly ILogger<EtwFrameCapture> logger;
@@ -27,6 +28,12 @@ public sealed class EtwFrameCapture : IAsyncDisposable
     private uint activePid;
     private string activeProcessName = string.Empty;
     private bool frameGenDetectedThisInterval;
+    // Per-interval Intel-PresentMon frame-type counts. These drive the
+    // base-vs-total FPS split shown on the HUD when driver frame generation
+    // is active. See HandleFrameTypeEvent and the publish block below.
+    private int originalFrameCountThisInterval;
+    private int generatedFrameCountThisInterval;
+    private int repeatedFrameCountThisInterval;
 
     public EtwFrameCapture(CaptureCoordinator coordinator, ILogger<EtwFrameCapture> logger)
     {
@@ -57,6 +64,9 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 lastPresentMs = 0;
                 lastPublishTicks = 0;
                 frameGenDetectedThisInterval = false;
+                originalFrameCountThisInterval = 0;
+                generatedFrameCountThisInterval = 0;
+                repeatedFrameCountThisInterval = 0;
             }
         }
     }
@@ -133,17 +143,37 @@ public sealed class EtwFrameCapture : IAsyncDisposable
             var avgFrameTime = FrameStatisticsCalculator.CalculateAverageFrameTime(currentWindow);
             var fps = FrameStatisticsCalculator.CalculateFramesPerSecond(currentWindow);
             oneSecondFps.Add(fps);
-            TrimCount(oneSecondFps, 60);
+            TrimCount(oneSecondFps, AverageFpsWindowSeconds);
+
+            // Convert per-interval Intel-PresentMon frame-type counts into
+            // per-second rates for base (Original) vs effective present
+            // (Original + Generated). If the Intel-PresentMon provider did
+            // not fire this interval (FG not active, or game not using
+            // XeSS-FG / AMD AFMF), we fall back to the DXGI-derived `fps`
+            // so non-FG games still report a non-zero app/present rate.
+            var intervalSeconds = PublishInterval.TotalSeconds;
+            double appFps = intervalSeconds > 0
+                ? originalFrameCountThisInterval / intervalSeconds
+                : 0;
+            double presentFps = intervalSeconds > 0
+                ? (originalFrameCountThisInterval + generatedFrameCountThisInterval) / intervalSeconds
+                : 0;
+            if (originalFrameCountThisInterval == 0 && generatedFrameCountThisInterval == 0)
+            {
+                appFps = fps;
+                presentFps = fps;
+            }
 
             metrics = new CaptureFrameMetrics
             {
+                HasFrameMetrics = true,
                 FramesPerSecond = fps,
                 AverageFramesPerSecond = oneSecondFps.Count > 0 ? oneSecondFps.Average() : fps,
                 OnePercentLowFramesPerSecond = FrameStatisticsCalculator.PercentileLowFps(lowHistory, 0.99),
                 ZeroPointOnePercentLowFramesPerSecond = FrameStatisticsCalculator.PercentileLowFps(lowHistory, 0.999),
                 FrameTimeMilliseconds = avgFrameTime,
-                AppFramesPerSecond = 0,
-                PresentFramesPerSecond = 0,
+                AppFramesPerSecond = appFps,
+                PresentFramesPerSecond = presentFps,
                 DisplayFramesPerSecond = 0,
                 HybridPresentDetected = frameGenDetectedThisInterval,
                 GameProcessId = target.ProcessId,
@@ -151,6 +181,9 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
             };
             frameGenDetectedThisInterval = false;
+            originalFrameCountThisInterval = 0;
+            generatedFrameCountThisInterval = 0;
+            repeatedFrameCountThisInterval = 0;
             publishWindowFrameTimes.Clear();
         }
 
@@ -162,19 +195,31 @@ public sealed class EtwFrameCapture : IAsyncDisposable
 
     private void HandleFrameTypeEvent(TraceEvent data)
     {
-        if (!IntelPresentMonFrameTypeEvidence.TryGetGeneratedFrameEvidence(data, out var generatedFrameDetected))
-        {
-            return;
-        }
-
-        if (!generatedFrameDetected)
+        if (!IntelPresentMonFrameTypeEvidence.TryGetFrameKind(data, out var kind))
         {
             return;
         }
 
         lock (syncRoot)
         {
-            frameGenDetectedThisInterval = true;
+            switch (kind)
+            {
+                case PresentFrameKind.Original:
+                    originalFrameCountThisInterval++;
+                    break;
+                case PresentFrameKind.Generated:
+                    generatedFrameCountThisInterval++;
+                    frameGenDetectedThisInterval = true;
+                    break;
+                case PresentFrameKind.Repeated:
+                    repeatedFrameCountThisInterval++;
+                    break;
+                case PresentFrameKind.Unspecified:
+                case PresentFrameKind.Unknown:
+                default:
+                    // No rate contribution. Ignored on purpose.
+                    break;
+            }
         }
     }
 

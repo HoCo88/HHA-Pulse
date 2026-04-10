@@ -15,5 +15,6 @@
     <PackageVersion Include="Microsoft.Extensions.Hosting.WindowsServices" Version="10.0.4" />
     <PackageVersion Include="NvAPIWrapper.Net" Version="0.8.1.101" />
     <PackageVersion Include="Vortice.DXGI" Version="3.8.3" />
+    <PackageVersion Include="System.Management" Version="10.0.4" />
   </ItemGroup>
 </Project>

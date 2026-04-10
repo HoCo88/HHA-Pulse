@@ -9,15 +9,23 @@ This folder is an archive. The active architecture is the operational rewrite fr
 - No DLL injection, no graphics hooks, no game memory reads.
 - No DWM/D3DKMT FPS shortcut.
 
-## Active Data Sources (no vendor SDK, no elevation except ETW service)
+## Active Data Sources (2026-04-10 final push)
 
-- FPS / frametime / lows / frame gen: ETW via capture service.
+- FPS / frametime / lows / frame gen: elevated capture service using ETW DXGI/D3D9 PresentStart. Overlay-side routing holds the last valid game target during overlay/Steam/Game Bar foreground switches for the grace window. Capture mode is read-only: no hooks, no injection, no process memory reads, no VRR/display-setting changes.
 - CPU usage: `GetSystemTimes`.
 - GPU usage: PDH GPU Engine counters.
-- GPU temp / fan / raw power diagnostics: `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll. Same as Task Manager.
+- GPU temp / fan / power:
+  - Intel: IGCL aggregate telemetry for clock and power where supported; Arc 140V proved support mask `0x0028` (`gpuEnergyCounter`, `gpuCurrentClockFrequency`) and no aggregate temp/fan support. IGCL dedicated temp/fan enumeration was added but did not expose usable data on the tested Lunar Lake machine.
+  - AMD: ADLX official GPU metrics where supported.
+  - NVIDIA: NvAPI/NVML where supported.
+  - D3DKMT perf data remains diagnostic/fallback only; its `Power` field is not watts and must not be surfaced as GPU power.
 - RAM: `GlobalMemoryStatusEx`.
-- VRAM: Vortice.DXGI. Hidden on Intel iGPU (vendor `0x8086`).
-- Battery: `CallNtPowerInformation`.
+- VRAM: DXGI adapter/memory info plus PDH GPU memory counters. Intel/UMA iGPU is no longer hidden; used memory prefers target-process PDH `GPU Process Memory Total Committed`, fallback to adapter PDH counters, while DXGI supplies shared capacity/budget and records the 128 MB aperture as diagnostic-only.
+- Battery: `CallNtPowerInformation` plus battery class IOCTLs when capacity units are absolute mWh.
+- Device/chassis fan on MSI: read-only `root\WMI:MSI_ACPI.Get_Fan` subfeature `0x00`, decoded as big-endian tach values with `RPM = 480000 / raw`; no `Set_*` calls. The active runtime path is the elevated capture service, not the user-side overlay.
+- CPU temperature now also flows through the elevated capture service via `MSAcpi_ThermalZoneTemperature`.
+- MSI device/SoC temperature now flows through the elevated capture service via `MSI_ACPI.Get_Temperature` subfeature `0x00`, but remains separate from `gpu_temp`.
+- Device Power / total power: battery discharge watts only as a true whole-device source. On AC, return `--` unless a documented whole-device/platform power meter is nonzero and accepted. RAPL PKG/PP1/DRAM rails are component diagnostics, not Device Power.
 - Display Hz: `EnumDisplaySettings`.
 
 ## Verified Research (2026-04-08)

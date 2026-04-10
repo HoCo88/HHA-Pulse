@@ -1,5 +1,7 @@
 # GPU Telemetry Investigation & Recovery Plan
 
+**2026-04-10 update:** this file is retained as historical investigation context. The latest hardware-validated state is in `memory-bank/2026/04/10/INDEX.md`: Arc 140V GPU power and clock work via IGCL, VRAM works via PDH+DXGI, MSI chassis fan works via read-only `MSI_ACPI.Get_Fan`, AC Device Power correctly returns `--`, and GPU temperature remains unavailable from proved Intel/D3DKMT paths.
+
 **Date:** 2026-04-09
 **Branch:** HHAP-0.25
 **Device tested:** Intel Arc 140V (Lunar Lake) — MSI Claw handheld
@@ -349,7 +351,7 @@ D3DKMT returns zeros on Intel Lunar Lake iGPU. This is confirmed in:
 3. FurMark 2.4 adding Lunar Lake support specifically via IGCL
 4. LHM v0.9.6 adding IGCL telemetry for Intel iGPU (PR #2218)
 
-**No other path exists for Intel iGPU temperature on Lunar Lake.**
+**Historical 2026-04-09 conclusion:** no other path had been proved for Intel iGPU temperature on Lunar Lake. The 2026-04-10 pass added IGCL dedicated sensor probes too; those also did not expose a usable GPU temperature on the tested Arc 140V machine.
 
 ### What it provides
 

@@ -49,39 +49,6 @@ public sealed class MeasurementTraceFactoryTests
     }
 
     [Fact]
-    public void Create_KeepsFrameGenerationDiagnosticOnly()
-    {
-        var snapshot = new TelemetrySnapshot();
-        snapshot.Dependencies.CaptureServiceConnected = true;
-        snapshot.Dependencies.CapturePayloadAgeMilliseconds = 125;
-        snapshot.Performance.HybridPresentDetected = true;
-        MeasurementTraceRecorder.Record(
-            snapshot,
-            OverlayPresetCatalog.FrameGenFps,
-            "CaptureServiceCollector",
-            "Intel-PresentMon ETW frame type evidence",
-            true,
-            "detected",
-            "captureConnected=True; payloadAgeMs=125; HybridPresentDetected=True; frameGenFlag=False; appFps=not computed; presentFps=not computed; displayFps=not computed",
-            "Frame generation detection is diagnostic-only.",
-            "Intel-PresentMon ETW provider FrameType payload",
-            "FrameType=Intel_XEFG",
-            "FrameType enum",
-            "generated frame type -> diagnostic detection only",
-            "detected",
-            "boolean",
-            TelemetryValidationState.Verified,
-            "Generated-frame evidence was seen; numeric frame-gen FPS is not implemented.");
-
-        var statuses = MetricStatusFactory.Create(snapshot);
-        var traces = MeasurementTraceFactory.Create(snapshot, statuses);
-
-        var trace = Assert.Single(traces, item => item.MetricId == OverlayPresetCatalog.FrameGenFps);
-        Assert.Equal("detected", trace.ValueText);
-        Assert.Contains("frameGenFlag=False", trace.PipelineText);
-    }
-
-    [Fact]
     public void Create_MarksUnknownTraceAvailableWhenMetricFlagIsAvailable()
     {
         var snapshot = new TelemetrySnapshot

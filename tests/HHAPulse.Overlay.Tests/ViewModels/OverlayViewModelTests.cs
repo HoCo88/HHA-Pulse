@@ -23,7 +23,7 @@ public sealed class OverlayViewModelTests
     [Theory]
     [InlineData(OverlayPreset.Minimal, 2)]
     [InlineData(OverlayPreset.Standard, 6)]
-    [InlineData(OverlayPreset.Tuner, 12)]
+    [InlineData(OverlayPreset.Tuner, 14)]
     public void ApplySettings_PresetControlsMetricCount(OverlayPreset preset, int expectedCount)
     {
         var viewModel = new OverlayViewModel();
@@ -57,22 +57,5 @@ public sealed class OverlayViewModelTests
 
         Assert.Equal(new[] { 90d }, viewModel.FpsHistory);
         Assert.Equal(new[] { 11.1d }, viewModel.FrameTimeHistory);
-    }
-
-    [Fact]
-    public void ApplyTelemetry_DoesNotAutoDetectFrameGenWithoutMetricFlag()
-    {
-        var viewModel = new OverlayViewModel();
-
-        viewModel.ApplyTelemetry(new TelemetrySnapshot
-        {
-            Performance =
-            {
-                FramesPerSecond = 120,
-                HybridPresentDetected = true
-            }
-        });
-
-        Assert.False(viewModel.FrameGenDetected);
     }
 }

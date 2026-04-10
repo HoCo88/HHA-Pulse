@@ -45,8 +45,14 @@ public sealed partial class MainWindow : Window
 
     public void SetOverlayVisible(bool visible)
     {
+        if (isOverlayVisible == visible)
+        {
+            return;
+        }
+
         var hwnd = WindowNative.GetWindowHandle(this);
         NativeMethods.ShowWindow(hwnd, visible ? NativeMethods.SW_SHOWNOACTIVATE : NativeMethods.SW_HIDE);
+        isOverlayVisible = visible;
 
         if (visible)
         {
@@ -55,9 +61,8 @@ public sealed partial class MainWindow : Window
                 NativeMethods.HWND_TOPMOST,
                 0, 0, 0, 0,
                 NativeMethods.SWP_NOMOVE | NativeMethods.SWP_NOSIZE | NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
+            ResizeOverlayWindow();
         }
-
-        isOverlayVisible = visible;
     }
 
     public void ApplyOpacity(double bgOpacity, double textOpacity)
@@ -98,6 +103,11 @@ public sealed partial class MainWindow : Window
 
     private void ResizeOverlayWindow()
     {
+        if (!isOverlayVisible)
+        {
+            return;
+        }
+
         var hwnd = WindowNative.GetWindowHandle(this);
         var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
         var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
@@ -116,6 +126,6 @@ public sealed partial class MainWindow : Window
             hwnd,
             NativeMethods.HWND_TOPMOST,
             displayArea.WorkArea.X, displayArea.WorkArea.Y, width, height,
-            NativeMethods.SWP_NOACTIVATE | NativeMethods.SWP_SHOWWINDOW);
+            NativeMethods.SWP_NOACTIVATE);
     }
 }

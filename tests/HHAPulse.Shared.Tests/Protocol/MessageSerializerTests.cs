@@ -80,4 +80,37 @@ public sealed class MessageSerializerTests
         Assert.Equal("gpu_power", roundTripped.MeasurementTraces[0].MetricId);
         Assert.Equal("NVML", roundTripped.MeasurementTraces[0].Source);
     }
+
+    [Fact]
+    public void CaptureFrameMetrics_RoundTripsExtendedServiceTelemetryFields()
+    {
+        var payload = new CaptureFrameMetrics
+        {
+            HasFrameMetrics = false,
+            TimestampUnixMilliseconds = 1_777_777_888,
+            ServiceTelemetryTimestampUnixMilliseconds = 1_777_777_889,
+            CpuTemperatureCelsius = 51,
+            CpuTemperatureSource = "cpu-source",
+            CpuTemperatureStatusMessage = "cpu-status",
+            FanRpms = new[] { 2424, 2462 },
+            DeviceFanSource = "fan-source",
+            DeviceFanStatusMessage = "fan-status",
+            DeviceTemperatureCelsius = 64,
+            DeviceTemperatureSource = "device-temp-source",
+            DeviceTemperatureStatusMessage = "device-temp-status"
+        };
+
+        var envelope = MessageSerializer.CreateEnvelope(IpcMessageType.CaptureFrameMetrics, payload);
+        var bytes = MessageSerializer.SerializeEnvelope(envelope);
+        var decoded = MessageSerializer.DeserializeEnvelope(bytes);
+        var roundTripped = MessageSerializer.DeserializePayload<CaptureFrameMetrics>(decoded);
+
+        Assert.False(roundTripped.HasFrameMetrics);
+        Assert.Equal(1_777_777_889, roundTripped.ServiceTelemetryTimestampUnixMilliseconds);
+        Assert.Equal(51, roundTripped.CpuTemperatureCelsius);
+        Assert.Equal("cpu-source", roundTripped.CpuTemperatureSource);
+        Assert.Equal(new[] { 2424, 2462 }, roundTripped.FanRpms);
+        Assert.Equal(64, roundTripped.DeviceTemperatureCelsius);
+        Assert.Equal("device-temp-source", roundTripped.DeviceTemperatureSource);
+    }
 }

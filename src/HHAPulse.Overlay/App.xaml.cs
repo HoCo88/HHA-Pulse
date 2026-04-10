@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using HHAPulse.Overlay.Collectors;
 using HHAPulse.Overlay.Collectors.Battery;
 using HHAPulse.Overlay.Collectors.Cpu;
@@ -14,6 +15,7 @@ using HHAPulse.Overlay.Ipc;
 using HHAPulse.Overlay.Services;
 using HHAPulse.Overlay.Settings;
 using HHAPulse.Overlay.ViewModels;
+using HHAPulse.Shared.Protocol;
 using Microsoft.UI.Dispatching;
 using Microsoft.UI.Xaml;
 using Vortice.DXGI;
@@ -33,17 +35,77 @@ public partial class App : Application
     private AppSettings? settings;
     private OverlayViewModel? overlayViewModel;
     private CaptureServiceCollector? captureServiceCollector;
+    private readonly ForegroundCaptureTargetRouter captureTargetRouter = new();
+    private readonly InGameVisibilityGate inGameVisibilityGate = new();
     private DispatcherTimer? tickTimer;
     private CancellationTokenSource? shutdownCts;
     private int tickFailureCount;
 
     public App()
     {
+        // Bootstrap a legacy Windows.System.DispatcherQueueController on this thread
+        // BEFORE InitializeComponent() so that any composition API that relies on the
+        // legacy dispatcher queue can initialize. WinUI 3 gives the UI thread a
+        // Microsoft.UI.Dispatching.DispatcherQueue, but that is NOT the same type as
+        // Windows.System.DispatcherQueue — and Windows.UI.Composition.Compositor..ctor
+        // explicitly requires the legacy one. Without this, TransparentBackdrop throws
+        // "UnauthorizedAccessException: Access is denied. The caller must initialize
+        // DispatcherQueue on this thread before this operation." See HHAP-0.4 log.
+        //
+        // Documented Microsoft pattern — WinAppSDK custom backdrop samples use the same
+        // P/Invoke to CreateDispatcherQueueController in CoreMessaging.dll.
+        EnsureLegacyDispatcherQueueController();
+
         InitializeComponent();
         UnhandledException += OnUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += OnAppDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += OnUnobservedTaskException;
     }
+
+    // Kept in a static field so the controller (and therefore the legacy dispatcher
+    // queue it owns) stays alive for the lifetime of the process.
+    private static IntPtr s_dispatcherQueueController = IntPtr.Zero;
+
+    private static void EnsureLegacyDispatcherQueueController()
+    {
+        if (s_dispatcherQueueController != IntPtr.Zero)
+        {
+            return;
+        }
+
+        // DQTYPE_THREAD_CURRENT = 2 — attach the queue to the calling thread.
+        // DQTAT_COM_STA          = 2 — WinUI 3 UI threads are STA.
+        var options = new DispatcherQueueOptions
+        {
+            dwSize = Marshal.SizeOf<DispatcherQueueOptions>(),
+            threadType = 2,
+            apartmentType = 2
+        };
+
+        int hr = CreateDispatcherQueueController(options, out var controller);
+        if (hr < 0)
+        {
+            // Do not throw — the overlay must still launch. TransparentBackdrop will
+            // log the resulting compositor failure if transparency cannot be set up.
+            AppLogger.Error($"Failed to create legacy DispatcherQueueController (HRESULT=0x{hr:X8}). Transparent backdrop will be disabled.", new COMException("CreateDispatcherQueueController failed", hr));
+            return;
+        }
+
+        s_dispatcherQueueController = controller;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct DispatcherQueueOptions
+    {
+        public int dwSize;
+        public int threadType;
+        public int apartmentType;
+    }
+
+    [DllImport("CoreMessaging.dll", ExactSpelling = true)]
+    private static extern int CreateDispatcherQueueController(
+        DispatcherQueueOptions options,
+        out IntPtr dispatcherQueueController);
 
     /// <summary>
     /// Loads XamlControlsResources in code-behind so a framework XamlParseException
@@ -112,6 +174,7 @@ public partial class App : Application
             new BatteryCollector(),
             new CpuUsageCollector(),
             new CpuPowerCollector(),
+            new DramPowerEmiCollector(),
             new RamCollector(),
             new GpuUsageCollector(),
             new GpuPerfDataCollector(),
@@ -128,8 +191,15 @@ public partial class App : Application
                 AppLogger.Info("GPU vendor: AMD (0x1002). Added ADLX collector.");
                 break;
             case 0x8086:
+                // Register EMI RAPL PP1 BEFORE IGCL so that if a future
+                // system has both an Intel iGPU and a discrete Arc dGPU,
+                // IGCL's (correct for dGPU) reading overwrites the PP1
+                // (iGPU rail) reading. On Lunar Lake iGPU-only, IGCL
+                // does not populate power (validFlags=0x08 observed),
+                // so PP1 persists as the valid source.
+                collectors.Add(new GpuPowerEmiCollector());
                 collectors.Add(new IgclGpuCollector());
-                AppLogger.Info("GPU vendor: Intel (0x8086). Added IGCL collector.");
+                AppLogger.Info("GPU vendor: Intel (0x8086). Added IGCL + EMI RAPL PP1 collectors.");
                 break;
             case 0x10DE:
                 collectors.Add(new NvApiGpuCollector());
@@ -156,6 +226,10 @@ public partial class App : Application
         window = new MainWindow();
         window.Closed += OnWindowClosed;
         window.Activate();
+        if (settings.ShowMode == OverlayShowMode.InGameOnly)
+        {
+            window.SetOverlayVisible(false);
+        }
 
         // Wire AppHost to ViewModel so UI updates with live data.
         overlayViewModel = new OverlayViewModel();
@@ -186,16 +260,17 @@ public partial class App : Application
 
         try
         {
-            var gameTarget = ForegroundGameDetector.TryGetForegroundGameTarget();
-            captureServiceCollector?.SetTarget(gameTarget);
+            var targetRoute = captureTargetRouter.Resolve(ForegroundGameDetector.TryGetForegroundWindowInfo(), DateTimeOffset.UtcNow);
+            captureServiceCollector?.SetTarget(targetRoute.Target, targetRoute.ToStatusText());
 
-            await appHost.TickAsync(shutdownCts.Token);
+            var snapshot = await appHost.TickAsync(shutdownCts.Token);
             tickFailureCount = 0;
 
-            // In-game only mode: auto show/hide based on foreground window.
+            // In-game only mode: auto show/hide based on real ETW frame telemetry,
+            // not foreground-process target guesses.
             if (settings?.ShowMode == OverlayShowMode.InGameOnly && window is not null)
             {
-                window.SetOverlayVisible(gameTarget is not null);
+                window.SetOverlayVisible(inGameVisibilityGate.ShouldBeVisible(snapshot, DateTimeOffset.UtcNow));
             }
         }
         catch (OperationCanceledException)
@@ -394,6 +469,11 @@ public partial class App : Application
         {
             window?.SetOverlayVisible(true);
         }
+        else
+        {
+            inGameVisibilityGate.Reset();
+            window?.SetOverlayVisible(false);
+        }
 
         AppLogger.Info($"Overlay show mode changed to {mode}.");
     }
@@ -464,7 +544,7 @@ public partial class App : Application
             var sc = Process.Start(new ProcessStartInfo
             {
                 FileName = "sc.exe",
-                Arguments = "query HHAPulse.CaptureService",
+                Arguments = $"query {PipeConstants.CaptureServiceName}",
                 UseShellExecute = false,
                 RedirectStandardOutput = true,
                 CreateNoWindow = true
@@ -487,7 +567,7 @@ public partial class App : Application
                     Process.Start(new ProcessStartInfo
                     {
                         FileName = "sc.exe",
-                        Arguments = "start HHAPulse.CaptureService",
+                        Arguments = $"start {PipeConstants.CaptureServiceName}",
                         UseShellExecute = true,
                         Verb = "runas",
                         CreateNoWindow = true

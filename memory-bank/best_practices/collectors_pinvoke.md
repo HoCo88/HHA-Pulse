@@ -10,8 +10,9 @@ Overlay collectors:
 - CPU usage: `GetSystemTimes` delta.
 - RAM: `GlobalMemoryStatusEx`.
 - GPU usage: PDH GPU Engine counters.
-- GPU temp / power / fan: `D3DKMTQueryAdapterInfo(KMTQAITYPE_ADAPTERPERFDATA)` via gdi32.dll.
-- VRAM: Vortice.DXGI `IDXGIAdapter3.QueryVideoMemoryInfo`.
+- GPU temp / power / fan: vendor SDKs where available (Intel IGCL, AMD ADLX, NVIDIA NvAPI/NVML), with D3DKMT as diagnostic/fallback only. D3DKMT `Power` is not watts.
+- Device/chassis fan on MSI: read-only `root\WMI:MSI_ACPI.Get_Fan` subfeature `0x00`; no `Set_*` calls.
+- VRAM: PDH GPU memory counters for used memory on UMA/iGPU plus DXGI `IDXGIAdapter3.QueryVideoMemoryInfo` / `DXGI_ADAPTER_DESC1` for budget/capacity evidence.
 - Display refresh: Windows display APIs.
 
 Capture service:
@@ -76,7 +77,9 @@ var info = adapter3.QueryVideoMemoryInfo(0, MemorySegmentGroup.Local);
 
 ### Intel iGPU VRAM handling
 
-Intel iGPUs (`VendorId == 0x8086`, `DedicatedVideoMemory <= 256MB`) have no real VRAM — they use shared system memory already reported by RAM. The VRAM metric is hidden for these adapters. Log the detection: `VRAM: Intel iGPU detected (VendorId=0x8086, DedicatedVRAM=XXX MB). VRAM metric hidden.`
+**Current rule after 2026-04-10:** Intel/UMA iGPUs (`VendorId == 0x8086`, `DedicatedVideoMemory <= 256MB`) do not have meaningful dedicated VRAM capacity, but the VRAM metric is no longer hidden. Display honest shared/system-backed GPU memory: used memory from PDH GPU memory counters, capacity/budget from DXGI. Keep the small dedicated aperture (for example 128 MB on Arc 140V) in diagnostics only; do not display it as the iGPU capacity.
+
+Historical pre-2026-04-10 rule was to hide Intel iGPU VRAM. Do not use that rule anymore.
 
 **Caveat**: `DedicatedVideoMemory` can be non-zero on Intel iGPUs ([wgpu issue #683](https://github.com/gfx-rs/wgpu/issues/683)). The VendorId check prevents false positives. Intel Arc (discrete, `DedicatedVideoMemory > 256MB`) correctly shows VRAM.
 

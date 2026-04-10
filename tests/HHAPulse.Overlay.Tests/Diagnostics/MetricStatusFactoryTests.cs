@@ -91,6 +91,6 @@ public sealed class MetricStatusFactoryTests
         Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.OnePercentLow);
         Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.ZeroPointOneLow);
         Assert.DoesNotContain(statuses, status => status.MetricId == OverlayPresetCatalog.InputLatency);
-        Assert.Equal(18, statuses.Count);
+        Assert.Equal(19, statuses.Count);
     }
 }

@@ -7,14 +7,22 @@ Every claim cites a `file:line` from this repo or a vendor contract header vendo
 
 ## Current Implementation Delta (2026-04-10)
 
-The active-bug section below captures the audit findings that triggered the fix. The current implementation has addressed the user-visible truth issues this way:
+The active-bug section below captures the audit findings that triggered the fix. The current implementation has addressed the user-visible truth issues this way. For the full hardware validation log on the MSI Core Ultra 7 258V / Arc 140V machine, see `memory-bank/2026/04/10/INDEX.md`.
 
 - `input_latency` is reserved but no longer shown in the HUD, custom picker, metric status cards, or traces. `GpuBusyMilliseconds` is not labeled as latency.
 - Refresh-rate sentinel values `0` and `1` render as `--` in HUD/widget/diagnostics.
 - `AppFramesPerSecond`, `PresentFramesPerSecond`, and `DisplayFramesPerSecond` remain append-only MessagePack fields but are set to `0`/not-computed until a real source exists.
-- `total_power` is whole-device battery discharge watts only. CPU+GPU sum is diagnostics-only.
+- `total_power` / Device Power is whole-device battery discharge watts only. On AC it returns `--` unless a real platform/whole-device power meter is found. RAPL `PKG + DRAM` is retained as diagnostics-only component evidence, not shown as Device Power.
 - Battery capacity/runtime probing uses battery class IOCTLs only when absolute mWh units are reported; relative units are rejected for Wh conversion.
 - AMD ADLX GPU power prefers `GPUTotalBoardPower` and falls back to `GPUPower`; D3DKMT `PowerRaw` remains rejected because it is not watts.
+- Intel Lunar Lake / Arc 140V GPU power is validated via IGCL `gpuEnergyCounter/timeStamp` and the EMI `RAPL_Package0_PP1` iGPU rail. The observed IGCL aggregate support mask on this machine is `0x0028`, meaning only `gpuEnergyCounter` and `gpuCurrentClockFrequency` are supported there.
+- Intel Lunar Lake / Arc 140V GPU temperature is still unavailable from the proved paths: D3DKMT reports `0.0C`; IGCL aggregate reports no temp field; IGCL dedicated temperature enumeration did not expose a usable sensor in the final native build. Do not fabricate it from CPU/ACPI/MSI temperatures.
+- Intel UMA/iGPU VRAM is no longer hidden. Used memory comes from PDH GPU memory counters, preferring the target process when a valid capture target exists; DXGI supplies shared capacity/budget and records the 128 MB dedicated aperture as diagnostic-only evidence.
+- CPU temperature is now sourced from the elevated capture service via WMI `MSAcpi_ThermalZoneTemperature`.
+- Device/chassis fan is no longer labeled as GPU-only. On the MSI test machine it comes from the elevated capture service via read-only `root\WMI:MSI_ACPI.Get_Fan` subfeature `0x00`, decoded as big-endian tach values with `RPM = 480000 / raw`.
+- MSI device/SoC temperature is now surfaced as a separate `device_temp` metric from the elevated capture service via `MSI_ACPI.Get_Temperature` subfeature `0x00`. It remains explicitly separate from `gpu_temp`.
+- FPS target routing holds the last valid game target through overlay/Steam/Game Bar foreground transitions for the 10-second grace window; AVG FPS is now a 5-second rolling average.
+- Capture diagnostics state the safety contract explicitly: ETW/PDH read-only, no hooks, no injection, no process memory reads, no kernel driver, and no VRR/display setting changes.
 - Runtime provenance traces now carry collector/validator, API contract, raw unit, conversion rule, converted unit, validation state, and rejection/unavailable reason when collectors record them.
 - `MetricStatusFactory` and `MeasurementTraceFactory` no longer invent hardcoded source/collector fallbacks. If runtime provenance is missing, diagnostics report `unknown collector`.
 - "Boundary traces" has been renamed to "Last observed boundary state"; widget client count is last-observed, not a heartbeat.
@@ -263,6 +271,8 @@ The collector explicitly refuses to fabricate watts from a TDP ratio, and writes
 
 ### 4.2 VRAM
 
+**Current truth after the 2026-04-10 final push:** this section's original table is historical audit context. The active Intel/UMA iGPU path no longer hides VRAM when `DedicatedVideoMemory <= 256MB`. On the MSI Arc 140V machine the HUD showed `4.5/18.0G` from PDH `GPU Process Memory Total Committed` for used memory, while DXGI provided shared capacity/budget evidence and retained the `128MB` dedicated aperture as diagnostic-only data. If there is no valid target process, the fallback is PDH adapter memory counters, not the tiny DXGI local usage number.
+
 | Aspect | Detail |
 |---|---|
 | API | `IDXGIAdapter3::QueryVideoMemoryInfo(0, MemorySegmentGroup.Local)` (Vortice.DXGI binding) |
@@ -356,6 +366,9 @@ This is the section the user specifically asked for.
 - **Truth status**: code paths correct against vendor contracts (vendored from official Intel and AMD SDK headers, retrieved 2026-04-09; NVML and NvAPI verified by P/Invoke signatures and the `NvAPIWrapper.Net` package). Hardware sign-off pending for Intel/AMD on real handhelds.
 
 ### Total system power
+
+**Current truth after the 2026-04-10 final push:** Device Power / `total_power` is battery discharge watts only when unplugged. On AC it returns `--` unless Windows/OEM exposes a real whole-device/platform watt meter. RAPL `PKG`, `PP1`, and `DRAM` are kept as component rail diagnostics; `PKG + DRAM` is not shown as total/device power because it excludes display panel, SSD, radios, fans, and platform conversion losses. The old CPU+GPU/component-sum description below is retained as audit history, not the current product behavior.
+
 - **File**: `src/HHAPulse.Overlay/Diagnostics/SystemPowerValidator.cs` (validator) + `MeasurementTraceFactory.SystemPowerTrace:103-114`
 - **Two valid sources, in order of preference**:
   1. **Battery discharge watts** (when on battery and `Battery.DischargeWatts > 0`): the wall measurement of total system draw. Most accurate because the battery's BMS measures it directly.

@@ -21,6 +21,8 @@
 typedef uint32_t ctl_result_t;
 typedef struct _ctl_api_handle_t* ctl_api_handle_t;
 typedef struct _ctl_device_adapter_handle_t* ctl_device_adapter_handle_t;
+typedef struct _ctl_fan_handle_t* ctl_fan_handle_t;
+typedef struct _ctl_temp_handle_t* ctl_temp_handle_t;
 
 enum : ctl_result_t
 {
@@ -57,6 +59,24 @@ typedef enum _ctl_units_t
     CTL_UNITS_BANDWIDTH_MBPS = 14,
     CTL_UNITS_UNKNOWN = 0x4800FFFF,
 } ctl_units_t;
+
+typedef enum _ctl_fan_speed_units_t
+{
+    CTL_FAN_SPEED_UNITS_RPM = 0,
+    CTL_FAN_SPEED_UNITS_PERCENT = 1,
+    CTL_FAN_SPEED_UNITS_MAX = 0x7fffffff,
+} ctl_fan_speed_units_t;
+
+typedef enum _ctl_temp_sensors_t
+{
+    CTL_TEMP_SENSORS_GLOBAL = 0,
+    CTL_TEMP_SENSORS_GPU = 1,
+    CTL_TEMP_SENSORS_MEMORY = 2,
+    CTL_TEMP_SENSORS_GLOBAL_MIN = 3,
+    CTL_TEMP_SENSORS_GPU_MIN = 4,
+    CTL_TEMP_SENSORS_MEMORY_MIN = 5,
+    CTL_TEMP_SENSORS_MAX = 0x7fffffff,
+} ctl_temp_sensors_t;
 
 typedef enum _ctl_data_type_t
 {
@@ -230,8 +250,33 @@ typedef struct _ctl_power_telemetry_t
     ctl_oc_telemetry_item_t vramWriteBandwidth;
 } ctl_power_telemetry_t;
 
+typedef struct _ctl_fan_properties_t
+{
+    uint32_t Size;
+    uint8_t Version;
+    bool canControl;
+    uint32_t supportedModes;
+    uint32_t supportedUnits;
+    int32_t maxRPM;
+    int32_t maxPoints;
+} ctl_fan_properties_t;
+
+typedef struct _ctl_temp_properties_t
+{
+    uint32_t Size;
+    uint8_t Version;
+    ctl_temp_sensors_t type;
+    double maxTemperature;
+} ctl_temp_properties_t;
+
 typedef ctl_result_t(__cdecl* ctlInitFn)(ctl_init_args_t* pInitArgs, ctl_api_handle_t* phAPIHandle);
 typedef ctl_result_t(__cdecl* ctlCloseFn)(ctl_api_handle_t hAPIHandle);
 typedef ctl_result_t(__cdecl* ctlEnumerateDevicesFn)(ctl_api_handle_t hAPIHandle, uint32_t* pCount, ctl_device_adapter_handle_t* phDevices);
 typedef ctl_result_t(__cdecl* ctlGetDevicePropertiesFn)(ctl_device_adapter_handle_t hDAhandle, ctl_device_adapter_properties_t* pProperties);
 typedef ctl_result_t(__cdecl* ctlPowerTelemetryGetFn)(ctl_device_adapter_handle_t hDeviceHandle, ctl_power_telemetry_t* pTelemetryInfo);
+typedef ctl_result_t(__cdecl* ctlEnumFansFn)(ctl_device_adapter_handle_t hDAhandle, uint32_t* pCount, ctl_fan_handle_t* phFan);
+typedef ctl_result_t(__cdecl* ctlFanGetPropertiesFn)(ctl_fan_handle_t hFan, ctl_fan_properties_t* pProperties);
+typedef ctl_result_t(__cdecl* ctlFanGetStateFn)(ctl_fan_handle_t hFan, ctl_fan_speed_units_t units, int32_t* pSpeed);
+typedef ctl_result_t(__cdecl* ctlEnumTemperatureSensorsFn)(ctl_device_adapter_handle_t hDAhandle, uint32_t* pCount, ctl_temp_handle_t* phTemperature);
+typedef ctl_result_t(__cdecl* ctlTemperatureGetPropertiesFn)(ctl_temp_handle_t hTemperature, ctl_temp_properties_t* pProperties);
+typedef ctl_result_t(__cdecl* ctlTemperatureGetStateFn)(ctl_temp_handle_t hTemperature, double* pTemperature);

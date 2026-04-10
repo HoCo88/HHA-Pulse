@@ -126,8 +126,11 @@ public sealed class NvApiGpuCollector : IMetricCollector, IDisposable
             {
                 snapshot.AvailableMetrics |= MetricFlags.Fan;
                 snapshot.Gpu.FanRpm = (int)cooler.CurrentFanSpeedInRPM;
+                snapshot.Dependencies.FanRpms = new[] { snapshot.Gpu.FanRpm };
+                snapshot.Dependencies.DeviceFanSource = "NvAPI";
+                snapshot.Dependencies.DeviceFanStatusMessage = "Device fan tachometer from NVIDIA NvAPI cooler tach.";
                 snapshot.Dependencies.GpuFanSource = "NvAPI";
-                snapshot.Dependencies.GpuFanStatusMessage = "GPU fan speed from NVIDIA NvAPI.";
+                snapshot.Dependencies.GpuFanStatusMessage = snapshot.Dependencies.DeviceFanStatusMessage;
                 MeasurementTraceRecorder.Record(snapshot, "gpu_fan", nameof(NvApiGpuCollector), "NvAPI tach reading", true, $"{snapshot.Gpu.FanRpm}rpm", $"rawRpm={cooler.CurrentFanSpeedInRPM}", snapshot.Dependencies.GpuFanStatusMessage, "NvAPI GPU cooler tach", cooler.CurrentFanSpeedInRPM.ToString(), "rpm", "direct RPM", snapshot.Gpu.FanRpm.ToString(), "rpm", TelemetryValidationState.Verified, "NvAPI returned a tachometer fan reading.");
                 break;
             }

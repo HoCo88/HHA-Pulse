@@ -6,13 +6,51 @@ using Microsoft.Win32.SafeHandles;
 namespace HHAPulse.Overlay.Collectors.Cpu;
 
 /// <summary>
-/// Reads CPU package power via the Windows Energy Meter Interface (EMI).
-/// EMI exposes RAPL energy counters on battery-equipped devices through
-/// device I/O controls. We enumerate EMI devices, find one whose name
-/// contains "CPU" or "Package", and compute watts from energy deltas.
-/// No elevation required; EMI devices are readable from user mode.
+/// Reads memory (DRAM) power via the Intel RAPL DRAM domain, exposed
+/// as a <c>RAPL_Package&lt;N&gt;_DRAM</c> channel through the Windows
+/// Energy Meter Interface (EMI).
+///
+/// <para>
+/// <b>What RAPL DRAM is.</b> Intel's RAPL architecture defines a
+/// dedicated energy counter for the memory subsystem (DIMMs + memory
+/// controller on some SKUs). On client Core and Core Ultra parts the
+/// counter reports watts consumed by the DRAM itself. Source: Intel
+/// 64 and IA-32 Architectures Software Developer's Manual Vol 3B,
+/// §15.10.3 "RAPL Domains and Platform Specific Information".
+/// </para>
+///
+/// <para>
+/// <b>How we read it.</b> The Intel Power Management driver
+/// (ipmDrv) exposes every RAPL domain as a named EMI channel. On
+/// Lunar Lake (Core Ultra 7 258V) the enumeration returns four
+/// channels — <c>PKG</c>, <c>PP0</c>, <c>PP1</c>, <c>DRAM</c> — all
+/// verified via the overlay's own init diagnostic log. This
+/// collector opens the same EMI device class as
+/// <see cref="CpuPowerCollector"/> and selects the DRAM channel
+/// via <see cref="EmiChannelRole.Dram"/>. Power is derived from
+/// picowatt-hour energy deltas over elapsed time, identical to the
+/// CPU and iGPU collectors.
+/// </para>
+///
+/// <para>
+/// <b>Why we care.</b> On AC, <see cref="SystemPowerValidator"/>
+/// uses (PKG package watts) + (DRAM watts) as the TotalPower tile
+/// value — an honest SoC + memory proxy rather than PKG alone while
+/// still being bounded to real Intel-documented measurements.
+/// The reading still excludes display panel, SSD, radios, fans,
+/// and platform conversion losses, and the diagnostic trace
+/// records this caveat.
+/// </para>
+///
+/// <para>
+/// <b>No fake data.</b> If the EMI driver is not installed, if no
+/// device exposes a DRAM channel, or if the energy delta is
+/// invalid on a given tick, we fail closed — no flag is set and
+/// the TotalPower tile remains <c>--</c>. The collector never
+/// substitutes a guess for an unavailable reading.
+/// </para>
 /// </summary>
-public sealed class CpuPowerCollector : IMetricCollector, IDisposable
+public sealed class DramPowerEmiCollector : IMetricCollector, IDisposable
 {
     private SafeFileHandle? _deviceHandle;
     private bool _initialized;
@@ -24,9 +62,9 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
     private string _channelName = string.Empty;
     private EmiMeasurementPoint _previousMeasurement;
     private bool _hasBaseline;
-    private string _statusMessage = "CPU EMI power collector not initialized.";
+    private string _statusMessage = "DRAM EMI power collector not initialized.";
 
-    public string Name => "CPU Power (EMI)";
+    public string Name => "DRAM Power (EMI)";
 
     public bool IsAvailable => OperatingSystem.IsWindows();
 
@@ -34,14 +72,16 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
     {
         try
         {
-            // Guard: only activate if a battery is present (handheld device).
+            // The DRAM RAPL rail is a property of Intel client SoCs.
+            // Guard on battery presence so we only probe on handhelds /
+            // laptops, matching the pattern of CpuPowerCollector and
+            // GpuPowerEmiCollector.
             if (!CheckBatteryPresent())
             {
-                LogOnce("CPU Power: No battery detected; EMI collector disabled.");
+                LogOnce("DRAM Power: No battery detected; EMI collector disabled.");
                 return Task.CompletedTask;
             }
 
-            // Enumerate EMI device interfaces.
             var emiGuid = EmiContract.DeviceInterfaceGuid;
             var deviceInfoSet = SetupDiGetClassDevs(
                 ref emiGuid,
@@ -51,17 +91,12 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
 
             if (deviceInfoSet == InvalidHandleValue)
             {
-                LogOnce("CPU Power: SetupDiGetClassDevs failed; no EMI devices.");
+                LogOnce("DRAM Power: SetupDiGetClassDevs failed; no EMI devices.");
                 return Task.CompletedTask;
             }
 
             try
             {
-                // Iterate EMI device interfaces looking for a CPU/Package channel.
-                // Track diagnostic info so the log explains exactly why a device
-                // was rejected (Lunar Lake and other SoCs expose non-standard
-                // channel names that may not match the keyword rank filter).
-                var diagnosticsPerDevice = new List<string>();
                 uint enumeratedDeviceCount = 0;
                 for (uint i = 0; i < 64; i++)
                 {
@@ -75,7 +110,6 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
 
                     enumeratedDeviceCount++;
 
-                    // Get required buffer size for detail.
                     uint requiredSize = 0;
                     SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, IntPtr.Zero, 0, ref requiredSize, IntPtr.Zero);
 
@@ -85,19 +119,16 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
                     var detailBuffer = Marshal.AllocHGlobal((int)requiredSize);
                     try
                     {
-                        // Set cbSize to the fixed part size (platform-dependent).
                         Marshal.WriteInt32(detailBuffer, IntPtr.Size == 8 ? 8 : 6);
 
                         if (!SetupDiGetDeviceInterfaceDetail(deviceInfoSet, ref interfaceData, detailBuffer, requiredSize, ref requiredSize, IntPtr.Zero))
                             continue;
 
-                        // DevicePath starts at offset 4 in the detail struct.
                         string devicePath = Marshal.PtrToStringUni(detailBuffer + 4) ?? string.Empty;
 
                         if (string.IsNullOrEmpty(devicePath))
                             continue;
 
-                        // Open the EMI device and check its metadata.
                         var handle = CreateFile(
                             devicePath,
                             FileAccessGenericRead,
@@ -110,7 +141,6 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
                         if (handle.IsInvalid)
                             continue;
 
-                        // Query metadata version first.
                         if (!TryGetVersion(handle, out ushort version) ||
                             !TryGetMetadataSize(handle, out uint metadataSize) ||
                             metadataSize == 0 ||
@@ -135,20 +165,7 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
                             continue;
                         }
 
-                        // Full enumeration log — always log every channel
-                        // name on every enumerated EMI device so the log
-                        // has ground-truth evidence about what RAPL rails
-                        // the firmware actually exposes. This replaces the
-                        // previous rejection-only logging so future work
-                        // (e.g. reading PP1 iGPU power, DRAM power) has
-                        // real channel names to go on instead of guesses.
-                        var enumeratedChannels = EmiContract.ExtractChannelNames(version, metadata.AsSpan(0, (int)bytesReturned));
-                        var enumeratedList = enumeratedChannels.Count > 0
-                            ? string.Join(", ", enumeratedChannels)
-                            : "<no channel names parsed>";
-                        AppLogger.Info($"CPU Power: EMI device #{i} version={version} metadataBytes={bytesReturned} channels=[{enumeratedList}]");
-
-                        EmiSelection? selection = EmiContract.TryParseSelection(version, metadata.AsSpan(0, (int)bytesReturned), EmiChannelRole.Cpu);
+                        EmiSelection? selection = EmiContract.TryParseSelection(version, metadata.AsSpan(0, (int)bytesReturned), EmiChannelRole.Dram);
                         if (selection is not null)
                         {
                             _deviceHandle = handle;
@@ -157,14 +174,11 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
                             _channelCount = selection.ChannelCount;
                             _channelIndex = selection.ChannelIndex;
                             _channelName = selection.ChannelName;
-                            AppLogger.Info($"CPU Power: Selected EMI channel '{_channelName}' (index {_channelIndex} of {_channelCount}) from {devicePath}. EMI version={version}.");
+                            _statusMessage = $"Selected EMI channel '{_channelName}' (index {_channelIndex} of {_channelCount}). Intel RAPL DRAM = memory subsystem.";
+                            AppLogger.Info($"DRAM Power: {_statusMessage} Device={devicePath}. EMI version={version}.");
                             return Task.CompletedTask;
                         }
 
-                        // Parser rejected this device. Keep the per-device
-                        // rejection diagnostic as a fallback for the final
-                        // "none matched" error message later.
-                        diagnosticsPerDevice.Add($"device#{i} version={version} metadataBytes={bytesReturned} channels=[{enumeratedList}]");
                         handle.Dispose();
                     }
                     finally
@@ -175,14 +189,11 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
 
                 if (enumeratedDeviceCount == 0)
                 {
-                    LogOnce("CPU Power: No EMI device interfaces enumerated. The EMI class driver is not installed on this system (common on desktops without an IPM driver).");
+                    LogOnce("DRAM Power: No EMI device interfaces enumerated. Intel Power Management driver (ipmDrv) is not installed.");
                 }
                 else
                 {
-                    var detail = diagnosticsPerDevice.Count > 0
-                        ? string.Join(" | ", diagnosticsPerDevice)
-                        : "<no per-device detail>";
-                    LogOnce($"CPU Power: Enumerated {enumeratedDeviceCount} EMI device(s) but none exposed a channel whose name contains PACKAGE/CPU/RAPL/SOC. Seen: {detail}");
+                    LogOnce($"DRAM Power: Enumerated {enumeratedDeviceCount} EMI device(s) but none exposed a channel whose name ends in _DRAM. This platform does not expose a DRAM RAPL rail via EMI.");
                 }
             }
             finally
@@ -192,7 +203,7 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
         }
         catch (Exception ex)
         {
-            LogOnce($"CPU Power: Init exception: {ex.Message}");
+            LogOnce($"DRAM Power: Init exception: {ex.Message}");
         }
 
         return Task.CompletedTask;
@@ -202,14 +213,16 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
     {
         if (!_initialized || _deviceHandle is null || _deviceHandle.IsInvalid)
         {
+            snapshot.Dependencies.DramPowerSource = string.Empty;
+            snapshot.Dependencies.DramPowerStatusMessage = _statusMessage;
             MeasurementTraceRecorder.Record(
                 snapshot,
-                "cpu_power",
-                nameof(CpuPowerCollector),
-                "Windows Energy Meter Interface (EMI)",
+                "dram_power",
+                nameof(DramPowerEmiCollector),
+                "Windows Energy Meter Interface (EMI) RAPL DRAM",
                 false,
                 "--",
-                "EMI collector unavailable; no CPU/package watt channel accepted this tick",
+                "DRAM EMI collector unavailable; no RAPL_Package<N>_DRAM channel accepted",
                 _statusMessage,
                 "EMI energy measurement IOCTLs",
                 "--",
@@ -244,19 +257,22 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
         if (_hasBaseline)
         {
             double? watts = EmiContract.TryComputeWatts(_previousMeasurement, measurement);
-            if (watts is > 0 and < 500)
+            // DRAM is typically a fraction of a watt to a few watts
+            // even under load; clamp matches CPU / iGPU bounds.
+            if (watts is >= 0 and < 500)
             {
-                snapshot.Cpu.PowerWatts = watts.Value;
-                snapshot.AvailableMetrics |= MetricFlags.CpuPower;
+                snapshot.Dependencies.DramPowerWatts = watts.Value;
+                snapshot.Dependencies.DramPowerSource = "EMI RAPL DRAM";
+                snapshot.Dependencies.DramPowerStatusMessage = $"DRAM power from Intel RAPL DRAM channel '{_channelName}'. Intel SDM Vol 3B §15.10.3.";
                 MeasurementTraceRecorder.Record(
                     snapshot,
-                    "cpu_power",
-                    nameof(CpuPowerCollector),
-                    "Windows Energy Meter Interface (EMI)",
+                    "dram_power",
+                    nameof(DramPowerEmiCollector),
+                    "Windows Energy Meter Interface (EMI) RAPL DRAM",
                     true,
                     $"{watts.Value:0.0}W",
                     $"channel={_channelName}; version={_emiVersion}; channelIndex={_channelIndex}; channelCount={_channelCount}",
-                    "CPU/package power from Windows EMI energy deltas. Hardware validation is still pending.",
+                    "DRAM power from Intel RAPL DRAM energy deltas. Hardware validation is still pending.",
                     "EMI measurement channel",
                     $"{measurement.AbsoluteEnergyPicowattHours}",
                     "picowatt-hours",
@@ -264,19 +280,20 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
                     $"{watts.Value:0.000}",
                     "W",
                     TelemetryValidationState.HardwareValidationPending,
-                    "EMI reported a valid positive energy delta for the selected CPU/package channel.");
+                    "EMI reported a valid non-negative energy delta for the RAPL DRAM channel.");
             }
             else
             {
+                snapshot.Dependencies.DramPowerWatts = 0;
                 MeasurementTraceRecorder.Record(
                     snapshot,
-                    "cpu_power",
-                    nameof(CpuPowerCollector),
-                    "Windows Energy Meter Interface (EMI)",
+                    "dram_power",
+                    nameof(DramPowerEmiCollector),
+                    "Windows Energy Meter Interface (EMI) RAPL DRAM",
                     false,
                     "--",
                     $"channel={_channelName}; version={_emiVersion}; channelIndex={_channelIndex}; invalid or first delta",
-                    "CPU/package power from EMI was rejected this tick.",
+                    "DRAM power from EMI RAPL was rejected this tick.",
                     "EMI measurement channel",
                     $"{measurement.AbsoluteEnergyPicowattHours}",
                     "picowatt-hours",
@@ -284,20 +301,21 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
                     "--",
                     "W",
                     TelemetryValidationState.Rejected,
-                    "EMI did not produce a valid positive watt delta in the allowed range.");
+                    "EMI did not produce a valid non-negative watt delta in the allowed range.");
             }
         }
         else
         {
+            snapshot.Dependencies.DramPowerWatts = 0;
             MeasurementTraceRecorder.Record(
                 snapshot,
-                "cpu_power",
-                nameof(CpuPowerCollector),
-                "Windows Energy Meter Interface (EMI)",
+                "dram_power",
+                nameof(DramPowerEmiCollector),
+                "Windows Energy Meter Interface (EMI) RAPL DRAM",
                 false,
                 "--",
                 $"channel={_channelName}; version={_emiVersion}; baseline pending",
-                "CPU/package power requires two EMI samples before watts can be computed.",
+                "DRAM power requires two EMI samples before watts can be computed.",
                 "EMI measurement channel",
                 $"{measurement.AbsoluteEnergyPicowattHours}",
                 "picowatt-hours",
@@ -388,7 +406,6 @@ public sealed class CpuPowerCollector : IMetricCollector, IDisposable
     private const int SystemBatteryStateLevel = 5;
     private static readonly IntPtr InvalidHandleValue = new(-1);
 
-    // Official EMI device interface GUID: {45BD8344-7ED6-49cf-A440-C276C933B053}
     private const uint DIGCF_PRESENT = 0x00000002;
     private const uint DIGCF_DEVICEINTERFACE = 0x00000010;
     private const uint FileAccessGenericRead = 0x80000000;
