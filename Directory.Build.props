@@ -12,5 +12,6 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <LangVersion>latest</LangVersion>
     <Platforms>x64</Platforms>
+    <DefaultItemExcludes>$(DefaultItemExcludes);**/.codex-build/**;**/.testbin/**;**/bin_codex*/**;**/obj_codex*/**;**/obj_plan/**;**/obj_probe/**</DefaultItemExcludes>
   </PropertyGroup>
 </Project>

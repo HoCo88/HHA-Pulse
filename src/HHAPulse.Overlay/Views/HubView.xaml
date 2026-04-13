@@ -1,0 +1,378 @@
+<UserControl
+    x:Class="HHAPulse.Overlay.Views.HubView"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    SizeChanged="OnHubSizeChanged">
+    <StackPanel x:Name="HubRoot" Spacing="20">
+
+        <!-- ============================================ -->
+        <!-- Row 1: Hero + Live HUD preview                -->
+        <!-- ============================================ -->
+        <Grid x:Name="HeroRow" ColumnSpacing="20" RowSpacing="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition x:Name="HeroColumn" Width="1.35*" />
+                <ColumnDefinition x:Name="PreviewColumn" Width="0.95*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition x:Name="HeroStackRow" Height="0" />
+            </Grid.RowDefinitions>
+
+            <!-- Hero card -->
+            <Border Grid.Column="0" Grid.Row="0" Style="{StaticResource HhapCardStyle}" Padding="28">
+                <Grid>
+                    <!-- Radial highlight to echo preview.html .hero-copy::after -->
+                    <Ellipse Width="340"
+                             Height="340"
+                             HorizontalAlignment="Right"
+                             VerticalAlignment="Top"
+                             Margin="0,-100,-120,0"
+                             IsHitTestVisible="False">
+                        <Ellipse.Fill>
+                            <RadialGradientBrush Center="0.5,0.5" GradientOrigin="0.5,0.5" RadiusX="0.5" RadiusY="0.5">
+                                <GradientStop Offset="0.0" Color="#2958CBFF" />
+                                <GradientStop Offset="0.68" Color="#0058CBFF" />
+                                <GradientStop Offset="1.0" Color="#0058CBFF" />
+                            </RadialGradientBrush>
+                        </Ellipse.Fill>
+                    </Ellipse>
+
+                    <StackPanel Spacing="{StaticResource HhapSpace3}">
+                        <TextBlock Text="YOUR OVERLAY" Style="{StaticResource HhapEyebrowStyle}" />
+                        <TextBlock x:Name="HeroHeadline"
+                                   Text="Standard"
+                                   Style="{StaticResource HhapHeroStyle}"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="420" />
+                        <TextBlock x:Name="HeroSubtitle"
+                                   Style="{StaticResource HhapBodyStyle}"
+                                   Foreground="{StaticResource HhapMutedBrush}"
+                                   TextWrapping="Wrap"
+                                   MaxWidth="520" />
+
+                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource HhapSpace2}" Padding="0,4,0,0">
+                            <Border x:Name="CaptureChipBorder" Style="{StaticResource HhapChipBlueStyle}">
+                                <TextBlock x:Name="CaptureChipText"
+                                           Text="Capture ready"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource HhapBlue2Brush}" />
+                            </Border>
+                            <Border x:Name="BatteryChipBorder" Style="{StaticResource HhapChipAmberStyle}">
+                                <TextBlock x:Name="BatteryChipText"
+                                           Text="Battery --"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource HhapAmber2Brush}" />
+                            </Border>
+                            <Border x:Name="VisibilityChipBorder" Style="{StaticResource HhapChipGreenStyle}">
+                                <TextBlock x:Name="VisibilityChipText"
+                                           Text="On"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource HhapGreenBrush}" />
+                            </Border>
+                            <Border x:Name="WidgetChipBorder" Style="{StaticResource HhapChipPurpleStyle}">
+                                <TextBlock x:Name="WidgetChipText"
+                                           Text="Widget optional"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Foreground="{StaticResource HhapPurpleBrush}" />
+                            </Border>
+                        </StackPanel>
+
+                        <StackPanel Orientation="Horizontal" Spacing="{StaticResource HhapSpace2}" Padding="0,10,0,0">
+                            <Button Content="Toggle overlay"
+                                    Style="{StaticResource HhapPrimaryButtonStyle}"
+                                    Click="OnToggleClicked" />
+                            <Button Content="Customize"
+                                    Style="{StaticResource HhapGhostButtonStyle}"
+                                    Click="OnCustomizeClicked" />
+                        </StackPanel>
+                    </StackPanel>
+                </Grid>
+            </Border>
+
+            <!-- Live HUD preview card -->
+            <Border x:Name="PreviewCard"
+                    Grid.Column="1"
+                    Grid.Row="0"
+                    Style="{StaticResource HhapCardStyle}"
+                    Padding="24">
+                <StackPanel Spacing="{StaticResource HhapSpace3}">
+                    <TextBlock Text="LIVE PREVIEW" Style="{StaticResource HhapEyebrowStyle}" />
+
+                    <!-- Glass frame echoing preview.html .overlay-preview:
+                         deep navy gradient + cyan hairline + 22 px radius. -->
+                    <Border CornerRadius="22"
+                            BorderBrush="{StaticResource HhapLineStrongBrush}"
+                            BorderThickness="1"
+                            Padding="20"
+                            MinHeight="200">
+                        <Border.Background>
+                            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                                <GradientStop Offset="0.0" Color="#F00A1020" />
+                                <GradientStop Offset="1.0" Color="#EB10142C" />
+                            </LinearGradientBrush>
+                        </Border.Background>
+                        <Grid>
+                            <!-- Accent highlights placed behind the preview host.
+                                 These ellipses mimic the radial spots in
+                                 preview.html .overlay-preview::before. -->
+                            <Ellipse Width="180"
+                                     Height="180"
+                                     HorizontalAlignment="Right"
+                                     VerticalAlignment="Top"
+                                     Margin="0,-40,-40,0"
+                                     IsHitTestVisible="False">
+                                <Ellipse.Fill>
+                                    <RadialGradientBrush>
+                                        <GradientStop Offset="0.0" Color="#2D9076FF" />
+                                        <GradientStop Offset="1.0" Color="#009076FF" />
+                                    </RadialGradientBrush>
+                                </Ellipse.Fill>
+                            </Ellipse>
+                            <Ellipse Width="160"
+                                     Height="160"
+                                     HorizontalAlignment="Left"
+                                     VerticalAlignment="Bottom"
+                                     Margin="-30,0,0,-30"
+                                     IsHitTestVisible="False">
+                                <Ellipse.Fill>
+                                    <RadialGradientBrush>
+                                        <GradientStop Offset="0.0" Color="#1FFF9D3D" />
+                                        <GradientStop Offset="1.0" Color="#00FF9D3D" />
+                                    </RadialGradientBrush>
+                                </Ellipse.Fill>
+                            </Ellipse>
+
+                            <ContentControl x:Name="HudPreviewHost"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center">
+                                <TextBlock Text="HUD preview"
+                                           Style="{StaticResource HhapMutedStyle}" />
+                            </ContentControl>
+                        </Grid>
+                    </Border>
+
+                    <TextBlock x:Name="PreviewLayoutText"
+                               Style="{StaticResource HhapMutedStyle}"
+                               Text="Top bar layout" />
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============================================ -->
+        <!-- Row 2: Preset cards row                       -->
+        <!-- ============================================ -->
+        <ScrollViewer x:Name="PresetScrollHost"
+                      HorizontalScrollBarVisibility="Disabled"
+                      HorizontalScrollMode="Disabled"
+                      VerticalScrollBarVisibility="Disabled"
+                      VerticalScrollMode="Disabled">
+            <Grid x:Name="PresetRow" ColumnSpacing="14">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <Button x:Name="PresetMinimalButton"
+                        Grid.Column="0"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        VerticalContentAlignment="Top"
+                        MinHeight="160"
+                        MinWidth="180"
+                        Padding="18"
+                        Style="{StaticResource HhapGhostButtonStyle}"
+                        Click="OnPresetMinimalClicked">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="CLEAN" Style="{StaticResource HhapEyebrowStyle}" />
+                        <TextBlock Text="Minimal" Style="{StaticResource HhapH3Style}" />
+                        <TextBlock Text="Quiet HUD for screenshots"
+                                   Style="{StaticResource HhapMutedStyle}"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Spacing="2" Padding="0,4,0,0">
+                            <TextBlock Text="- FPS and battery only" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- No secondary rows" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- Lowest distraction" Style="{StaticResource HhapMutedStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="PresetStandardButton"
+                        Grid.Column="1"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        VerticalContentAlignment="Top"
+                        MinHeight="160"
+                        MinWidth="180"
+                        Padding="18"
+                        Style="{StaticResource HhapPrimaryButtonStyle}"
+                        Click="OnPresetStandardClicked">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="RECOMMENDED" Style="{StaticResource HhapEyebrowStyle}" />
+                        <TextBlock Text="Standard" Style="{StaticResource HhapH3Style}" />
+                        <TextBlock Text="Balanced for most players"
+                                   Style="{StaticResource HhapMutedStyle}"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Spacing="2" Padding="0,4,0,0">
+                            <TextBlock Text="- FPS, 1% low, frametime" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- CPU and GPU load" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- Battery at a glance" Style="{StaticResource HhapMutedStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="PresetTunerButton"
+                        Grid.Column="2"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        VerticalContentAlignment="Top"
+                        MinHeight="160"
+                        MinWidth="180"
+                        Padding="18"
+                        Style="{StaticResource HhapGhostButtonStyle}"
+                        Click="OnPresetTunerClicked">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="ADVANCED" Style="{StaticResource HhapKickerStyle}" />
+                        <TextBlock Text="Performance" Style="{StaticResource HhapH3Style}" />
+                        <TextBlock Text="For tuning and benchmarks"
+                                   Style="{StaticResource HhapMutedStyle}"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Spacing="2" Padding="0,4,0,0">
+                            <TextBlock Text="- Frame time and hardware" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- GPU clock and VRAM" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- Display refresh rate" Style="{StaticResource HhapMutedStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+
+                <Button x:Name="PresetCustomButton"
+                        Grid.Column="3"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Left"
+                        VerticalContentAlignment="Top"
+                        MinHeight="160"
+                        MinWidth="180"
+                        Padding="18"
+                        Style="{StaticResource HhapGhostButtonStyle}"
+                        Click="OnPresetCustomClicked">
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="CUSTOM" Style="{StaticResource HhapEyebrowStyle}" />
+                        <TextBlock Text="Build your own" Style="{StaticResource HhapH3Style}" />
+                        <TextBlock Text="Shape the HUD to your taste"
+                                   Style="{StaticResource HhapMutedStyle}"
+                                   TextWrapping="Wrap" />
+                        <StackPanel Spacing="2" Padding="0,4,0,0">
+                            <TextBlock Text="- Pick the modules you want" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- Choose detail per metric" Style="{StaticResource HhapMutedStyle}" />
+                            <TextBlock Text="- Reorder visible blocks" Style="{StaticResource HhapMutedStyle}" />
+                        </StackPanel>
+                    </StackPanel>
+                </Button>
+            </Grid>
+        </ScrollViewer>
+
+        <!-- ============================================ -->
+        <!-- Row 3: Utility cards (visibility + position)  -->
+        <!-- ============================================ -->
+        <Grid x:Name="UtilityRow" ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Style="{StaticResource HhapStatCardStyle}" Padding="20">
+                <StackPanel Spacing="{StaticResource HhapSpace3}">
+                    <TextBlock Text="VISIBILITY" Style="{StaticResource HhapEyebrowStyle}" />
+                    <TextBlock x:Name="VisibilityText" Text="On" Style="{StaticResource HhapH3Style}" />
+                    <TextBlock Text="Pick when the HUD is allowed to appear"
+                               Style="{StaticResource HhapMutedStyle}"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource HhapSpace2}" Padding="0,4,0,0">
+                        <Button x:Name="ShowAlwaysButton" Content="Always" Style="{StaticResource HhapChipButtonStyle}" Click="OnShowAlwaysClicked" />
+                        <Button x:Name="ShowInGameButton" Content="In-game" Style="{StaticResource HhapChipButtonStyle}" Click="OnShowInGameClicked" />
+                        <Button x:Name="PresetOffButton" Content="Off" Style="{StaticResource HhapChipButtonStyle}" Click="OnPresetOffClicked" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource HhapStatCardStyle}" Padding="20">
+                <StackPanel Spacing="{StaticResource HhapSpace3}">
+                    <TextBlock Text="POSITION" Style="{StaticResource HhapEyebrowStyle}" />
+                    <TextBlock x:Name="PositionText" Text="Top of screen" Style="{StaticResource HhapH3Style}" />
+                    <TextBlock Text="Anchor the HUD to the top or bottom edge"
+                               Style="{StaticResource HhapMutedStyle}"
+                               TextWrapping="Wrap" />
+                    <StackPanel Orientation="Horizontal" Spacing="{StaticResource HhapSpace2}" Padding="0,4,0,0">
+                        <Button x:Name="LayoutTopButton" Content="Top" Style="{StaticResource HhapChipButtonStyle}" Click="OnLayoutTopClicked" />
+                        <Button x:Name="LayoutBottomButton" Content="Bottom" Style="{StaticResource HhapChipButtonStyle}" Click="OnLayoutBottomClicked" />
+                    </StackPanel>
+                </StackPanel>
+            </Border>
+        </Grid>
+
+        <!-- ============================================ -->
+        <!-- Row 4: Live metrics mini strip (optional)    -->
+        <!-- ============================================ -->
+        <Border x:Name="LiveStripCard"
+                Style="{StaticResource HhapStatCardStyle}"
+                Padding="20"
+                Visibility="Collapsed">
+            <StackPanel Spacing="{StaticResource HhapSpace3}">
+                <TextBlock Text="LIVE NOW" Style="{StaticResource HhapEyebrowStyle}" />
+                <Grid x:Name="LiveStripGrid" ColumnSpacing="12">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+
+                    <Border x:Name="LiveTileFps" Grid.Column="0" Style="{StaticResource HhapTileStyle}" Padding="12" Visibility="Collapsed">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="FPS" Style="{StaticResource HhapHudLabelStyle}" />
+                            <TextBlock x:Name="LiveFpsValue"
+                                       Text="--"
+                                       Style="{StaticResource HhapHudValueStyle}"
+                                       Foreground="{StaticResource HhapBlue2Brush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="LiveTileCpu" Grid.Column="1" Style="{StaticResource HhapTileStyle}" Padding="12" Visibility="Collapsed">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="CPU" Style="{StaticResource HhapHudLabelStyle}" />
+                            <TextBlock x:Name="LiveCpuValue"
+                                       Text="--"
+                                       Style="{StaticResource HhapHudValueStyle}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="LiveTileGpu" Grid.Column="2" Style="{StaticResource HhapTileStyle}" Padding="12" Visibility="Collapsed">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="GPU" Style="{StaticResource HhapHudLabelStyle}" />
+                            <TextBlock x:Name="LiveGpuValue"
+                                       Text="--"
+                                       Style="{StaticResource HhapHudValueStyle}"
+                                       Foreground="{StaticResource HhapGreenBrush}" />
+                        </StackPanel>
+                    </Border>
+
+                    <Border x:Name="LiveTileBattery" Grid.Column="3" Style="{StaticResource HhapTileStyle}" Padding="12" Visibility="Collapsed">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="BATTERY" Style="{StaticResource HhapHudLabelStyle}" />
+                            <TextBlock x:Name="LiveBatteryValue"
+                                       Text="--"
+                                       Style="{StaticResource HhapHudValueStyle}"
+                                       Foreground="{StaticResource HhapAmber2Brush}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+    </StackPanel>
+</UserControl>

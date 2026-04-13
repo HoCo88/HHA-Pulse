@@ -33,7 +33,6 @@ public sealed partial class TopBarControl : UserControl
         OverlayPresetCatalog.CpuUsage, OverlayPresetCatalog.CpuTemp, OverlayPresetCatalog.CpuPower
     };
 
-    // GPU + VRAM grouped together — no separate VRAM label needed.
     private static readonly string[] GpuMetrics =
     {
         OverlayPresetCatalog.GpuUsage, OverlayPresetCatalog.GpuTemp,
@@ -53,7 +52,6 @@ public sealed partial class TopBarControl : UserControl
         OverlayPresetCatalog.TotalPower
     };
 
-    // FPS sub-labels.
     private static readonly Dictionary<string, string> FpsSubLabels = new(StringComparer.OrdinalIgnoreCase)
     {
         [OverlayPresetCatalog.Fps] = "FPS",
@@ -62,7 +60,6 @@ public sealed partial class TopBarControl : UserControl
         [OverlayPresetCatalog.ZeroPointOneLow] = "0.1%",
     };
 
-    // System metric icons (Segoe Fluent Icons).
     private static readonly Dictionary<string, (string glyph, bool isIcon)> SystemLabels = new(StringComparer.OrdinalIgnoreCase)
     {
         [OverlayPresetCatalog.RefreshRate] = ("\uE7F8", true),
@@ -70,29 +67,32 @@ public sealed partial class TopBarControl : UserControl
         [OverlayPresetCatalog.TotalPower] = ("\uEC48", true),
     };
 
-    private const double ValueFontSize = 15;
-    private const double LabelFontSize = 14;
-    private const double IconFontSize = 13;
     private static readonly Size Unbounded = new(double.PositiveInfinity, double.PositiveInfinity);
-    private static readonly FontFamily Font = new("Segoe UI");
     private static readonly FontFamily IconFont = new("Segoe Fluent Icons");
-    private static readonly SolidColorBrush LabelBrush = new(Color.FromArgb(180, 160, 165, 185));
-    private static readonly SolidColorBrush SepBrush = new(Color.FromArgb(50, 255, 255, 255));
 
-    // Value colors.
-    private static readonly SolidColorBrush FpsGreen = new(Color.FromArgb(255, 0, 255, 136));
-    private static readonly SolidColorBrush AvgGreen = new(Color.FromArgb(200, 0, 200, 100));
-    private static readonly SolidColorBrush OnePercentYellow = new(Color.FromArgb(255, 255, 200, 60));
-    private static readonly SolidColorBrush ZeroPointOneOrange = new(Color.FromArgb(255, 255, 120, 60));
-    private static readonly SolidColorBrush CpuCyan = new(Color.FromArgb(255, 0, 200, 255));
-    private static readonly SolidColorBrush GpuRed = new(Color.FromArgb(255, 255, 107, 107));
-    private static readonly SolidColorBrush TempOrange = new(Color.FromArgb(255, 255, 140, 80));
-    private static readonly SolidColorBrush PowerYellow = new(Color.FromArgb(220, 255, 200, 100));
-    private static readonly SolidColorBrush FtTeal = new(Color.FromArgb(255, 0, 220, 180));
-    private static readonly SolidColorBrush LatAmber = new(Color.FromArgb(255, 255, 180, 0));
-    private static readonly SolidColorBrush RamPurple = new(Color.FromArgb(255, 200, 160, 255));
-    private static readonly SolidColorBrush BatGold = new(Color.FromArgb(255, 255, 215, 0));
-    private static readonly SolidColorBrush HzSilver = new(Color.FromArgb(255, 180, 180, 200));
+    // Role-based brushes resolved from theme resources. Fallback values match
+    // HhapTheme.xaml so the HUD still renders correctly if resources are not
+    // yet attached (e.g. during designer / unit-test construction).
+    private static readonly SolidColorBrush PerfBrush =
+        ResolveBrush("HhapBlue2Brush", 0xFF, 0x9A, 0xE7, 0xFF);
+    private static readonly SolidColorBrush ThermalBrush =
+        ResolveBrush("HhapAmber2Brush", 0xFF, 0xFF, 0xCB, 0x6C);
+    private static readonly SolidColorBrush NeutralBrush =
+        ResolveBrush("HhapTextBrush", 0xFF, 0xF4, 0xF7, 0xFF);
+    private static readonly SolidColorBrush MutedBrush =
+        ResolveBrush("HhapMutedBrush", 0xFF, 0x95, 0xA0, 0xBD);
+    private static readonly SolidColorBrush ActiveBrush =
+        ResolveBrush("HhapGreenBrush", 0xFF, 0x55, 0xE0, 0x8E);
+    private static readonly SolidColorBrush SepBrush =
+        new(Color.FromArgb(0x14, 0xFF, 0xFF, 0xFF));
+
+    // Typography tokens resolved from HhapTheme.xaml.
+    private static readonly double ValueFontSize = ResolveDouble("HhapFontHudValue", 23);
+    private static readonly double LabelFontSize = ResolveDouble("HhapFontHudLabel", 11);
+    private static readonly int ValueTrack = ResolveInt("HhapTrackHudValue", -40);
+    private static readonly int LabelTrack = ResolveInt("HhapTrackHudLabel", 80);
+    private static readonly double IconFontSize = LabelFontSize + 1;
+    private static readonly FontFamily Font = new("Segoe UI");
 
     private readonly Dictionary<string, TextBlock> valueBlocks = new(StringComparer.OrdinalIgnoreCase);
     private readonly List<TextBlock> labelBlocks = new();
@@ -102,44 +102,92 @@ public sealed partial class TopBarControl : UserControl
     private bool rebuilding;
     private double textOpacity = 1.0;
 
+    // Value typography is mutable: the user can change the HUD text size at
+    // runtime. Minimum widths for each metric's value block are measured —
+    // never hardcoded — so the whole HUD shrinks or grows with the font.
+    private double currentValueFontSize = ValueFontSize;
+    private double digitAdvance;
+
+    // Base HUD background = HhapHudBgBrush (rgba 10,16,31,0.85). The
+    // background is a mutable SolidColorBrush owned by this control so
+    // ApplyOpacity can modulate its alpha without touching text opacity
+    // or inheriting it through the whole control tree.
+    private static readonly byte HudBgR = 0x0A;
+    private static readonly byte HudBgG = 0x10;
+    private static readonly byte HudBgB = 0x1F;
+    private const byte HudBgDefaultAlpha = 0xD9; // 0.85 * 255
+    private readonly SolidColorBrush hudBackgroundBrush =
+        new(Color.FromArgb(HudBgDefaultAlpha, HudBgR, HudBgG, HudBgB));
+
     public event EventHandler? LayoutMetricsChanged;
     public int RowCount { get; private set; } = 1;
     public bool FpsGroupIsTwoRow { get; private set; }
     public int EstimatedWidth { get; private set; } = 200;
+    public int EstimatedHeight { get; private set; } = 32;
 
     public TopBarControl()
     {
         InitializeComponent();
+        RootBorder.Background = hudBackgroundBrush;
+        UpdateDigitAdvance();
         Unloaded += (_, _) => DetachViewModel();
     }
 
+    // Measure one digit at the current value-font settings. Used to derive
+    // per-metric minimum widths as an integer number of digit advances,
+    // instead of hardcoded pixel tables that stop matching when the user
+    // changes the HUD text size.
+    private void UpdateDigitAdvance()
+    {
+        var probe = new TextBlock
+        {
+            Text = "0",
+            FontFamily = Font,
+            FontWeight = FontWeights.ExtraBold,
+            FontSize = currentValueFontSize,
+            CharacterSpacing = ValueTrack,
+        };
+        probe.Measure(Unbounded);
+        digitAdvance = probe.DesiredSize.Width;
+        if (digitAdvance <= 0)
+        {
+            digitAdvance = currentValueFontSize * 0.55;
+        }
+    }
+
+    private double PixelMinWidth(string id) => Math.Ceiling(ValueMinCharCount(id) * digitAdvance);
+
     public void ApplyTextSize(double size)
     {
-        foreach (var vb in valueBlocks.Values)
-            vb.FontSize = size;
-        var labelSize = Math.Max(size - 1, 10);
+        currentValueFontSize = size;
+        UpdateDigitAdvance();
+
+        foreach (var pair in valueBlocks)
+        {
+            pair.Value.FontSize = size;
+            pair.Value.MinWidth = PixelMinWidth(pair.Key);
+        }
+
+        var labelSize = Math.Max(size * 0.72, 9);
         foreach (var lb in labelBlocks)
             lb.FontSize = labelSize;
-        // Trigger re-measure after size change.
+
         if (!rebuilding)
         {
-            var w = Measure();
-            if (w != EstimatedWidth) Notify(RowCount, w);
+            var (w, h) = MeasureContent();
+            if (w != EstimatedWidth || h != EstimatedHeight) Notify(RowCount, w, h);
         }
     }
 
     public void ApplyOpacity(double bgOpacity, double newTextOpacity)
     {
-        // With TransparentBackdrop installed on the Window (see
-        // TransparentWindowHelper.MakeOverlay step 0), the SwapChain clear
-        // color is fully transparent, so alpha=0 on the XAML RootBorder
-        // background now composites through to the desktop correctly. No
-        // alpha floor workaround is needed — a single clamp(0..255) path
-        // covers fully-transparent through fully-opaque in one branch.
-        byte a = (byte)Math.Clamp(bgOpacity * 255, 0, 255);
-        RootBorder.Background = new SolidColorBrush(Color.FromArgb(a, 16, 16, 32));
+        // Background opacity = alpha of the HUD background brush only.
+        // Do NOT set RootBorder.Opacity — that cascades to all children
+        // including text, so at bg=0 the entire HUD vanishes.
+        var alpha = (byte)(Math.Clamp(bgOpacity, 0.0, 1.0) * 255);
+        hudBackgroundBrush.Color = Color.FromArgb(alpha, HudBgR, HudBgG, HudBgB);
 
-        textOpacity = newTextOpacity;
+        textOpacity = Math.Clamp(newTextOpacity, 0.0, 1.0);
         foreach (var vb in valueBlocks.Values) vb.Opacity = textOpacity;
     }
 
@@ -201,37 +249,35 @@ public sealed partial class TopBarControl : UserControl
             RowsPanel.Children.Clear();
             FpsGroupIsTwoRow = false;
 
-            if (viewModel is null) { Notify(1, 200); return; }
+            if (viewModel is null) { Notify(1, 200, 32); return; }
 
             var ids = new HashSet<string>(viewModel.TopBarMetricIds, StringComparer.OrdinalIgnoreCase);
 
             if (ids.Count == 0)
             {
                 var r = Row();
-                r.Children.Add(Txt("Overlay off", new SolidColorBrush(Colors.White), ValueFontSize));
+                r.Children.Add(Value("Overlay off", NeutralBrush));
                 RowsPanel.Children.Add(r);
-                Notify(1, Measure());
+                var (w0, h0) = MeasureContent();
+                Notify(1, w0, h0);
                 return;
             }
 
-            // Build component elements.
             var perf = new List<UIElement>();
             var hw = new List<UIElement>();
 
             AddComp(perf, BuildFps(ids));
             AddComp(perf, BuildFrametime(ids));
-            AddComp(hw, BuildHw("CPU", CpuMetrics, ids, CpuCyan));
+            AddComp(hw, BuildHw("CPU", CpuMetrics, ids));
             AddComp(hw, BuildGpu(ids));
             AddComp(hw, BuildMemory(ids));
             AddComp(hw, BuildSystem(ids));
 
-            // Always try single row first. Measure. Split only if it doesn't fit.
             var singleRow = Row();
             foreach (var e in perf) singleRow.Children.Add(e);
             if (perf.Count > 0 && hw.Count > 0) singleRow.Children.Add(Sep());
             foreach (var e in hw) singleRow.Children.Add(e);
 
-            // Populate values before measuring so widths are realistic.
             UpdateValues();
 
             singleRow.Measure(Unbounded);
@@ -240,21 +286,20 @@ public sealed partial class TopBarControl : UserControl
 
             if (singleWidth <= screenWidth)
             {
-                // Fits in one row.
                 RowsPanel.Children.Add(singleRow);
-                Notify(1, singleWidth);
+                var (_, h1) = MeasureContent();
+                Notify(1, singleWidth, h1);
             }
             else
             {
-                // Doesn't fit — split: perf on row 1, hw on row 2.
-                // Detach elements from singleRow first.
                 singleRow.Children.Clear();
 
                 var r1 = Row(); foreach (var e in perf) r1.Children.Add(e);
                 var r2 = Row(); foreach (var e in hw) r2.Children.Add(e);
                 RowsPanel.Children.Add(r1);
                 if (r2.Children.Count > 0) RowsPanel.Children.Add(r2);
-                Notify(r2.Children.Count > 0 ? 2 : 1, Measure());
+                var (w2, h2) = MeasureContent();
+                Notify(r2.Children.Count > 0 ? 2 : 1, w2, h2);
             }
 
             UpdateFpsGraph();
@@ -273,8 +318,6 @@ public sealed partial class TopBarControl : UserControl
     }
 
     // ── FPS component ──
-    // FPS 144fps  AVG 130fps  [===graph===]
-    // 1%   98fps  0.1% 72fps
 
     private UIElement? BuildFps(HashSet<string> ids)
     {
@@ -292,7 +335,7 @@ public sealed partial class TopBarControl : UserControl
             Margin = new Thickness(6, 2, 0, 2)
         };
 
-        var grid = new Grid { VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) };
+        var grid = new Grid { VerticalAlignment = VerticalAlignment.Center };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
@@ -329,15 +372,15 @@ public sealed partial class TopBarControl : UserControl
     {
         var lbl = FpsSubLabels.GetValueOrDefault(id, id);
         var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, Margin = new Thickness(5, 0, 5, 0), VerticalAlignment = VerticalAlignment.Center };
-        cell.Children.Add(Label(lbl, LabelFontSize));
-        var vb = Txt("--fps", FpsColor(id), ValueFontSize, FontWeights.SemiBold);
-        vb.MinWidth = ValueMinWidth(id);
+        cell.Children.Add(Label(lbl));
+        var vb = Value("--fps", PerfBrush);
+        vb.MinWidth = PixelMinWidth(id);
         valueBlocks[id] = vb;
         cell.Children.Add(vb);
         return cell;
     }
 
-    // ── Frametime component — own graph ──
+    // ── Frametime component ──
 
     private UIElement? BuildFrametime(HashSet<string> ids)
     {
@@ -351,14 +394,12 @@ public sealed partial class TopBarControl : UserControl
             Margin = new Thickness(6, 2, 0, 2)
         };
 
-        var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(4, 0, 4, 0) };
+        var panel = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
         foreach (var id in active)
         {
-            var lbl = "Frametime";
-            var clr = FtTeal;
-            panel.Children.Add(Label(lbl, LabelFontSize));
-            var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
-            vb.MinWidth = ValueMinWidth(id);
+            panel.Children.Add(Label("Frametime"));
+            var vb = Value("--", PerfBrush);
+            vb.MinWidth = PixelMinWidth(id);
             vb.Margin = new Thickness(3, 0, 6, 0);
             valueBlocks[id] = vb;
             panel.Children.Add(vb);
@@ -368,21 +409,20 @@ public sealed partial class TopBarControl : UserControl
         return panel;
     }
 
-    // ── Hardware cell: "CPU 45% 65°C 12W" or "GPU 85% 72°C 15.2W 4.2/8G" ──
+    // ── Hardware group ──
 
-    private UIElement? BuildHw(string label, string[] metrics, HashSet<string> ids, SolidColorBrush primary)
+    private UIElement? BuildHw(string label, string[] metrics, HashSet<string> ids)
     {
         var active = metrics.Where(ids.Contains).ToArray();
         if (active.Length == 0) return null;
 
-        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
-        cell.Children.Add(Label(label, LabelFontSize));
+        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        cell.Children.Add(Label(label));
 
         foreach (var id in active)
         {
-            var clr = HwColor(id, primary);
-            var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
-            vb.MinWidth = ValueMinWidth(id);
+            var vb = Value("--", RoleBrush(id));
+            vb.MinWidth = PixelMinWidth(id);
             vb.Margin = new Thickness(2, 0, 2, 0);
             valueBlocks[id] = vb;
             cell.Children.Add(vb);
@@ -391,44 +431,37 @@ public sealed partial class TopBarControl : UserControl
         return cell;
     }
 
-    // GPU component: GPU usage + temp + power + VRAM all under "GPU" label.
-    private UIElement? BuildGpu(HashSet<string> ids)
-    {
-        return BuildHw("GPU", GpuMetrics, ids, GpuRed);
-    }
-
-    // ── Memory: just RAM (VRAM is under GPU) ──
+    private UIElement? BuildGpu(HashSet<string> ids) =>
+        BuildHw("GPU", GpuMetrics, ids);
 
     private UIElement? BuildMemory(HashSet<string> ids)
     {
         if (!ids.Contains(OverlayPresetCatalog.Ram)) return null;
 
-        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
-        cell.Children.Add(Label("RAM", LabelFontSize));
-        var vb = Txt("--", RamPurple, ValueFontSize, FontWeights.SemiBold);
-        vb.MinWidth = ValueMinWidth(OverlayPresetCatalog.Ram);
+        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        cell.Children.Add(Label("RAM"));
+        var vb = Value("--", NeutralBrush);
+        vb.MinWidth = PixelMinWidth(OverlayPresetCatalog.Ram);
         vb.Margin = new Thickness(2, 0, 0, 0);
         valueBlocks[OverlayPresetCatalog.Ram] = vb;
         cell.Children.Add(vb);
         return cell;
     }
 
-    // ── System: Hz icon + Battery icon ──
-
     private UIElement? BuildSystem(HashSet<string> ids)
     {
         var active = SystemMetrics.Where(ids.Contains).ToArray();
         if (active.Length == 0) return null;
 
-        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(5, 0, 5, 0) };
+        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
         var deviceMetrics = active.Where(id => id is OverlayPresetCatalog.DeviceTemp or OverlayPresetCatalog.GpuFan).ToArray();
         if (deviceMetrics.Length > 0)
         {
-            cell.Children.Add(Label("SYS", LabelFontSize));
+            cell.Children.Add(Label("SYS"));
             foreach (var id in deviceMetrics)
             {
-                var vb = Txt("--", HwColor(id, HzSilver), ValueFontSize, FontWeights.SemiBold);
-                vb.MinWidth = ValueMinWidth(id);
+                var vb = Value("--", RoleBrush(id));
+                vb.MinWidth = PixelMinWidth(id);
                 vb.Margin = new Thickness(2, 0, 2, 0);
                 valueBlocks[id] = vb;
                 cell.Children.Add(vb);
@@ -438,12 +471,11 @@ public sealed partial class TopBarControl : UserControl
         foreach (var id in active.Where(id => id is not OverlayPresetCatalog.DeviceTemp and not OverlayPresetCatalog.GpuFan))
         {
             var (glyph, isIcon) = SystemLabels.GetValueOrDefault(id, (id, false));
-            var lbl = isIcon ? IconLabel(glyph, IconFontSize) : Label(glyph, LabelFontSize);
+            var lbl = isIcon ? IconLabel(glyph) : Label(glyph);
             cell.Children.Add(lbl);
 
-            var clr = SysColor(id);
-            var vb = Txt("--", clr, ValueFontSize, FontWeights.SemiBold);
-            vb.MinWidth = ValueMinWidth(id);
+            var vb = Value("--", RoleBrush(id));
+            vb.MinWidth = PixelMinWidth(id);
             vb.Margin = new Thickness(2, 0, 5, 0);
             valueBlocks[id] = vb;
             cell.Children.Add(vb);
@@ -460,9 +492,6 @@ public sealed partial class TopBarControl : UserControl
         var snap = viewModel.CurrentSnapshot;
         foreach (var pair in valueBlocks)
             pair.Value.Text = MetricFormatterCompact.FormatValue(pair.Key, snap);
-
-        // Value cells have fixed MinWidth, so normal telemetry changes should
-        // not resize or reposition the overlay HWND.
     }
 
     private void UpdateFpsGraph()
@@ -471,14 +500,17 @@ public sealed partial class TopBarControl : UserControl
         var ids = new HashSet<string>(viewModel.TopBarMetricIds, StringComparer.OrdinalIgnoreCase);
         var series = new List<(IReadOnlyList<double> values, Color color)>();
 
+        // All FPS family series share a single gradient stroke (see SparklineGraph);
+        // the Color argument here is preserved for the legacy API but ignored downstream.
+        var defaultColor = Color.FromArgb(0xFF, 0x9A, 0xE7, 0xFF);
         if (ids.Contains(OverlayPresetCatalog.Fps) && viewModel.FpsHistory.Count > 0)
-            series.Add((viewModel.FpsHistory, Color.FromArgb(255, 0, 255, 136)));
+            series.Add((viewModel.FpsHistory, defaultColor));
         if (ids.Contains(OverlayPresetCatalog.AvgFps) && viewModel.AvgFpsHistory.Count > 0)
-            series.Add((viewModel.AvgFpsHistory, Color.FromArgb(180, 0, 200, 100)));
+            series.Add((viewModel.AvgFpsHistory, defaultColor));
         if (ids.Contains(OverlayPresetCatalog.OnePercentLow) && viewModel.OnePercentLowHistory.Count > 0)
-            series.Add((viewModel.OnePercentLowHistory, Color.FromArgb(255, 255, 200, 60)));
+            series.Add((viewModel.OnePercentLowHistory, defaultColor));
         if (ids.Contains(OverlayPresetCatalog.ZeroPointOneLow) && viewModel.ZeroPointOneLowHistory.Count > 0)
-            series.Add((viewModel.ZeroPointOneLowHistory, Color.FromArgb(255, 255, 120, 60)));
+            series.Add((viewModel.ZeroPointOneLowHistory, defaultColor));
 
         fpsSparkline.SetSeries(series);
     }
@@ -490,30 +522,54 @@ public sealed partial class TopBarControl : UserControl
             ftSparkline.SetValues(viewModel.FrameTimeHistory);
     }
 
-    // ── Helpers ──
+    // ── Construction helpers ──
 
-    private static TextBlock Txt(string text, SolidColorBrush fg, double size, FontWeight? wt = null) => new()
+    private static TextBlock Value(string text, SolidColorBrush fg) => new()
     {
-        Text = text, Foreground = fg, FontSize = size, FontFamily = Font,
-        FontWeight = wt ?? FontWeights.Normal, VerticalAlignment = VerticalAlignment.Center
+        Text = text,
+        Foreground = fg,
+        FontSize = ValueFontSize,
+        FontFamily = Font,
+        FontWeight = FontWeights.ExtraBold,
+        CharacterSpacing = ValueTrack,
+        VerticalAlignment = VerticalAlignment.Center
     };
 
-    private TextBlock Label(string text, double size)
+    private TextBlock Label(string text)
     {
-        var lbl = Txt(text, LabelBrush, size);
+        var lbl = new TextBlock
+        {
+            Text = text,
+            Foreground = MutedBrush,
+            FontSize = LabelFontSize,
+            FontFamily = Font,
+            CharacterSpacing = LabelTrack,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         labelBlocks.Add(lbl);
         return lbl;
     }
 
-    private TextBlock IconLabel(string glyph, double size)
+    private TextBlock IconLabel(string glyph)
     {
-        var lbl = Txt(glyph, LabelBrush, size);
-        lbl.FontFamily = IconFont;
+        var lbl = new TextBlock
+        {
+            Text = glyph,
+            Foreground = MutedBrush,
+            FontSize = IconFontSize,
+            FontFamily = IconFont,
+            VerticalAlignment = VerticalAlignment.Center
+        };
         labelBlocks.Add(lbl);
         return lbl;
     }
 
-    private static StackPanel Row() => new() { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+    private static StackPanel Row() => new()
+    {
+        Orientation = Orientation.Horizontal,
+        VerticalAlignment = VerticalAlignment.Center,
+        Spacing = 6
+    };
 
     private static Rectangle Sep() => new()
     {
@@ -533,67 +589,148 @@ public sealed partial class TopBarControl : UserControl
         return 1920;
     }
 
-    private int Measure()
+    private (int width, int height) MeasureContent()
     {
-        double w = 0;
-        foreach (var c in RowsPanel.Children) { c.Measure(Unbounded); w = Math.Max(w, c.DesiredSize.Width); }
-        return (int)Math.Ceiling(w + RootBorder.Padding.Left + RootBorder.Padding.Right);
+        double w = 0, h = 0;
+        foreach (var c in RowsPanel.Children)
+        {
+            c.Measure(Unbounded);
+            w = Math.Max(w, c.DesiredSize.Width);
+            h += c.DesiredSize.Height;
+        }
+        var width = (int)Math.Ceiling(w + RootBorder.Padding.Left + RootBorder.Padding.Right);
+        var height = (int)Math.Ceiling(
+            h
+            + RootBorder.Padding.Top + RootBorder.Padding.Bottom
+            + RootBorder.BorderThickness.Top + RootBorder.BorderThickness.Bottom);
+        return (Math.Max(1, width), Math.Max(1, height));
     }
 
-    private void Notify(int rows, int width)
+    private void Notify(int rows, int width, int height)
     {
         width = Math.Max(1, width);
-        if (RowCount == rows && EstimatedWidth == width) return;
+        height = Math.Max(1, height);
+        if (RowCount == rows && EstimatedWidth == width && EstimatedHeight == height) return;
         RowCount = rows;
         EstimatedWidth = width;
+        EstimatedHeight = height;
         LayoutMetricsChanged?.Invoke(this, EventArgs.Empty);
     }
 
-    // ── Colors ──
+    // ── Role-based brush mapping ──
+    //
+    // Reduced from 15 hardcoded neon shades to 4 roles from the design tokens:
+    //   - PerfBrush   (HhapBlue2Brush)  → frames, frametime, usage loads
+    //   - ThermalBrush(HhapAmber2Brush) → temperatures, power, battery
+    //   - NeutralBrush(HhapTextBrush)   → memory (RAM, VRAM, GPU clock)
+    //   - MutedBrush  (HhapMutedBrush)  → refresh rate and other passive metrics
+    //   - ActiveBrush (HhapGreenBrush)  → fan when spinning
+    //
+    // This matches preview.html's .hud-value.blue / .amber / .green classes.
 
-    private static SolidColorBrush FpsColor(string id) => id switch
+    private static SolidColorBrush RoleBrush(string id) => id switch
     {
-        OverlayPresetCatalog.Fps => FpsGreen,
-        OverlayPresetCatalog.AvgFps => AvgGreen,
-        OverlayPresetCatalog.OnePercentLow => OnePercentYellow,
-        OverlayPresetCatalog.ZeroPointOneLow => ZeroPointOneOrange,
-        _ => FpsGreen
+        OverlayPresetCatalog.Fps
+            or OverlayPresetCatalog.AvgFps
+            or OverlayPresetCatalog.OnePercentLow
+            or OverlayPresetCatalog.ZeroPointOneLow
+            or OverlayPresetCatalog.FrameTime
+            or OverlayPresetCatalog.CpuUsage
+            or OverlayPresetCatalog.GpuUsage => PerfBrush,
+
+        OverlayPresetCatalog.CpuTemp
+            or OverlayPresetCatalog.GpuTemp
+            or OverlayPresetCatalog.DeviceTemp
+            or OverlayPresetCatalog.CpuPower
+            or OverlayPresetCatalog.GpuPower
+            or OverlayPresetCatalog.TotalPower
+            or OverlayPresetCatalog.Battery => ThermalBrush,
+
+        OverlayPresetCatalog.Ram
+            or OverlayPresetCatalog.Vram
+            or OverlayPresetCatalog.GpuClock => NeutralBrush,
+
+        OverlayPresetCatalog.GpuFan => ActiveBrush,
+
+        OverlayPresetCatalog.RefreshRate => MutedBrush,
+
+        _ => NeutralBrush
     };
 
-    private static SolidColorBrush HwColor(string id, SolidColorBrush primary) => id switch
+    // Maximum number of digit-advances each metric's value can occupy.
+    // Pixel width is derived at runtime from the measured width of one
+    // digit at the current HUD font size (see UpdateDigitAdvance +
+    // PixelMinWidth). No pixel constants — the whole HUD scales cleanly
+    // when the user moves the text-size slider.
+    internal static int ValueMinCharCount(string id) => id switch
     {
-        OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.CpuTemp => TempOrange,
-        OverlayPresetCatalog.GpuClock => HzSilver,
-        OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.CpuPower => PowerYellow,
-        OverlayPresetCatalog.GpuFan => HzSilver,
-        OverlayPresetCatalog.DeviceTemp => TempOrange,
-        OverlayPresetCatalog.Vram => RamPurple,
-        _ => primary
+        OverlayPresetCatalog.Fps => 6,
+        OverlayPresetCatalog.AvgFps => 6,
+        OverlayPresetCatalog.OnePercentLow => 6,
+        OverlayPresetCatalog.ZeroPointOneLow => 6,
+        OverlayPresetCatalog.FrameTime => 6,
+        OverlayPresetCatalog.CpuUsage or OverlayPresetCatalog.GpuUsage => 4,
+        OverlayPresetCatalog.CpuTemp or OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.DeviceTemp => 4,
+        OverlayPresetCatalog.CpuPower or OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.TotalPower => 5,
+        OverlayPresetCatalog.GpuClock => 6,
+        OverlayPresetCatalog.GpuFan => 7,
+        OverlayPresetCatalog.Ram or OverlayPresetCatalog.Vram => 7,
+        OverlayPresetCatalog.Battery => 10,
+        OverlayPresetCatalog.RefreshRate => 3,
+        _ => 4,
     };
 
-    private static SolidColorBrush SysColor(string id) => id switch
-    {
-        OverlayPresetCatalog.Battery => BatGold,
-        OverlayPresetCatalog.RefreshRate => HzSilver,
-        OverlayPresetCatalog.TotalPower => PowerYellow,
-        _ => new SolidColorBrush(Colors.White)
-    };
+    // ── Resource lookup helpers ──
 
-    internal static double ValueMinWidth(string id) => id switch
+    private static SolidColorBrush ResolveBrush(string key, byte a, byte r, byte g, byte b)
     {
-        OverlayPresetCatalog.Fps => 72,
-        OverlayPresetCatalog.AvgFps => 72,
-        OverlayPresetCatalog.OnePercentLow => 72,
-        OverlayPresetCatalog.ZeroPointOneLow => 72,
-        OverlayPresetCatalog.FrameTime => 68,
-        OverlayPresetCatalog.CpuUsage or OverlayPresetCatalog.GpuUsage => 42,
-        OverlayPresetCatalog.CpuTemp or OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.DeviceTemp => 42,
-        OverlayPresetCatalog.CpuPower or OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.TotalPower => 54,
-        OverlayPresetCatalog.GpuClock => 72,
-        OverlayPresetCatalog.GpuFan => 96,
-        OverlayPresetCatalog.Ram or OverlayPresetCatalog.Vram => 92,
-        OverlayPresetCatalog.Battery => 144,
-        OverlayPresetCatalog.RefreshRate => 28,
-        _ => 48
-    };
+        try
+        {
+            if (Application.Current?.Resources is { } res &&
+                res.TryGetValue(key, out var obj) &&
+                obj is SolidColorBrush brush)
+            {
+                return brush;
+            }
+        }
+        catch
+        {
+            // Fall through to fallback when resources are not yet available.
+        }
+        return new SolidColorBrush(Color.FromArgb(a, r, g, b));
+    }
+
+    private static double ResolveDouble(string key, double fallback)
+    {
+        try
+        {
+            if (Application.Current?.Resources is { } res &&
+                res.TryGetValue(key, out var obj) &&
+                obj is double d)
+            {
+                return d;
+            }
+        }
+        catch
+        {
+        }
+        return fallback;
+    }
+
+    private static int ResolveInt(string key, int fallback)
+    {
+        try
+        {
+            if (Application.Current?.Resources is { } res &&
+                res.TryGetValue(key, out var obj) &&
+                obj is int i)
+            {
+                return i;
+            }
+        }
+        catch
+        {
+        }
+        return fallback;
+    }
 }

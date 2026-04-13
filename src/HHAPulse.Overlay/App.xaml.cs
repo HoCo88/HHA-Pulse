@@ -226,6 +226,7 @@ public partial class App : Application
         window = new MainWindow();
         window.Closed += OnWindowClosed;
         window.Activate();
+        window.ApplyEdge(settings.TopBarPosition);
         if (settings.ShowMode == OverlayShowMode.InGameOnly)
         {
             window.SetOverlayVisible(false);
@@ -375,6 +376,7 @@ public partial class App : Application
         overlayViewModel?.ApplySettings(settings);
         controlWindow?.ApplySettings(settings);
         window?.ApplyOpacity(settings.BackgroundOpacity, settings.TextOpacity);
+        window?.ApplyEdge(settings.TopBarPosition);
         if (settings.TextSizePixels > 0) window?.ApplyTextSize(settings.TextSizePixels);
     }
 
@@ -430,6 +432,7 @@ public partial class App : Application
             controlWindow.CustomMetricsChanged += OnCustomMetricsChanged;
             controlWindow.OpacityChanged += OnOpacityChanged;
             controlWindow.TextSizeChanged += OnTextSizeChanged;
+            controlWindow.PositionChanged += OnPositionChanged;
             controlWindow.Closed += OnControlWindowClosed;
         }
 
@@ -450,6 +453,7 @@ public partial class App : Application
             controlWindow.CustomMetricsChanged -= OnCustomMetricsChanged;
             controlWindow.OpacityChanged -= OnOpacityChanged;
             controlWindow.TextSizeChanged -= OnTextSizeChanged;
+            controlWindow.PositionChanged -= OnPositionChanged;
             controlWindow.Closed -= OnControlWindowClosed;
             controlWindow.ViewModel = null;
             controlWindow = null;
@@ -512,6 +516,19 @@ public partial class App : Application
         if (settings is null) return;
         settings.TextSizePixels = size;
         window?.ApplyTextSize(size);
+        _ = SaveSettingsAsync();
+    }
+
+    private void OnPositionChanged(OverlayEdge edge)
+    {
+        if (settings is null)
+        {
+            return;
+        }
+
+        settings.TopBarPosition = edge;
+        window?.ApplyEdge(edge);
+        controlWindow?.ApplySettings(settings);
         _ = SaveSettingsAsync();
     }
 

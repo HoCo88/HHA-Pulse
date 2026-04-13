@@ -9,42 +9,54 @@ namespace HHAPulse.Overlay.Controls;
 
 public sealed partial class SparklineGraph : UserControl
 {
-    private readonly List<(IReadOnlyList<double> values, SolidColorBrush brush)> series = new();
+    private readonly List<IReadOnlyList<double>> series = new();
+    private Brush? strokeBrush;
 
     public SparklineGraph()
     {
         InitializeComponent();
         SizeChanged += (_, _) => Render();
+        Loaded += (_, _) => Render();
+    }
+
+    private Brush GetStrokeBrush()
+    {
+        if (strokeBrush is not null) return strokeBrush;
+        if (Application.Current?.Resources is { } res &&
+            res.TryGetValue("HhapSparklineStrokeGradient", out var obj) &&
+            obj is Brush b)
+        {
+            strokeBrush = b;
+            return b;
+        }
+        strokeBrush = new SolidColorBrush(Color.FromArgb(0xFF, 0x9A, 0xE7, 0xFF));
+        return strokeBrush;
     }
 
     /// <summary>
-    /// Replaces all series and re-renders.
-    /// Each series is a (values, color) tuple drawn as a separate line.
-    /// All series share the same Y-axis scale.
+    /// Replaces all series and re-renders. Per-series colors are ignored —
+    /// every polyline uses the shared sparkline gradient to keep the HUD cohesive.
     /// </summary>
     public void SetSeries(IReadOnlyList<(IReadOnlyList<double> values, Color color)> newSeries)
     {
         series.Clear();
-        foreach (var (values, color) in newSeries)
+        foreach (var (values, _) in newSeries)
         {
             if (values.Count > 0)
             {
-                series.Add((values, new SolidColorBrush(color)));
+                series.Add(values);
             }
         }
 
         Render();
     }
 
-    /// <summary>
-    /// Simple single-series API for backward compat.
-    /// </summary>
     public void SetValues(IReadOnlyList<double> samples)
     {
         series.Clear();
         if (samples.Count > 0)
         {
-            series.Add((samples, new SolidColorBrush(Color.FromArgb(255, 0, 255, 136))));
+            series.Add(samples);
         }
 
         Render();
@@ -61,11 +73,10 @@ public sealed partial class SparklineGraph : UserControl
         var width = ActualWidth > 0 ? ActualWidth : 80;
         var height = ActualHeight > 0 ? ActualHeight : 20;
 
-        // Compute global min/max across all series for a shared Y-axis.
         var globalMin = double.MaxValue;
         var globalMax = double.MinValue;
 
-        foreach (var (values, _) in series)
+        foreach (var values in series)
         {
             foreach (var v in values)
             {
@@ -75,9 +86,9 @@ public sealed partial class SparklineGraph : UserControl
         }
 
         var range = Math.Max(1, globalMax - globalMin);
+        var stroke = GetStrokeBrush();
 
-        // Draw each series as a polyline.
-        foreach (var (values, brush) in series)
+        foreach (var values in series)
         {
             if (values.Count < 2)
             {
@@ -96,7 +107,7 @@ public sealed partial class SparklineGraph : UserControl
             GraphCanvas.Children.Add(new Polyline
             {
                 Points = points,
-                Stroke = brush,
+                Stroke = stroke,
                 StrokeThickness = 1.5
             });
         }

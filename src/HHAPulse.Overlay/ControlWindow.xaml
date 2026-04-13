@@ -1,6 +1,107 @@
 <Window
     x:Class="HHAPulse.Overlay.ControlWindow"
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
-    <Grid x:Name="RootHost" />
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:views="using:HHAPulse.Overlay.Views">
+
+    <Grid x:Name="ShellRoot" Background="{StaticResource HhapBgBrush}" KeyDown="OnShellKeyDown">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!--
+            Row 0 = title/drag region + inline top nav.
+            The 160 px right inset reserves the system caption-button zone so
+            (a) the resize grip is still hittable and (b) Close/Min/Max render
+            on top of us. Everything left of that inset is draggable except for
+            the interactive Buttons, which stay clickable per WinUI 3 custom
+            title bar rules.
+        -->
+        <Grid x:Name="TitleBarDragRegion"
+              Grid.Row="0"
+              Height="56"
+              Padding="20,10,160,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0"
+                       Text="Handheld Ally Pulse"
+                       Style="{StaticResource HhapH3Style}"
+                       VerticalAlignment="Center"
+                       Margin="0,0,28,0" />
+
+            <Button Grid.Column="1"
+                    x:Name="HubNavButton"
+                    Content="Hub"
+                    Style="{StaticResource HhapPrimaryButtonStyle}"
+                    VerticalAlignment="Center"
+                    Margin="0,0,8,0"
+                    Click="OnHubNavClicked" />
+
+            <Button Grid.Column="2"
+                    x:Name="SupportNavButton"
+                    Content="Support"
+                    Style="{StaticResource HhapGhostButtonStyle}"
+                    VerticalAlignment="Center"
+                    Click="OnSupportNavClicked" />
+
+            <Button Grid.Column="4"
+                    x:Name="SettingsButton"
+                    Content="Overlay settings"
+                    Style="{StaticResource HhapGhostButtonStyle}"
+                    VerticalAlignment="Center"
+                    Click="OnSettingsButtonClicked" />
+        </Grid>
+
+        <!-- Content surface. Full width. Single ScrollViewer owns all scrolling. -->
+        <Border x:Name="ContentSurface"
+                Grid.Row="1"
+                Margin="16,4,16,16"
+                Background="{StaticResource HhapPanel3Brush}"
+                BorderBrush="{StaticResource HhapLineBrush}"
+                BorderThickness="1"
+                CornerRadius="26">
+            <ScrollViewer x:Name="ContentScrollViewer"
+                          VerticalScrollMode="Enabled"
+                          VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollMode="Disabled"
+                          HorizontalScrollBarVisibility="Disabled"
+                          ZoomMode="Disabled"
+                          IsVerticalScrollChainingEnabled="True"
+                          Padding="28,24,28,28">
+                <ContentControl x:Name="ContentHost"
+                                HorizontalContentAlignment="Stretch"
+                                VerticalContentAlignment="Top" />
+            </ScrollViewer>
+        </Border>
+
+        <!--
+            Settings sheet overlay. Collapsed by default. Covers only the body
+            row (Row 1), leaves the title bar interactive above it.
+        -->
+        <Grid x:Name="SettingsSheetHost" Grid.Row="1" Visibility="Collapsed">
+            <Border x:Name="SettingsScrim"
+                    Background="{StaticResource HhapScrimBrush}"
+                    IsHitTestVisible="True"
+                    Tapped="OnSettingsScrimTapped" />
+            <views:SettingsSheet x:Name="SettingsSheetControl"
+                                 HorizontalAlignment="Right"
+                                 VerticalAlignment="Stretch"
+                                 Width="420"
+                                 Margin="0,16,16,16" />
+        </Grid>
+
+        <!-- Composer overlay. Spans everything when visible. -->
+        <views:ComposerOverlay x:Name="ComposerOverlayControl"
+                               Grid.Row="0"
+                               Grid.RowSpan="2"
+                               Visibility="Collapsed" />
+    </Grid>
+
 </Window>

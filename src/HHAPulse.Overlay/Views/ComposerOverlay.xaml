@@ -1,0 +1,289 @@
+<UserControl
+    x:Class="HHAPulse.Overlay.Views.ComposerOverlay"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
+
+    <Grid x:Name="RootGrid"
+          Background="{StaticResource HhapScrimBrush}"
+          Tapped="OnScrimTapped"
+          KeyDown="OnRootKeyDown"
+          IsTabStop="True">
+
+        <Border x:Name="DrawerRoot"
+                HorizontalAlignment="Right"
+                VerticalAlignment="Stretch"
+                Width="480"
+                Background="{StaticResource HhapPanel2Brush}"
+                BorderBrush="{StaticResource HhapLineStrongBrush}"
+                BorderThickness="1,0,0,0"
+                Tapped="OnDrawerTapped">
+
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <!-- ========= Header ========= -->
+                <StackPanel Grid.Row="0" Padding="24,24,24,16" Spacing="12">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="BUILD YOUR OWN" Style="{StaticResource HhapEyebrowStyle}" />
+                    </StackPanel>
+                    <TextBlock x:Name="StepTitleText" Text="Choose layout" Style="{StaticResource HhapH2Style}" />
+                    <TextBlock x:Name="StepSubtitleText"
+                               Text="Pick how the HUD sits on screen."
+                               Style="{StaticResource HhapMutedStyle}"
+                               TextWrapping="Wrap" />
+
+                    <StackPanel Orientation="Horizontal" Spacing="8" Padding="0,8,0,0">
+                        <Border x:Name="StepDot1" Style="{StaticResource HhapChipBlueStyle}" Tapped="OnStepDot1Tapped">
+                            <TextBlock Text="1  Layout" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource HhapBlue2Brush}" />
+                        </Border>
+                        <Border x:Name="StepDot2" Style="{StaticResource HhapChipStyle}" Tapped="OnStepDot2Tapped">
+                            <TextBlock Text="2  Modules" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource HhapMutedBrush}" />
+                        </Border>
+                        <Border x:Name="StepDot3" Style="{StaticResource HhapChipStyle}" Tapped="OnStepDot3Tapped">
+                            <TextBlock Text="3  Detail" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource HhapMutedBrush}" />
+                        </Border>
+                        <Border x:Name="StepDot4" Style="{StaticResource HhapChipStyle}" Tapped="OnStepDot4Tapped">
+                            <TextBlock Text="4  Reorder" FontSize="12" FontWeight="SemiBold" Foreground="{StaticResource HhapMutedBrush}" />
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+
+                <!-- ========= Body ========= -->
+                <ScrollViewer Grid.Row="1"
+                              Padding="24,8,24,16"
+                              VerticalScrollMode="Enabled"
+                              VerticalScrollBarVisibility="Auto"
+                              HorizontalScrollMode="Disabled">
+
+                    <StackPanel Spacing="20">
+
+                        <!-- Live preview card (always visible) -->
+                        <Border Style="{StaticResource HhapStatCardStyle}" Padding="18">
+                            <StackPanel Spacing="10">
+                                <TextBlock Text="LIVE PREVIEW" Style="{StaticResource HhapEyebrowStyle}" />
+                                <Border Background="{StaticResource HhapHudBgBrush}"
+                                        BorderBrush="{StaticResource HhapLineBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="14"
+                                        Padding="12"
+                                        MinHeight="64">
+                                    <TextBlock x:Name="PreviewMetricsText"
+                                               Text="Add modules to see a preview"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Foreground="{StaticResource HhapTextBrush}"
+                                               TextWrapping="Wrap" />
+                                </Border>
+                                <TextBlock x:Name="PreviewLayoutText"
+                                           Text="Top bar layout"
+                                           Style="{StaticResource HhapMutedStyle}" />
+                            </StackPanel>
+                        </Border>
+
+                        <!-- ===== Step 1: Layout ===== -->
+                        <StackPanel x:Name="Step1Panel" Spacing="12">
+                            <TextBlock Text="LAYOUT" Style="{StaticResource HhapEyebrowStyle}" />
+                            <Grid ColumnSpacing="12" RowSpacing="12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <Button x:Name="LayoutTopBarButton" Grid.Row="0" Grid.Column="0"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        MinHeight="96" Padding="16"
+                                        Style="{StaticResource HhapGhostButtonStyle}"
+                                        Click="OnLayoutTopBarClicked">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Top bar" Style="{StaticResource HhapH3Style}" />
+                                        <TextBlock Text="Slim strip across the top" Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="LayoutBottomBarButton" Grid.Row="0" Grid.Column="1"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        MinHeight="96" Padding="16"
+                                        Style="{StaticResource HhapGhostButtonStyle}"
+                                        Click="OnLayoutBottomBarClicked">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Bottom bar" Style="{StaticResource HhapH3Style}" />
+                                        <TextBlock Text="Slim strip across the bottom" Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="LayoutDualLineButton" Grid.Row="1" Grid.Column="0"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        MinHeight="96" Padding="16"
+                                        Style="{StaticResource HhapGhostButtonStyle}"
+                                        Click="OnLayoutDualLineClicked">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Dual line" Style="{StaticResource HhapH3Style}" />
+                                        <TextBlock Text="Two rows for denser counts" Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="LayoutLeftDockButton" Grid.Row="1" Grid.Column="1"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        MinHeight="96" Padding="16"
+                                        Style="{StaticResource HhapGhostButtonStyle}"
+                                        Click="OnLayoutLeftDockClicked">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Left dock" Style="{StaticResource HhapH3Style}" />
+                                        <TextBlock Text="Vertical dock on the left" Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="LayoutRightDockButton" Grid.Row="2" Grid.Column="0"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        MinHeight="96" Padding="16"
+                                        Style="{StaticResource HhapGhostButtonStyle}"
+                                        Click="OnLayoutRightDockClicked">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Right dock" Style="{StaticResource HhapH3Style}" />
+                                        <TextBlock Text="Vertical dock on the right" Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Button>
+
+                                <Button x:Name="LayoutSidePanelButton" Grid.Row="2" Grid.Column="1"
+                                        HorizontalAlignment="Stretch" HorizontalContentAlignment="Left"
+                                        MinHeight="96" Padding="16"
+                                        Style="{StaticResource HhapGhostButtonStyle}"
+                                        Click="OnLayoutSidePanelClicked">
+                                    <StackPanel Spacing="6">
+                                        <TextBlock Text="Side panel" Style="{StaticResource HhapH3Style}" />
+                                        <TextBlock Text="Wide panel with room for graphs" Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </Button>
+                            </Grid>
+                        </StackPanel>
+
+                        <!-- ===== Step 2: Modules ===== -->
+                        <StackPanel x:Name="Step2Panel" Spacing="12" Visibility="Collapsed">
+                            <TextBlock Text="MODULES" Style="{StaticResource HhapEyebrowStyle}" />
+                            <TextBlock Text="Tap a chip to add or remove. You'll pick the detail level next."
+                                       Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                            <controls:ItemsRepeater x:Name="ModulesRepeater">
+                                <controls:ItemsRepeater.Layout>
+                                    <controls:UniformGridLayout MinItemWidth="140"
+                                                                MinItemHeight="48"
+                                                                MinRowSpacing="12"
+                                                                MinColumnSpacing="12"
+                                                                ItemsStretch="Fill" />
+                                </controls:ItemsRepeater.Layout>
+                            </controls:ItemsRepeater>
+                        </StackPanel>
+
+                        <!-- ===== Step 3: Detail ===== -->
+                        <StackPanel x:Name="Step3Panel" Spacing="14" Visibility="Collapsed">
+                            <TextBlock Text="DETAIL LEVEL" Style="{StaticResource HhapEyebrowStyle}" />
+                            <TextBlock Text="Set how much each module shows. Off removes the module."
+                                       Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                            <StackPanel x:Name="DetailList" Spacing="12" />
+                            <TextBlock x:Name="DetailEmptyText"
+                                       Text="No modules selected. Go back and pick at least one."
+                                       Style="{StaticResource HhapMutedStyle}"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
+                        </StackPanel>
+
+                        <!-- ===== Step 4: Reorder ===== -->
+                        <StackPanel x:Name="Step4Panel" Spacing="14" Visibility="Collapsed">
+                            <TextBlock Text="REORDER" Style="{StaticResource HhapEyebrowStyle}" />
+                            <TextBlock Text="Drag to change the order the HUD draws each metric."
+                                       Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                            <ListView x:Name="ReorderList"
+                                      SelectionMode="None"
+                                      CanReorderItems="True"
+                                      CanDragItems="True"
+                                      AllowDrop="True"
+                                      Background="Transparent"
+                                      BorderBrush="{StaticResource HhapLineBrush}"
+                                      BorderThickness="1"
+                                      CornerRadius="14"
+                                      Padding="8">
+                                <ListView.ItemContainerStyle>
+                                    <Style TargetType="ListViewItem">
+                                        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                                        <Setter Property="Padding" Value="8" />
+                                    </Style>
+                                </ListView.ItemContainerStyle>
+                            </ListView>
+                            <TextBlock x:Name="ReorderEmptyText"
+                                       Text="Nothing to reorder yet. Pick modules in step 2."
+                                       Style="{StaticResource HhapMutedStyle}"
+                                       TextWrapping="Wrap"
+                                       Visibility="Collapsed" />
+
+                            <Border x:Name="GraphSuggestionCard"
+                                    Style="{StaticResource HhapChipBlueStyle}"
+                                    Padding="16"
+                                    CornerRadius="14"
+                                    Visibility="Collapsed">
+                                <StackPanel Spacing="6">
+                                    <TextBlock Text="GRAPH SUGGESTED"
+                                               Style="{StaticResource HhapEyebrowStyle}" />
+                                    <TextBlock Text="You have frametime or three+ FPS metrics. A live graph makes the trend easier to read."
+                                               Style="{StaticResource HhapBodyStyle}"
+                                               TextWrapping="Wrap" />
+                                    <ToggleSwitch x:Name="ShowGraphToggle"
+                                                  OnContent="Graph on"
+                                                  OffContent="Graph off"
+                                                  Toggled="OnShowGraphToggled" />
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+
+                    </StackPanel>
+                </ScrollViewer>
+
+                <!-- ========= Footer ========= -->
+                <Border Grid.Row="2"
+                        Background="{StaticResource HhapPanel3Brush}"
+                        BorderBrush="{StaticResource HhapLineBrush}"
+                        BorderThickness="0,1,0,0"
+                        Padding="24,16,24,20">
+                    <Grid ColumnSpacing="12">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <Button Grid.Column="0"
+                                Content="Cancel"
+                                Style="{StaticResource HhapGhostButtonStyle}"
+                                Click="OnCancelClicked" />
+
+                        <Button x:Name="BackButton" Grid.Column="2"
+                                Content="Back"
+                                Style="{StaticResource HhapGhostButtonStyle}"
+                                Click="OnBackClicked" />
+
+                        <Button x:Name="ResetButton" Grid.Column="3"
+                                Content="Reset"
+                                Style="{StaticResource HhapGhostButtonStyle}"
+                                Click="OnResetClicked" />
+
+                        <Button x:Name="PrimaryActionButton" Grid.Column="4"
+                                Content="Next"
+                                Style="{StaticResource HhapPrimaryButtonStyle}"
+                                Click="OnPrimaryActionClicked" />
+                    </Grid>
+                </Border>
+
+            </Grid>
+        </Border>
+    </Grid>
+</UserControl>

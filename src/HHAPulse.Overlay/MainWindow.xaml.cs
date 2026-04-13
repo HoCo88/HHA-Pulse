@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using HHAPulse.Overlay.Interop;
+using HHAPulse.Overlay.Settings;
 using HHAPulse.Overlay.ViewModels;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
@@ -11,12 +12,16 @@ namespace HHAPulse.Overlay;
 
 public sealed partial class MainWindow : Window
 {
-    private const int SingleRowHeight = 28;
-    private const int TallRowHeight = 46;
-    private const int DoubleRowHeight = 52;
+    // Heights account for the refreshed HUD tile visuals: 23px ExtraBold value
+    // text, 4px tile vertical padding, 4px root border vertical padding, and a
+    // 1px outer border. See TopBarControl.Tile / TopBarControl.xaml.
+    private const int SingleRowHeight = 54;
+    private const int TallRowHeight = 84;
+    private const int DoubleRowHeight = 92;
 
     private OverlayViewModel? _viewModel;
     private bool isOverlayVisible = true;
+    private OverlayEdge overlayEdge = OverlayEdge.Top;
 
     public MainWindow()
     {
@@ -75,6 +80,12 @@ public sealed partial class MainWindow : Window
         TopBar.ApplyTextSize(size);
     }
 
+    public void ApplyEdge(OverlayEdge edge)
+    {
+        overlayEdge = edge;
+        ResizeOverlayWindow();
+    }
+
     private void OnActivated(object sender, WindowActivatedEventArgs args)
     {
         Activated -= OnActivated;
@@ -113,19 +124,17 @@ public sealed partial class MainWindow : Window
         var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
 
         int width = Math.Min(TopBar.EstimatedWidth, displayArea.WorkArea.Width);
-        int rows = TopBar.RowCount;
-        int height;
-        if (rows > 1)
-            height = DoubleRowHeight;
-        else if (TopBar.FpsGroupIsTwoRow)
-            height = TallRowHeight;
-        else
-            height = SingleRowHeight;
+        int height = Math.Min(TopBar.EstimatedHeight, displayArea.WorkArea.Height);
 
         NativeMethods.SetWindowPos(
             hwnd,
             NativeMethods.HWND_TOPMOST,
-            displayArea.WorkArea.X, displayArea.WorkArea.Y, width, height,
+            displayArea.WorkArea.X,
+            overlayEdge == OverlayEdge.Bottom
+                ? displayArea.WorkArea.Y + displayArea.WorkArea.Height - height
+                : displayArea.WorkArea.Y,
+            width,
+            height,
             NativeMethods.SWP_NOACTIVATE);
     }
 }

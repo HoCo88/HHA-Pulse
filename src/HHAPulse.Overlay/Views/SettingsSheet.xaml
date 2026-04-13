@@ -1,0 +1,49 @@
+<UserControl
+    x:Class="HHAPulse.Overlay.Views.SettingsSheet"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Background="{StaticResource HhapPanel2Brush}"
+            BorderBrush="{StaticResource HhapLineStrongBrush}"
+            BorderThickness="1"
+            CornerRadius="26"
+            Padding="24">
+        <ScrollViewer VerticalScrollMode="Enabled" VerticalScrollBarVisibility="Auto" HorizontalScrollMode="Disabled">
+            <StackPanel Spacing="22">
+
+                <StackPanel Spacing="6">
+                    <TextBlock Text="OVERLAY" Style="{StaticResource HhapEyebrowStyle}" />
+                    <TextBlock Text="Settings" Style="{StaticResource HhapH2Style}" />
+                    <TextBlock Text="Opacity, size, and position for the in-game HUD." Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+                </StackPanel>
+
+                <StackPanel Spacing="10">
+                    <TextBlock x:Name="BgOpacityValue" Style="{StaticResource HhapMutedStyle}" Text="Background opacity" />
+                    <Slider x:Name="BgOpacitySlider" Minimum="0" Maximum="100" StepFrequency="5" ValueChanged="OnBgOpacityChanged" Foreground="{StaticResource HhapBlueBrush}" />
+                </StackPanel>
+
+                <StackPanel Spacing="10">
+                    <TextBlock x:Name="TextOpacityValue" Style="{StaticResource HhapMutedStyle}" Text="Text opacity" />
+                    <Slider x:Name="TextOpacitySlider" Minimum="20" Maximum="100" StepFrequency="5" ValueChanged="OnTextOpacityChanged" Foreground="{StaticResource HhapBlueBrush}" />
+                </StackPanel>
+
+                <StackPanel Spacing="10">
+                    <TextBlock x:Name="TextSizeValue" Style="{StaticResource HhapMutedStyle}" Text="HUD text size" />
+                    <Slider x:Name="TextSizeSlider" Minimum="10" Maximum="22" StepFrequency="1" ValueChanged="OnTextSizeChanged" Foreground="{StaticResource HhapBlueBrush}" />
+                </StackPanel>
+
+                <StackPanel Spacing="10">
+                    <TextBlock Text="Position" Style="{StaticResource HhapMutedStyle}" />
+                    <StackPanel Orientation="Horizontal" Spacing="10">
+                        <Button x:Name="LayoutTopButton" Content="Top" Style="{StaticResource HhapChipButtonStyle}" Click="OnTopClicked" />
+                        <Button x:Name="LayoutBottomButton" Content="Bottom" Style="{StaticResource HhapChipButtonStyle}" Click="OnBottomClicked" />
+                    </StackPanel>
+                </StackPanel>
+
+                <TextBlock Text="Hotkeys still work for toggle, next preset, off, and menu actions." Style="{StaticResource HhapMutedStyle}" TextWrapping="Wrap" />
+
+                <Button x:Name="CloseButton" Content="Close" Style="{StaticResource HhapGhostButtonStyle}" HorizontalAlignment="Stretch" Click="OnCloseClicked" />
+
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</UserControl>
