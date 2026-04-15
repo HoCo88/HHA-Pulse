@@ -38,20 +38,37 @@ public sealed class OverlayPresetCatalogTests
     {
         var metrics = OverlayPresetCatalog.GetMetricIds(OverlayPreset.Tuner, Array.Empty<string>());
 
-        Assert.Equal(14, metrics.Count);
+        Assert.Equal(11, metrics.Count);
         Assert.Contains(OverlayPresetCatalog.Fps, metrics);
         Assert.Contains(OverlayPresetCatalog.OnePercentLow, metrics);
         Assert.Contains(OverlayPresetCatalog.FrameTime, metrics);
         Assert.Contains(OverlayPresetCatalog.CpuTemp, metrics);
+        Assert.Contains(OverlayPresetCatalog.CpuPower, metrics);
         Assert.Contains(OverlayPresetCatalog.GpuTemp, metrics);
-        Assert.Contains(OverlayPresetCatalog.GpuClock, metrics);
-        Assert.Contains(OverlayPresetCatalog.GpuFan, metrics);
-        Assert.Contains(OverlayPresetCatalog.DeviceTemp, metrics);
+        Assert.Contains(OverlayPresetCatalog.RefreshRate, metrics);
         Assert.Contains(OverlayPresetCatalog.Battery, metrics);
-        // Metrics without collectors are excluded from Tuner.
+        Assert.DoesNotContain(OverlayPresetCatalog.GpuClock, metrics);
+        Assert.DoesNotContain(OverlayPresetCatalog.GpuFan, metrics);
+        Assert.DoesNotContain(OverlayPresetCatalog.DeviceTemp, metrics);
+        Assert.DoesNotContain(OverlayPresetCatalog.Vram, metrics);
         Assert.DoesNotContain(OverlayPresetCatalog.InputLatency, metrics);
-        Assert.DoesNotContain(OverlayPresetCatalog.CpuPower, metrics);
         Assert.DoesNotContain(OverlayPresetCatalog.GpuPower, metrics);
+    }
+
+    [Fact]
+    public void GetMetricIds_FullReturnsNineteenMetrics()
+    {
+        var metrics = OverlayPresetCatalog.GetMetricIds(OverlayPreset.Full, Array.Empty<string>());
+
+        Assert.Equal(19, metrics.Count);
+        Assert.Contains(OverlayPresetCatalog.AvgFps, metrics);
+        Assert.Contains(OverlayPresetCatalog.ZeroPointOneLow, metrics);
+        Assert.Contains(OverlayPresetCatalog.CpuPower, metrics);
+        Assert.Contains(OverlayPresetCatalog.GpuPower, metrics);
+        Assert.Contains(OverlayPresetCatalog.GpuFan, metrics);
+        Assert.Contains(OverlayPresetCatalog.Vram, metrics);
+        Assert.Contains(OverlayPresetCatalog.TotalPower, metrics);
+        Assert.Contains(OverlayPresetCatalog.DeviceTemp, metrics);
     }
 
     [Fact]
@@ -74,15 +91,32 @@ public sealed class OverlayPresetCatalogTests
     {
         var metrics = OverlayPresetCatalog.GetMetricIds(OverlayPreset.Custom, Array.Empty<string>());
 
-        Assert.Equal(14, metrics.Count);
+        Assert.Equal(11, metrics.Count);
     }
 
     [Fact]
-    public void NextPreset_CyclesMinimalStandardTunerOff()
+    public void AllMetricIds_ContainsPlanAManualOnlyTelemetry()
+    {
+        Assert.Contains(OverlayPresetCatalog.StorageTemp, OverlayPresetCatalog.AllMetricIds);
+        Assert.Contains(OverlayPresetCatalog.StorageWear, OverlayPresetCatalog.AllMetricIds);
+        Assert.Contains(OverlayPresetCatalog.CpuClock, OverlayPresetCatalog.AllMetricIds);
+    }
+
+    [Fact]
+    public void NextPreset_CyclesMinimalStandardAdvancedFullOff()
     {
         Assert.Equal(OverlayPreset.Standard, OverlayPresetCatalog.NextPreset(OverlayPreset.Minimal));
         Assert.Equal(OverlayPreset.Tuner, OverlayPresetCatalog.NextPreset(OverlayPreset.Standard));
-        Assert.Equal(OverlayPreset.Off, OverlayPresetCatalog.NextPreset(OverlayPreset.Tuner));
+        Assert.Equal(OverlayPreset.Full, OverlayPresetCatalog.NextPreset(OverlayPreset.Tuner));
+        Assert.Equal(OverlayPreset.Off, OverlayPresetCatalog.NextPreset(OverlayPreset.Full));
         Assert.Equal(OverlayPreset.Minimal, OverlayPresetCatalog.NextPreset(OverlayPreset.Off));
+    }
+
+    [Fact]
+    public void PresetDisplayName_UsesPlanBLabels()
+    {
+        Assert.Equal("Advanced", OverlayPresetCatalog.PresetDisplayName(OverlayPreset.Tuner));
+        Assert.Equal("Manual", OverlayPresetCatalog.PresetDisplayName(OverlayPreset.Custom));
+        Assert.Equal("Full", OverlayPresetCatalog.PresetDisplayName(OverlayPreset.Full));
     }
 }

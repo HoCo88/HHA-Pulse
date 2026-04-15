@@ -14,8 +14,7 @@ internal static class ControlShellTextBuilder
 
     public static string FriendlyPresetName(OverlayPreset preset) => preset switch
     {
-        OverlayPreset.Tuner => "Performance",
-        OverlayPreset.Off => "Off",
+        OverlayPreset.Tuner => "Advanced",
         _ => OverlayPresetCatalog.PresetDisplayName(preset)
     };
 

@@ -1,44 +1,32 @@
-<!--
-    HHA Pulse control styles. Must be merged AFTER HhapTheme.xaml.
-    Custom ToggleSwitch/Slider templates deferred to downstream task;
-    default WinUI controls will inherit the token palette via cascaded
-    Foreground/Background on the parent panel for now.
--->
 <ResourceDictionary
     xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-    xmlns:primitives="using:Microsoft.UI.Xaml.Controls.Primitives">
+    xmlns:controls="using:Microsoft.UI.Xaml.Controls">
 
-    <!-- ============================== -->
-    <!-- Cards / panels                  -->
-    <!-- ============================== -->
     <Style x:Key="HhapCardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource HhapHeroGradient}" />
-        <Setter Property="BorderBrush" Value="{StaticResource HhapLineBrush}" />
+        <Setter Property="Background" Value="{ThemeResource HhapHeroGradient}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource HhapLineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource HhapRadius}" />
         <Setter Property="Padding" Value="24" />
     </Style>
 
     <Style x:Key="HhapStatCardStyle" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource HhapPanel2Brush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource HhapLineBrush}" />
+        <Setter Property="Background" Value="{ThemeResource HhapPanel2Brush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource HhapLineBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource HhapRadius}" />
         <Setter Property="Padding" Value="24" />
     </Style>
 
     <Style x:Key="HhapTileStyle" TargetType="Border">
-        <Setter Property="Background" Value="{StaticResource HhapHudTileBgBrush}" />
-        <Setter Property="BorderBrush" Value="{StaticResource HhapHudTileBorderBrush}" />
+        <Setter Property="Background" Value="{ThemeResource HhapHudTileBgBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource HhapHudTileBorderBrush}" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="{StaticResource HhapRadiusTile}" />
         <Setter Property="Padding" Value="10" />
     </Style>
 
-    <!-- ============================== -->
-    <!-- Chips                           -->
-    <!-- ============================== -->
     <Style x:Key="HhapChipStyle" TargetType="Border">
         <Setter Property="Background" Value="#0DFFFFFF" />
         <Setter Property="BorderBrush" Value="#14FFFFFF" />
@@ -79,15 +67,12 @@
         <Setter Property="Padding" Value="8,4,8,4" />
     </Style>
 
-    <!-- ============================== -->
-    <!-- Typography                      -->
-    <!-- ============================== -->
     <Style x:Key="HhapHeroStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource HhapFontHero}" />
         <Setter Property="FontWeight" Value="Bold" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackHero}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
         <Setter Property="LineHeight" Value="58" />
     </Style>
 
@@ -96,7 +81,7 @@
         <Setter Property="FontSize" Value="{StaticResource HhapFontH1}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackHeadline}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
     </Style>
 
     <Style x:Key="HhapH2Style" TargetType="TextBlock">
@@ -104,7 +89,7 @@
         <Setter Property="FontSize" Value="{StaticResource HhapFontH2}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackHeadline}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
     </Style>
 
     <Style x:Key="HhapH3Style" TargetType="TextBlock">
@@ -112,21 +97,20 @@
         <Setter Property="FontSize" Value="{StaticResource HhapFontH3}" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackHeadline}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
     </Style>
 
     <Style x:Key="HhapBodyStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource HhapFontBody}" />
-        <Setter Property="FontWeight" Value="Normal" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
         <Setter Property="LineHeight" Value="22" />
     </Style>
 
     <Style x:Key="HhapMutedStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource HhapFontSmall}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapMutedBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapMutedBrush}" />
         <Setter Property="LineHeight" Value="20" />
     </Style>
 
@@ -134,7 +118,7 @@
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource HhapFontEyebrow}" />
         <Setter Property="FontWeight" Value="ExtraBold" />
-        <Setter Property="Foreground" Value="{StaticResource HhapBlue2Brush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapBlue2Brush}" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackEyebrow}" />
     </Style>
 
@@ -142,7 +126,7 @@
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource HhapFontEyebrow}" />
         <Setter Property="FontWeight" Value="ExtraBold" />
-        <Setter Property="Foreground" Value="{StaticResource HhapAmberBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapAmberBrush}" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackEyebrow}" />
     </Style>
 
@@ -151,30 +135,33 @@
         <Setter Property="FontSize" Value="{StaticResource HhapFontHudValue}" />
         <Setter Property="FontWeight" Value="ExtraBold" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackHudValue}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
     </Style>
 
     <Style x:Key="HhapHudLabelStyle" TargetType="TextBlock">
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="{StaticResource HhapFontHudLabel}" />
-        <Setter Property="Foreground" Value="{StaticResource HhapMutedBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapMutedBrush}" />
         <Setter Property="CharacterSpacing" Value="{StaticResource HhapTrackHudLabel}" />
     </Style>
 
-    <!-- ============================== -->
-    <!-- Buttons                         -->
-    <!-- ============================== -->
+    <Style x:Key="HhapEventLineStyle" TargetType="TextBlock">
+        <Setter Property="FontFamily" Value="{StaticResource HhapFontMono}" />
+        <Setter Property="FontSize" Value="{StaticResource HhapFontMicro}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapMutedBrush}" />
+    </Style>
+
     <Style x:Key="HhapPrimaryButtonStyle" TargetType="Button">
-        <Setter Property="Background" Value="{StaticResource HhapPrimaryGradient}" />
+        <Setter Property="Background" Value="{ThemeResource HhapPrimaryGradient}" />
         <Setter Property="BorderBrush" Value="#3D58CBFF" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="16" />
-        <Setter Property="Foreground" Value="{StaticResource HhapBlue2Brush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapBlue2Brush}" />
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="16,12,16,12" />
-        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinHeight" Value="{StaticResource HhapTouchTargetMin}" />
     </Style>
 
     <Style x:Key="HhapGhostButtonStyle" TargetType="Button">
@@ -182,12 +169,12 @@
         <Setter Property="BorderBrush" Value="#14FFFFFF" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="16" />
-        <Setter Property="Foreground" Value="{StaticResource HhapMutedBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapMutedBrush}" />
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="16,12,16,12" />
-        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinHeight" Value="{StaticResource HhapTouchTargetMin}" />
     </Style>
 
     <Style x:Key="HhapChipButtonStyle" TargetType="Button">
@@ -195,26 +182,48 @@
         <Setter Property="BorderBrush" Value="#14FFFFFF" />
         <Setter Property="BorderThickness" Value="1" />
         <Setter Property="CornerRadius" Value="14" />
-        <Setter Property="Foreground" Value="{StaticResource HhapTextBrush}" />
+        <Setter Property="Foreground" Value="{ThemeResource HhapTextBrush}" />
         <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
         <Setter Property="FontSize" Value="13" />
         <Setter Property="FontWeight" Value="SemiBold" />
         <Setter Property="Padding" Value="14,10,14,10" />
-        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="MinHeight" Value="{StaticResource HhapTouchTargetMin}" />
     </Style>
 
-    <Style x:Key="HhapRailNavButtonStyle" TargetType="primitives:ToggleButton">
-        <Setter Property="Background" Value="Transparent" />
-        <Setter Property="BorderThickness" Value="0" />
-        <Setter Property="CornerRadius" Value="18" />
-        <Setter Property="Foreground" Value="{StaticResource HhapMutedBrush}" />
-        <Setter Property="FontFamily" Value="{StaticResource HhapFontFamily}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontWeight" Value="SemiBold" />
-        <Setter Property="Padding" Value="14,12,14,12" />
+    <Style x:Key="HhapPresetCardStyle" TargetType="Button" BasedOn="{StaticResource HhapGhostButtonStyle}">
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="VerticalContentAlignment" Value="Stretch" />
+        <Setter Property="Padding" Value="18" />
+        <Setter Property="Background" Value="{ThemeResource HhapHeroGradient}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource HhapLineBrush}" />
+        <Setter Property="CornerRadius" Value="22" />
+    </Style>
+
+    <Style x:Key="HhapPositionButtonStyle" TargetType="Button" BasedOn="{StaticResource HhapChipButtonStyle}">
         <Setter Property="HorizontalAlignment" Value="Stretch" />
-        <Setter Property="HorizontalContentAlignment" Value="Left" />
-        <Setter Property="MinHeight" Value="44" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="MinWidth" Value="132" />
     </Style>
 
+    <Style x:Key="HhapBandDotStyle" TargetType="Ellipse">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="Fill" Value="{ThemeResource HhapBandGood}" />
+    </Style>
+
+    <Style x:Key="HhapLivePulseStyle" TargetType="Ellipse" BasedOn="{StaticResource HhapBandDotStyle}">
+        <Setter Property="Fill" Value="{ThemeResource HhapAccent}" />
+    </Style>
+
+    <Style x:Key="HhapFlyoutPresenterStyle" TargetType="FlyoutPresenter">
+        <Setter Property="Background" Value="{ThemeResource HhapPanelBrush}" />
+        <Setter Property="BorderBrush" Value="{ThemeResource HhapLineBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="CornerRadius" Value="22" />
+    </Style>
+
+    <Style TargetType="controls:Slider">
+        <Setter Property="Foreground" Value="{ThemeResource HhapBlueBrush}" />
+    </Style>
 </ResourceDictionary>

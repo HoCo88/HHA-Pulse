@@ -12,7 +12,7 @@ public sealed class SettingsServiceTests
         var service = new SettingsService(path);
         var settings = AppSettings.CreateDefault();
         settings.ActivePreset = OverlayPreset.Off;
-        settings.TopBarPosition = OverlayEdge.Bottom;
+        settings.TopBarPosition = TopBarPosition.BottomThin;
         settings.UpdateInterval = TimeSpan.FromMilliseconds(500);
         settings.TextSizePixels = 18;
 
@@ -20,8 +20,37 @@ public sealed class SettingsServiceTests
         var loaded = await service.LoadAsync(CancellationToken.None);
 
         Assert.Equal(OverlayPreset.Off, loaded.ActivePreset);
-        Assert.Equal(OverlayEdge.Bottom, loaded.TopBarPosition);
+        Assert.Equal(TopBarPosition.BottomThin, loaded.TopBarPosition);
         Assert.Equal(TimeSpan.FromMilliseconds(500), loaded.UpdateInterval);
         Assert.Equal(18, loaded.TextSizePixels);
+    }
+
+    [Theory]
+    [InlineData(0, TopBarPosition.TopThin)]
+    [InlineData(1, TopBarPosition.BottomThin)]
+    public async Task LoadAsync_MigratesLegacyTopBottomPositionValues(int persistedValue, TopBarPosition expected)
+    {
+        var directory = Path.Combine(Path.GetTempPath(), "hha-pulse-settings-test", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var path = Path.Combine(directory, "settings.json");
+        await File.WriteAllTextAsync(path, $$"""
+            {
+              "ActivePreset": 1,
+              "TopBarPosition": {{persistedValue}},
+              "BackgroundOpacity": 0.85,
+              "TextOpacity": 1.0,
+              "FontSize": 1,
+              "TextSizePixels": 15,
+              "UpdateInterval": "00:00:01",
+              "EnabledMetricIds": [],
+              "ShowMode": 0
+            }
+            """);
+
+        var service = new SettingsService(path);
+
+        var loaded = await service.LoadAsync(CancellationToken.None);
+
+        Assert.Equal(expected, loaded.TopBarPosition);
     }
 }

@@ -1,0 +1,15 @@
+<UserControl
+    x:Class="HHAPulse.Overlay.Controls.NpuStatusCard"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource HhapStatCardStyle}">
+        <StackPanel Spacing="8">
+            <TextBlock Text="AI / NPU" Style="{StaticResource HhapEyebrowStyle}" />
+            <TextBlock x:Name="HeadlineText" Text="NPU not detected" Style="{StaticResource HhapH3Style}" TextWrapping="Wrap" />
+            <TextBlock x:Name="DetailText"
+                       Text="Utilization unavailable on current Windows."
+                       Style="{StaticResource HhapMutedStyle}"
+                       TextWrapping="Wrap" />
+        </StackPanel>
+    </Border>
+</UserControl>

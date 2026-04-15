@@ -4,7 +4,9 @@ public sealed class AppSettings
 {
     public OverlayPreset ActivePreset { get; set; }
 
-    public OverlayEdge TopBarPosition { get; set; }
+    public OverlayPreset ManualSourcePreset { get; set; }
+
+    public TopBarPosition TopBarPosition { get; set; }
 
     public double BackgroundOpacity { get; set; }
 
@@ -25,7 +27,8 @@ public sealed class AppSettings
         return new AppSettings
         {
             ActivePreset = OverlayPreset.Standard,
-            TopBarPosition = OverlayEdge.Top,
+            ManualSourcePreset = OverlayPreset.Standard,
+            TopBarPosition = TopBarPosition.TopThin,
             BackgroundOpacity = 0.85,
             TextOpacity = 1.0,
             FontSize = OverlayFontSize.Medium,
@@ -43,13 +46,18 @@ public enum OverlayPreset
     Standard = 1,
     Tuner = 2,
     Custom = 3,
-    Off = 4
+    Off = 4,
+    Full = 5
 }
 
-public enum OverlayEdge
+public enum TopBarPosition
 {
-    Top = 0,
-    Bottom = 1
+    TopThin = 0,
+    BottomThin = 1,
+    TopTall = 2,
+    BottomTall = 3,
+    LeftDock = 4,
+    RightDock = 5
 }
 
 public enum OverlayFontSize

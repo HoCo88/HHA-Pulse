@@ -240,6 +240,41 @@ public sealed class CaptureServiceCollector : IMetricCollector
                 TelemetryValidationState.HardwareValidationPending,
                 "Capture service returned a bounded device/SoC temperature. This does not populate GPU temperature.");
         }
+
+        if (metrics.StorageReliabilityAvailable)
+        {
+            snapshot.AvailableMetrics |= MetricFlags.StorageWear;
+            snapshot.Storage.WearPercentUsed = metrics.StorageWearPercentUsed;
+            snapshot.Storage.PowerOnHours = metrics.StoragePowerOnHours;
+            if (!string.IsNullOrWhiteSpace(metrics.StorageDeviceModel))
+            {
+                snapshot.Storage.DeviceModel = metrics.StorageDeviceModel;
+            }
+
+            snapshot.Storage.Reliability = metrics.StorageWearPercentUsed >= 100
+                ? StorageReliabilityState.Failed
+                : metrics.StorageWearPercentUsed >= 90
+                    ? StorageReliabilityState.Warning
+                    : StorageReliabilityState.Healthy;
+
+            MeasurementTraceRecorder.Record(
+                snapshot,
+                "storage_wear",
+                nameof(CaptureServiceCollector),
+                "MSFT_StorageReliabilityCounter",
+                true,
+                $"{metrics.StorageWearPercentUsed:0}%",
+                $"serviceTelemetryAgeMs={ServiceTelemetryAgeMilliseconds(metrics)}; powerOnHours={metrics.StoragePowerOnHours}; model={metrics.StorageDeviceModel}",
+                Blank(metrics.StorageReliabilityStatusMessage, "Storage wear from capture service reliability telemetry."),
+                "MSFT_StorageReliabilityCounter.Wear",
+                metrics.StorageWearPercentUsed.ToString(),
+                "%",
+                "read-only WMI reliability counter",
+                metrics.StorageWearPercentUsed.ToString(),
+                "%",
+                TelemetryValidationState.HardwareValidationPending,
+                "Capture service returned storage wear telemetry.");
+        }
     }
 
     private static long ServiceTelemetryAgeMilliseconds(CaptureFrameMetrics metrics)

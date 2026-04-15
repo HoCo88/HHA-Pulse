@@ -1,18 +1,11 @@
+using System.Linq;
 using System.ComponentModel;
 using HHAPulse.Overlay.Settings;
 using HHAPulse.Overlay.ViewModels;
-using HHAPulse.Overlay.Views;
-using HHAPulse.Shared;
 using HHAPulse.Shared.Models;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
-using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Microsoft.UI.Xaml.Media;
 using Windows.Graphics;
-using Windows.System;
-using Windows.UI;
 using WinRT.Interop;
 
 namespace HHAPulse.Overlay;
@@ -24,14 +17,10 @@ public sealed partial class ControlWindow : Window
     private const int MinimumWindowWidth = 760;
     private const int MinimumWindowHeight = 520;
 
-    private readonly HubView hubView;
-    private readonly SupportView supportView;
+    private readonly CompanionViewModel companionViewModel = new();
     private OverlayViewModel? viewModel;
     private AppSettings currentSettings = AppSettings.CreateDefault();
     private TelemetrySnapshot lastSnapshot = new();
-    private string currentSectionTag = "hub";
-    private bool isSettingsPanelOpen;
-    private bool isComposerOpen;
 
     public ControlWindow()
     {
@@ -40,42 +29,30 @@ public sealed partial class ControlWindow : Window
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(TitleBarDragRegion);
 
-        hubView = new HubView();
-        hubView.ToggleOverlayRequested += () => ToggleOverlayRequested?.Invoke();
-        hubView.CustomizeRequested += OpenComposer;
-        hubView.PresetRequested += p => PresetChanged?.Invoke(p);
-        hubView.ShowModeRequested += m => ShowModeChanged?.Invoke(m);
-        hubView.PositionRequested += p => PositionChanged?.Invoke(p);
-
-        supportView = new SupportView();
-        supportView.ExitRequested += () => ExitRequested?.Invoke();
-
-        SettingsSheetControl.CloseRequested += () => SetSettingsPanelOpen(false);
-        SettingsSheetControl.OpacityChanged += (bg, txt) => OpacityChanged?.Invoke(bg, txt);
-        SettingsSheetControl.TextSizeChanged += size => TextSizeChanged?.Invoke(size);
-        SettingsSheetControl.PositionChanged += edge => PositionChanged?.Invoke(edge);
-
-        ComposerOverlayControl.CloseRequested += () => SetComposerOpen(false);
-        ComposerOverlayControl.PresetApplied += OnComposerPresetApplied;
-        ComposerOverlayControl.LayoutChanged += OnComposerLayoutChanged;
+        CompanionViewControl.ViewModel = companionViewModel;
+        CompanionViewControl.ToggleOverlayRequested += OnToggleOverlayRequested;
+        CompanionViewControl.ExitRequested += OnExitRequestedRequested;
+        CompanionViewControl.ShowModeChanged += OnShowModeRequested;
+        CompanionViewControl.PresetRequested += OnPresetRequested;
+        CompanionViewControl.ManualRequested += OnManualRequested;
+        CompanionViewControl.CustomMetricsChanged += OnCustomMetricsRequested;
+        CompanionViewControl.OpacityChanged += OnOpacityRequested;
+        CompanionViewControl.TextSizeChanged += OnTextSizeRequested;
+        CompanionViewControl.PositionChanged += OnPositionRequested;
 
         Activated += OnFirstActivated;
-
-        ContentHost.Content = hubView;
+        Closed += OnClosed;
         ApplySettings(currentSettings);
     }
 
     public event Action? ToggleOverlayRequested;
     public event Action? ExitRequested;
     public event Action<OverlayShowMode>? ShowModeChanged;
-#pragma warning disable CS0067
-    public event Action? EnableCaptureRequested;
-#pragma warning restore CS0067
     public event Action<List<string>>? CustomMetricsChanged;
     public event Action<OverlayPreset>? PresetChanged;
     public event Action<double, double>? OpacityChanged;
     public event Action<double>? TextSizeChanged;
-    public event Action<OverlayEdge>? PositionChanged;
+    public event Action<TopBarPosition>? PositionChanged;
 
     public OverlayViewModel? ViewModel
     {
@@ -93,6 +70,7 @@ public sealed partial class ControlWindow : Window
             }
 
             viewModel = value;
+            companionViewModel.OverlayViewModel = value;
             if (viewModel is not null)
             {
                 viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -105,8 +83,8 @@ public sealed partial class ControlWindow : Window
     public void ApplySettings(AppSettings settings)
     {
         currentSettings = settings;
-        hubView.ApplyState(settings, lastSnapshot);
-        SettingsSheetControl.ApplySettings(settings);
+        companionViewModel.Apply(settings, lastSnapshot);
+        CompanionViewControl.ViewModel = companionViewModel;
     }
 
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
@@ -122,8 +100,9 @@ public sealed partial class ControlWindow : Window
     private void ApplyTelemetryStatus()
     {
         lastSnapshot = viewModel?.CurrentSnapshot ?? new TelemetrySnapshot();
-        hubView.ApplyState(currentSettings, lastSnapshot);
-        supportView.ApplyTelemetryStatus(lastSnapshot);
+        companionViewModel.OverlayViewModel = viewModel;
+        companionViewModel.Apply(currentSettings, lastSnapshot);
+        CompanionViewControl.ViewModel = companionViewModel;
     }
 
     private void OnFirstActivated(object sender, WindowActivatedEventArgs args)
@@ -167,95 +146,59 @@ public sealed partial class ControlWindow : Window
         }
     }
 
-    private void OnHubNavClicked(object sender, RoutedEventArgs e) => SelectSection("hub");
-    private void OnSupportNavClicked(object sender, RoutedEventArgs e) => SelectSection("support");
-
-    private void SelectSection(string section)
+    private void OnManualRequested()
     {
-        if (string.Equals(currentSectionTag, section, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
+        var previousPreset = currentSettings.ActivePreset;
+        var previousMetricIds = currentSettings.EnabledMetricIds.ToList();
+        var sourcePreset = ResolveManualSourcePreset(currentSettings);
+        var metricIds = companionViewModel.CreateManualSeed().ToList();
 
-        currentSectionTag = section;
-        if (section == "hub")
+        currentSettings.ManualSourcePreset = sourcePreset;
+        currentSettings.EnabledMetricIds = metricIds;
+        currentSettings.ActivePreset = OverlayPreset.Custom;
+        companionViewModel.SetManualSheetOpen(true);
+        companionViewModel.Apply(currentSettings, lastSnapshot);
+        CompanionViewControl.ViewModel = companionViewModel;
+        CompanionViewControl.ShowManualSheet(metricIds);
+
+        if (previousPreset != OverlayPreset.Custom || !previousMetricIds.SequenceEqual(metricIds))
         {
-            ContentHost.Content = hubView;
-            HubNavButton.Style = (Style)Application.Current.Resources["HhapPrimaryButtonStyle"];
-            SupportNavButton.Style = (Style)Application.Current.Resources["HhapGhostButtonStyle"];
-        }
-        else
-        {
-            supportView.ApplyTelemetryStatus(lastSnapshot);
-            ContentHost.Content = supportView;
-            HubNavButton.Style = (Style)Application.Current.Resources["HhapGhostButtonStyle"];
-            SupportNavButton.Style = (Style)Application.Current.Resources["HhapPrimaryButtonStyle"];
+            CustomMetricsChanged?.Invoke(metricIds);
+            PresetChanged?.Invoke(OverlayPreset.Custom);
         }
     }
 
-    private void OnSettingsButtonClicked(object sender, RoutedEventArgs e) => SetSettingsPanelOpen(!isSettingsPanelOpen);
-    private void OnSettingsScrimTapped(object sender, TappedRoutedEventArgs e) => SetSettingsPanelOpen(false);
-
-    private void SetSettingsPanelOpen(bool isOpen)
+    private void OnClosed(object sender, WindowEventArgs args)
     {
-        isSettingsPanelOpen = isOpen;
-        SettingsSheetHost.Visibility = isOpen ? Visibility.Visible : Visibility.Collapsed;
-        if (isOpen)
+        CompanionViewControl.ToggleOverlayRequested -= OnToggleOverlayRequested;
+        CompanionViewControl.ExitRequested -= OnExitRequestedRequested;
+        CompanionViewControl.ShowModeChanged -= OnShowModeRequested;
+        CompanionViewControl.PresetRequested -= OnPresetRequested;
+        CompanionViewControl.ManualRequested -= OnManualRequested;
+        CompanionViewControl.CustomMetricsChanged -= OnCustomMetricsRequested;
+        CompanionViewControl.OpacityChanged -= OnOpacityRequested;
+        CompanionViewControl.TextSizeChanged -= OnTextSizeRequested;
+        CompanionViewControl.PositionChanged -= OnPositionRequested;
+        Closed -= OnClosed;
+        ViewModel = null;
+    }
+
+    private static OverlayPreset ResolveManualSourcePreset(AppSettings settings)
+    {
+        return settings.ActivePreset switch
         {
-            SettingsSheetControl.ApplySettings(currentSettings);
-        }
+            OverlayPreset.Minimal or OverlayPreset.Standard or OverlayPreset.Tuner or OverlayPreset.Full => settings.ActivePreset,
+            OverlayPreset.Custom when settings.ManualSourcePreset is OverlayPreset.Minimal or OverlayPreset.Standard or OverlayPreset.Tuner or OverlayPreset.Full => settings.ManualSourcePreset,
+            _ => OverlayPreset.Standard
+        };
     }
 
-    private void OpenComposer()
-    {
-        ComposerOverlayControl.ResetToStart();
-        SetComposerOpen(true);
-    }
-
-    private void OnComposerPresetApplied(CustomPresetDraft draft)
-    {
-        CustomMetricsChanged?.Invoke(draft.OrderedMetricIds.ToList());
-        PresetChanged?.Invoke(OverlayPreset.Custom);
-        SetComposerOpen(false);
-    }
-
-    private void OnComposerLayoutChanged(ComposerLayout layout)
-    {
-        switch (layout)
-        {
-            case ComposerLayout.TopBar:
-                PositionChanged?.Invoke(OverlayEdge.Top);
-                break;
-            case ComposerLayout.BottomBar:
-                PositionChanged?.Invoke(OverlayEdge.Bottom);
-                break;
-        }
-    }
-
-    private void SetComposerOpen(bool isOpen)
-    {
-        isComposerOpen = isOpen;
-        ComposerOverlayControl.Visibility = isOpen ? Visibility.Visible : Visibility.Collapsed;
-    }
-
-    private void OnShellKeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key != VirtualKey.Escape)
-        {
-            return;
-        }
-
-        if (isComposerOpen)
-        {
-            SetComposerOpen(false);
-            e.Handled = true;
-            return;
-        }
-
-        if (isSettingsPanelOpen)
-        {
-            SetSettingsPanelOpen(false);
-            e.Handled = true;
-        }
-    }
+    private void OnToggleOverlayRequested() => ToggleOverlayRequested?.Invoke();
+    private void OnExitRequestedRequested() => ExitRequested?.Invoke();
+    private void OnShowModeRequested(OverlayShowMode mode) => ShowModeChanged?.Invoke(mode);
+    private void OnPresetRequested(OverlayPreset preset) => PresetChanged?.Invoke(preset);
+    private void OnCustomMetricsRequested(List<string> metrics) => CustomMetricsChanged?.Invoke(metrics);
+    private void OnOpacityRequested(double backgroundOpacity, double textOpacity) => OpacityChanged?.Invoke(backgroundOpacity, textOpacity);
+    private void OnTextSizeRequested(double size) => TextSizeChanged?.Invoke(size);
+    private void OnPositionRequested(TopBarPosition position) => PositionChanged?.Invoke(position);
 }

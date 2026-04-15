@@ -109,7 +109,12 @@ public sealed class ForegroundCaptureTargetRouterTests
             DeviceFanStatusMessage = "fan ok",
             DeviceTemperatureCelsius = 64,
             DeviceTemperatureSource = "test device temp",
-            DeviceTemperatureStatusMessage = "device temp ok"
+            DeviceTemperatureStatusMessage = "device temp ok",
+            StorageWearPercentUsed = 0,
+            StoragePowerOnHours = 12,
+            StorageDeviceModel = "Test NVMe",
+            StorageReliabilityStatusMessage = "storage ok",
+            StorageReliabilityAvailable = true
         });
 
         collector.SetTarget(null, "targetSource=cleared; no capture target held");
@@ -121,8 +126,12 @@ public sealed class ForegroundCaptureTargetRouterTests
         Assert.True(snapshot.AvailableMetrics.HasFlag(MetricFlags.CpuTemperature));
         Assert.True(snapshot.AvailableMetrics.HasFlag(MetricFlags.Fan));
         Assert.True(snapshot.AvailableMetrics.HasFlag(MetricFlags.DeviceTemperature));
+        Assert.True(snapshot.AvailableMetrics.HasFlag(MetricFlags.StorageWear));
         Assert.False(snapshot.AvailableMetrics.HasFlag(MetricFlags.GpuTemperature));
         Assert.Equal(64, snapshot.Dependencies.DeviceTemperatureCelsius);
         Assert.Equal(new[] { 2424, 2462 }, snapshot.Dependencies.FanRpms);
+        Assert.Equal((byte)0, snapshot.Storage.WearPercentUsed);
+        Assert.Equal((uint)12, snapshot.Storage.PowerOnHours);
+        Assert.Equal("Test NVMe", snapshot.Storage.DeviceModel);
     }
 }

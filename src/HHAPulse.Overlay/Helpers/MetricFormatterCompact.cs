@@ -57,6 +57,10 @@ public static class MetricFormatterCompact
                     : "--",
                 "--"),
 
+            OverlayPresetCatalog.CpuClock => FormatAvailable(snapshot, MetricFlags.CpuClock,
+                FormatCpuClock(snapshot),
+                "--"),
+
             // ── GPU ──
             OverlayPresetCatalog.GpuUsage => FormatAvailable(snapshot, MetricFlags.GpuUsage,
                 $"{snapshot.Gpu.UsagePercent:0}%", "--%"),
@@ -90,6 +94,14 @@ public static class MetricFormatterCompact
                 FormatMemoryCompact(snapshot.Gpu.VramUsedMegabytes, snapshot.Gpu.VramTotalMegabytes),
                 "--"),
 
+            OverlayPresetCatalog.StorageTemp => FormatAvailable(snapshot, MetricFlags.StorageTemperature,
+                FormatStorageTemp(snapshot),
+                "--"),
+
+            OverlayPresetCatalog.StorageWear => FormatAvailable(snapshot, MetricFlags.StorageWear,
+                FormatStorageWear(snapshot),
+                "--"),
+
             // ── System ──
             OverlayPresetCatalog.TotalPower => FormatAvailable(snapshot, MetricFlags.SystemPower,
                 FormatTotalPower(snapshot),
@@ -121,6 +133,31 @@ public static class MetricFormatterCompact
     private static string FormatGpuPower(TelemetrySnapshot snapshot)
     {
         return snapshot.Gpu.PowerWatts > 0 ? $"{snapshot.Gpu.PowerWatts:0.0}W" : "--";
+    }
+
+    private static string FormatCpuClock(TelemetrySnapshot snapshot)
+    {
+        var mhz = snapshot.CpuDetail.AggregateEffectiveMhz;
+        if (mhz <= 0)
+        {
+            return "--";
+        }
+
+        return mhz >= 1000
+            ? $"~{mhz / 1000.0:0.00}GHz"
+            : $"~{mhz:0}MHz";
+    }
+
+    private static string FormatStorageTemp(TelemetrySnapshot snapshot)
+    {
+        return snapshot.Storage.TemperatureCelsius > 0
+            ? $"{snapshot.Storage.TemperatureCelsius:0}\u00B0C"
+            : "--";
+    }
+
+    private static string FormatStorageWear(TelemetrySnapshot snapshot)
+    {
+        return $"{snapshot.Storage.WearPercentUsed:0}%";
     }
 
     private static string FormatRefreshRate(double refreshRateHertz)

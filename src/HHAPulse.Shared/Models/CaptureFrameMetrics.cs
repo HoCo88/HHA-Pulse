@@ -76,4 +76,19 @@ public sealed class CaptureFrameMetrics
 
     [Key(23)]
     public string DeviceTemperatureStatusMessage { get; set; } = string.Empty;
+
+    [Key(24)]
+    public byte StorageWearPercentUsed { get; set; }
+
+    [Key(25)]
+    public uint StoragePowerOnHours { get; set; }
+
+    [Key(26)]
+    public string StorageDeviceModel { get; set; } = string.Empty;
+
+    [Key(27)]
+    public string StorageReliabilityStatusMessage { get; set; } = string.Empty;
+
+    [Key(28)]
+    public bool StorageReliabilityAvailable { get; set; }
 }

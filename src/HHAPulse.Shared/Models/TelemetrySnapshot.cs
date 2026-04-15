@@ -37,6 +37,15 @@ public sealed class TelemetrySnapshot
 
     [Key(10)]
     public List<MeasurementTrace> MeasurementTraces { get; set; } = new();
+
+    [Key(11)]
+    public StorageMetrics Storage { get; set; } = new();
+
+    [Key(12)]
+    public CpuDetailMetrics CpuDetail { get; set; } = new();
+
+    [Key(13)]
+    public NpuMetrics Npu { get; set; } = new();
 }
 
 [MessagePackObject]
@@ -184,6 +193,90 @@ public sealed class DisplayMetrics
 
     [Key(5)]
     public string PresentMode { get; set; } = string.Empty;
+}
+
+[MessagePackObject]
+public sealed class StorageMetrics
+{
+    [Key(0)]
+    public double TemperatureCelsius { get; set; }
+
+    [Key(1)]
+    public double TemperatureMaxCelsius { get; set; }
+
+    [Key(2)]
+    public byte WearPercentUsed { get; set; }
+
+    [Key(3)]
+    public uint PowerOnHours { get; set; }
+
+    [Key(4)]
+    public string DeviceModel { get; set; } = string.Empty;
+
+    [Key(5)]
+    public StorageReliabilityState Reliability { get; set; }
+}
+
+[MessagePackObject]
+public sealed class CpuDetailMetrics
+{
+    [Key(0)]
+    public double AggregateEffectiveMhz { get; set; }
+
+    [Key(1)]
+    public List<ProcessorCorePower> PerCoreNominal { get; set; } = new();
+
+    [Key(2)]
+    public string ClockStatusMessage { get; set; } = string.Empty;
+}
+
+[MessagePackObject]
+public sealed class ProcessorCorePower
+{
+    [Key(0)]
+    public int CoreIndex { get; set; }
+
+    [Key(1)]
+    public uint CurrentMhz { get; set; }
+
+    [Key(2)]
+    public uint MaxMhz { get; set; }
+
+    [Key(3)]
+    public uint MhzLimit { get; set; }
+}
+
+[MessagePackObject]
+public sealed class NpuMetrics
+{
+    [Key(0)]
+    public bool Present { get; set; }
+
+    [Key(1)]
+    public string AdapterName { get; set; } = string.Empty;
+
+    [Key(2)]
+    public NpuVendor Vendor { get; set; }
+
+    [Key(3)]
+    public string DriverDescription { get; set; } = string.Empty;
+}
+
+public enum StorageReliabilityState
+{
+    Unknown = 0,
+    Healthy = 1,
+    Warning = 2,
+    Failed = 3
+}
+
+public enum NpuVendor
+{
+    Unknown = 0,
+    Intel = 1,
+    Amd = 2,
+    Qualcomm = 3,
+    Other = 4
 }
 
 [MessagePackObject]

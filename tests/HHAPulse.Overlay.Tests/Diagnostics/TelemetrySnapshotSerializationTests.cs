@@ -52,4 +52,56 @@ public sealed class TelemetrySnapshotSerializationTests
         Assert.Equal("gpu_power", roundTripped.MeasurementTraces[0].MetricId);
         Assert.Equal("IGCL", roundTripped.MeasurementTraces[0].Source);
     }
+
+    [Fact]
+    public void TelemetrySnapshot_RoundTripsStorageCpuDetailAndNpuSections()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.StorageTemperature | MetricFlags.StorageWear | MetricFlags.CpuClock,
+            Storage =
+            {
+                TemperatureCelsius = 48,
+                TemperatureMaxCelsius = 58,
+                WearPercentUsed = 6,
+                PowerOnHours = 2048,
+                DeviceModel = "WD_BLACK SN850X",
+                Reliability = StorageReliabilityState.Healthy
+            },
+            CpuDetail =
+            {
+                AggregateEffectiveMhz = 3215,
+                PerCoreNominal = new List<ProcessorCorePower>
+                {
+                    new() { CoreIndex = 0, CurrentMhz = 3200, MaxMhz = 3200, MhzLimit = 5000 },
+                    new() { CoreIndex = 1, CurrentMhz = 3200, MaxMhz = 3200, MhzLimit = 5000 }
+                },
+                ClockStatusMessage = "nominal only"
+            },
+            Npu =
+            {
+                Present = true,
+                AdapterName = "Intel AI Boost",
+                Vendor = NpuVendor.Intel,
+                DriverDescription = "Intel AI Boost"
+            }
+        };
+
+        var bytes = MessagePackSerializer.Serialize(snapshot);
+        var roundTripped = MessagePackSerializer.Deserialize<TelemetrySnapshot>(bytes);
+
+        Assert.Equal(48, roundTripped.Storage.TemperatureCelsius);
+        Assert.Equal(58, roundTripped.Storage.TemperatureMaxCelsius);
+        Assert.Equal((byte)6, roundTripped.Storage.WearPercentUsed);
+        Assert.Equal((uint)2048, roundTripped.Storage.PowerOnHours);
+        Assert.Equal("WD_BLACK SN850X", roundTripped.Storage.DeviceModel);
+        Assert.Equal(StorageReliabilityState.Healthy, roundTripped.Storage.Reliability);
+        Assert.Equal(3215, roundTripped.CpuDetail.AggregateEffectiveMhz);
+        Assert.Equal("nominal only", roundTripped.CpuDetail.ClockStatusMessage);
+        Assert.NotNull(roundTripped.CpuDetail.PerCoreNominal);
+        Assert.Equal(2, roundTripped.CpuDetail.PerCoreNominal.Count);
+        Assert.True(roundTripped.Npu.Present);
+        Assert.Equal("Intel AI Boost", roundTripped.Npu.AdapterName);
+        Assert.Equal(NpuVendor.Intel, roundTripped.Npu.Vendor);
+    }
 }

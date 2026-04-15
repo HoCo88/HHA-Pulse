@@ -7,7 +7,9 @@ namespace HHAPulse.CaptureService.Sensors;
 public sealed class CaptureServiceSensorCollector : IDisposable
 {
     private const string WmiNamespace = @"\\.\root\WMI";
+    private const string StorageNamespace = @"\\.\root\Microsoft\Windows\Storage";
     private const string CpuTempQuery = "SELECT InstanceName, CurrentTemperature FROM MSAcpi_ThermalZoneTemperature";
+    private const string StorageReliabilityQuery = "SELECT Wear, PowerOnHours, Temperature, TemperatureMax FROM MSFT_StorageReliabilityCounter";
     private const string MsiAcpiClassPath = @"\\.\root\WMI:MSI_ACPI";
     private const string Package32ClassPath = @"\\.\root\WMI:Package_32";
 
@@ -36,6 +38,7 @@ public sealed class CaptureServiceSensorCollector : IDisposable
 
         CollectCpuTemperature(snapshot);
         CollectMsiSensors(snapshot);
+        CollectStorageReliability(snapshot);
         return snapshot;
     }
 
@@ -52,6 +55,11 @@ public sealed class CaptureServiceSensorCollector : IDisposable
         metrics.DeviceTemperatureCelsius = sensors.DeviceTemperatureCelsius;
         metrics.DeviceTemperatureSource = sensors.DeviceTemperatureSource;
         metrics.DeviceTemperatureStatusMessage = sensors.DeviceTemperatureStatusMessage;
+        metrics.StorageWearPercentUsed = sensors.StorageWearPercentUsed;
+        metrics.StoragePowerOnHours = sensors.StoragePowerOnHours;
+        metrics.StorageDeviceModel = sensors.StorageDeviceModel;
+        metrics.StorageReliabilityStatusMessage = sensors.StorageReliabilityStatusMessage;
+        metrics.StorageReliabilityAvailable = sensors.StorageReliabilityAvailable;
         return metrics;
     }
 
@@ -196,6 +204,80 @@ public sealed class CaptureServiceSensorCollector : IDisposable
         {
             LogMsiUnavailableOnce($"MSI_ACPI read failed in capture service: {ex.Message}");
         }
+    }
+
+    private void CollectStorageReliability(ServiceSensorSnapshot snapshot)
+    {
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(StorageNamespace, StorageReliabilityQuery);
+            using var results = searcher.Get();
+            var best = results
+                .Cast<ManagementObject>()
+                .Select(item => new
+                {
+                    Item = item,
+                    Wear = ReadByte(item, "Wear"),
+                    PowerOnHours = ReadUInt32(item, "PowerOnHours")
+                })
+                .OrderByDescending(item => item.Wear)
+                .ThenByDescending(item => item.PowerOnHours)
+                .FirstOrDefault();
+
+            if (best is null)
+            {
+                snapshot.StorageReliabilityStatusMessage = "Capture service saw no MSFT_StorageReliabilityCounter instances.";
+                return;
+            }
+
+            using (best.Item)
+            {
+                snapshot.StorageReliabilityAvailable = true;
+                snapshot.StorageWearPercentUsed = best.Wear;
+                snapshot.StoragePowerOnHours = best.PowerOnHours;
+                snapshot.StorageDeviceModel = ReadRelatedString(best.Item, "MSFT_PhysicalDisk", "FriendlyName");
+                snapshot.StorageReliabilityStatusMessage = $"Storage reliability from MSFT_StorageReliabilityCounter. wear={best.Wear}%, powerOnHours={best.PowerOnHours}.";
+            }
+        }
+        catch (Exception ex) when (ex is ManagementException or UnauthorizedAccessException)
+        {
+            snapshot.StorageReliabilityStatusMessage = $"Capture service storage reliability WMI read failed: {ex.Message}.";
+        }
+    }
+
+    internal static byte ReadByte(ManagementBaseObject item, string propertyName)
+    {
+        var value = item[propertyName];
+        return value is null ? (byte)0 : Convert.ToByte(value);
+    }
+
+    internal static uint ReadUInt32(ManagementBaseObject item, string propertyName)
+    {
+        var value = item[propertyName];
+        return value is null ? 0u : Convert.ToUInt32(value);
+    }
+
+    internal static string ReadRelatedString(ManagementObject item, string relatedClass, string propertyName)
+    {
+        try
+        {
+            foreach (var related in item.GetRelated(relatedClass))
+            {
+                using (related)
+                {
+                    var text = Convert.ToString(related[propertyName]) ?? string.Empty;
+                    if (!string.IsNullOrWhiteSpace(text))
+                    {
+                        return text;
+                    }
+                }
+            }
+        }
+        catch (ManagementException)
+        {
+        }
+
+        return string.Empty;
     }
 
     private bool EnsureMsiInitialized()

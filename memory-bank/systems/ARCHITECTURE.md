@@ -91,7 +91,9 @@ GPU vendor and type are detected via `DXGI_ADAPTER_DESC1`:
 - **Intel iGPU support**: unknown — the init test-read gracefully handles failure (shows `--`).
 - **WDDM 2.4+ required**: works on any modern AMD, Intel, NVIDIA driver.
 
-## UI Layout
+## UI Layout (updated 2026-04-15 for Plan B companion redesign)
+
+### In-game HUD bar (`Controls/TopBarControl.xaml.cs`)
 
 Component-grouped HUD bar. Metrics grouped by hardware component:
 
@@ -102,17 +104,70 @@ Component-grouped HUD bar. Metrics grouped by hardware component:
 - **RAM**: `RAM 14.3/31.5G`.
 - **System**: `SYS` cluster for device/SoC temp and chassis fan, plus battery icon + value and Hz icon + value (Segoe Fluent Icons).
 
-**Row logic**: Always tries single row first. Measures actual rendered width. Splits to two rows (Row 1: performance, Row 2: hardware) only if content exceeds screen width. No arbitrary thresholds.
+**Row logic**: Always tries single row first. Measures actual rendered width. Splits to two rows (Row 1: performance, Row 2: hardware) only if content exceeds screen width. No arbitrary thresholds. Three explicit rendering modes (since Plan B 2026-04-15): thin horizontal (default), forced two-row for `TopTall`/`BottomTall`, vertical side-dock for `LeftDock`/`RightDock`. The measured-sizing pattern at `TopBarControl.xaml.cs:283` (`element.Measure(Unbounded)` → `Notify` via `LayoutMetricsChanged`) applies in all three modes.
 
-## Presets
+### HUD anchor positions (`Settings/AppSettings.cs:TopBarPosition`)
 
-- **Minimal**: FPS + Battery (2 metrics).
-- **Standard**: FPS + 1% low + Frametime + CPU + GPU + Battery (6 metrics).
-- **Tuner**: All metrics with real data sources and meaningful display units (14 metrics).
-- **Custom**: user toggles individual metrics from all 20 known IDs.
-- **Off**: hidden.
+Six values (replaced the binary `OverlayEdge` in Plan B):
 
-Cycle: Minimal → Standard → Tuner → Off → Minimal (Custom is manual only).
+- `TopThin = 0` — top edge, single-row metrics
+- `BottomThin = 1` — bottom edge, single-row metrics
+- `TopTall = 2` — top edge, two-row metrics
+- `BottomTall = 3` — bottom edge, two-row metrics
+- `LeftDock = 4` — left edge, vertical rail at `HhapSideDockWidth` width, full `WorkArea.Height`
+- `RightDock = 5` — right edge, same dimensions as LeftDock
+
+The numeric ordering preserves byte-for-byte JSON round-trip for existing saved settings (`TopBarPosition: 0` loads as `TopThin`, `TopBarPosition: 1` loads as `BottomThin`) without a custom converter.
+
+`MainWindow.ApplyPosition(TopBarPosition)` and `ResizeOverlayWindow` switch on all six values; side-dock branches anchor to left/right edges at the token-defined width.
+
+### Companion window (`ControlWindow.xaml` + `Views/CompanionView.xaml`, Plan B 2026-04-15)
+
+`ControlWindow` is a single-surface host. The previous Hub/Support/SettingsSheet/Composer stack was deleted wholesale. The only content is `Views/CompanionView.xaml`, structured as:
+
+1. **Topbar** — mark + wordmark, three state chips (`OVERLAY ON/OFF`, `CAPTURE READY/OFFLINE/LIMITED`, current game title), minimise + close caption buttons. No telemetry values in the topbar.
+2. **Toolbar row** — `PositionPillButton` + `FeelAndFitPillButton` as sibling pill buttons. Each owns a `Flyout` (`PositionFlyout` with monitor canvas + 6 anchor buttons; `FeelAndFitFlyout` with bg opacity / text opacity / text size sliders). Shared `HhapFlyoutPresenterStyle`.
+3. **Preset row** — `ItemsRepeater` + `UniformGridLayout MinItemWidth="220"` hosts 4 curated preset cards (Minimal / Standard / Advanced / Full). Natural 4 → 2 × 2 reflow at narrow widths via `UniformGridLayout` semantics, not via `VisualStateManager` setters.
+4. **Manual link** — quiet `Or build your own ▸ Manual` text that expands `ManualMetricSheet` inline below the preset row. Manual starts as a copy of the currently-active curated preset, seeded in `ControlWindow.OnManualRequested` **before** the `ActivePreset = Custom` switch.
+5. **Event line** — muted mono strip (`Consolas`) showing `timestamp · pid · exe · frametime · sample rate`.
+6. **Support footer** — three band-dot status chips (Capture / Game detect / Companion) + four outline action buttons (Copy support report / Open log folder / handheldally.com / Community) + a quiet attribution line linking to `handheldally.com/premium`. No tipping surface inside the product.
+
+`VisualStateManager` groups handle density changes across `Lg (1600+) / Md (1280+) / Sm (1024+) / Xs (0+)` tiers. Order is **top-down from largest `MinWindowWidth` to smallest** — reversing the order is a first-match-wins bug. `Xs` state provides short event-line text, compact support actions layout, and font-size step-down.
+
+`CompanionViewModel` wraps `OverlayViewModel` (not inherits). It holds the HUD VM as a property reference and exposes UI-only state (`IsFeelAndFitOpen`, `IsPositionFlyoutOpen`, `IsManualSheetOpen`, `EventLineShort`). Event subscriptions are torn down symmetrically in `Unloaded` / `Closed` per `best_practices/winui3_overlay.md:133`.
+
+### Fonts (Plan B 2026-04-15)
+
+- `Segoe UI` for UI text
+- `Segoe Fluent Icons` for glyphs
+- `Consolas` for `EventLine` and any mono preview text
+
+No bundled fonts. `Assets/Fonts/` directory does not exist. If `Inter` / `JetBrains Mono` / `Space Grotesk` bundling becomes a requirement later, it's a separate milestone with its own MSIX packaging verification.
+
+### `HotkeyService` architecture
+
+`Hotkeys/HotkeyService.cs` is **intentionally launch-based**, not Win32 `RegisterHotKey`. The user maps a handheld button to **launch `HHAPulse.Overlay.exe`** with one of five command args (`--toggle`, `--next-preset`, `--off`, `--menu` / `--settings`, or default). The launcher writes the command to `%LOCALAPPDATA%\HHAPulse\overlay-command.txt`, signals a named event `Local\HHAPulse_Overlay_Toggle` that the running instance is listening on, and exits. The running instance's listener dispatches the command on the WinUI dispatcher queue via `App.HandleLaunchCommand`.
+
+Rationale (locked in spec §5.7.1): resilient to sleep/resume by design (no hotkey to re-register), resilient to fullscreen-exclusive games (a new process launch cannot be blocked), resilient to focus steal (no global hotkey for another process to grab). Do not replace with `RegisterHotKey` without reading the spec's architectural justification.
+
+## Presets (updated 2026-04-15 for Plan B)
+
+`OverlayPreset` enum values and display names:
+
+| Enum value | UI label | Metric set | Count |
+|---|---|---|---|
+| `OverlayPreset.Minimal` (0) | `Minimal` | `Fps, Battery` | 2 |
+| `OverlayPreset.Standard` (1, default) | `Standard` | `Fps, OnePercentLow, FrameTime, CpuUsage, GpuUsage, Battery` | 6 |
+| `OverlayPreset.Tuner` (2) | `Advanced` (renamed from `Tuner`) | `Fps, OnePercentLow, FrameTime, CpuUsage, CpuTemp, CpuPower, GpuUsage, GpuTemp, Ram, Battery, RefreshRate` | 11 |
+| `OverlayPreset.Custom` (3) | `Manual` (renamed from `Custom`) | `settings.EnabledMetricIds`, seeded from the currently-active curated preset when Manual is first opened | ≤ 19 |
+| `OverlayPreset.Off` (4) | `Off` | `Array.Empty<string>()` | 0 |
+| `OverlayPreset.Full` (5, new in Plan B) | `Full` | `Fps, AvgFps, OnePercentLow, ZeroPointOneLow, FrameTime, CpuUsage, CpuTemp, CpuPower, GpuUsage, GpuTemp, GpuClock, GpuPower, GpuFan, Ram, Vram, TotalPower, DeviceTemp, RefreshRate, Battery` | 19 |
+
+Cycle: Minimal → Standard → Advanced → Full → Off → Minimal. Manual is manual-only (not in the cycle).
+
+**Enum values `Tuner = 2` and `Custom = 3` are preserved from the pre-Plan-B schema** — only the UI display names changed. Existing saved settings round-trip without migration.
+
+`OverlayPreset.Full = 5` reserves `Off = 4` so existing `Off` settings continue to deserialize correctly.
 
 ## IPC
 

@@ -8,6 +8,8 @@ using HHAPulse.Overlay.Collectors.Display;
 using HHAPulse.Overlay.Collectors.Fps;
 using HHAPulse.Overlay.Collectors.Gpu;
 using HHAPulse.Overlay.Collectors.Memory;
+using HHAPulse.Overlay.Collectors.Npu;
+using HHAPulse.Overlay.Collectors.Storage;
 using HHAPulse.Overlay.Diagnostics;
 using HHAPulse.Overlay.Hotkeys;
 using HHAPulse.Overlay.Interop;
@@ -174,12 +176,15 @@ public partial class App : Application
             new BatteryCollector(),
             new CpuUsageCollector(),
             new CpuPowerCollector(),
+            new CpuClockCollector(),
             new DramPowerEmiCollector(),
             new RamCollector(),
             new GpuUsageCollector(),
             new GpuPerfDataCollector(),
             new VramCollector(),
-            new DisplayCollector()
+            new DisplayCollector(),
+            new StorageTempCollector(),
+            new NpuDetectionCollector()
         };
 
         // Detect GPU vendor via DXGI and add the matching SDK collector.
@@ -226,7 +231,7 @@ public partial class App : Application
         window = new MainWindow();
         window.Closed += OnWindowClosed;
         window.Activate();
-        window.ApplyEdge(settings.TopBarPosition);
+        window.ApplyPosition(settings.TopBarPosition);
         if (settings.ShowMode == OverlayShowMode.InGameOnly)
         {
             window.SetOverlayVisible(false);
@@ -376,7 +381,7 @@ public partial class App : Application
         overlayViewModel?.ApplySettings(settings);
         controlWindow?.ApplySettings(settings);
         window?.ApplyOpacity(settings.BackgroundOpacity, settings.TextOpacity);
-        window?.ApplyEdge(settings.TopBarPosition);
+        window?.ApplyPosition(settings.TopBarPosition);
         if (settings.TextSizePixels > 0) window?.ApplyTextSize(settings.TextSizePixels);
     }
 
@@ -427,7 +432,6 @@ public partial class App : Application
             controlWindow.ToggleOverlayRequested += ToggleOverlayVisibility;
             controlWindow.ExitRequested += OnExitRequested;
             controlWindow.ShowModeChanged += OnShowModeChanged;
-            controlWindow.EnableCaptureRequested += OnEnableCaptureRequested;
             controlWindow.PresetChanged += OnPresetChanged;
             controlWindow.CustomMetricsChanged += OnCustomMetricsChanged;
             controlWindow.OpacityChanged += OnOpacityChanged;
@@ -448,7 +452,6 @@ public partial class App : Application
             controlWindow.ToggleOverlayRequested -= ToggleOverlayVisibility;
             controlWindow.ExitRequested -= OnExitRequested;
             controlWindow.ShowModeChanged -= OnShowModeChanged;
-            controlWindow.EnableCaptureRequested -= OnEnableCaptureRequested;
             controlWindow.PresetChanged -= OnPresetChanged;
             controlWindow.CustomMetricsChanged -= OnCustomMetricsChanged;
             controlWindow.OpacityChanged -= OnOpacityChanged;
@@ -519,15 +522,15 @@ public partial class App : Application
         _ = SaveSettingsAsync();
     }
 
-    private void OnPositionChanged(OverlayEdge edge)
+    private void OnPositionChanged(TopBarPosition position)
     {
         if (settings is null)
         {
             return;
         }
 
-        settings.TopBarPosition = edge;
-        window?.ApplyEdge(edge);
+        settings.TopBarPosition = position;
+        window?.ApplyPosition(position);
         controlWindow?.ApplySettings(settings);
         _ = SaveSettingsAsync();
     }
@@ -608,11 +611,6 @@ public partial class App : Application
         {
             AppLogger.Error("Auto-install of capture service failed. FPS will show -- until manually enabled.", ex);
         }
-    }
-
-    private void OnEnableCaptureRequested()
-    {
-        EnsureCaptureServiceInstalled();
     }
 
     private void OnUnhandledException(object sender, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args)

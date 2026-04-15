@@ -61,6 +61,17 @@ public sealed class SettingsService
             settings.ActivePreset = OverlayPreset.Standard;
         }
 
+        if (!Enum.IsDefined(settings.ManualSourcePreset) ||
+            settings.ManualSourcePreset is OverlayPreset.Custom or OverlayPreset.Off)
+        {
+            settings.ManualSourcePreset = OverlayPreset.Standard;
+        }
+
+        if (!Enum.IsDefined(settings.TopBarPosition))
+        {
+            settings.TopBarPosition = TopBarPosition.TopThin;
+        }
+
         if (settings.UpdateInterval <= TimeSpan.Zero)
         {
             settings.UpdateInterval = TimeSpan.FromSeconds(1);

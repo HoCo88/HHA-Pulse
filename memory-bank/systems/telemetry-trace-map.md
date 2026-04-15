@@ -1,6 +1,6 @@
 # Telemetry Trace Map
 
-**Last verified:** 2026-04-10 (audit pass against current `HHAP-0.3` branch).
+**Last verified:** 2026-04-15 (Plan A backend expansion pass against current `HHAP-0.5` branch).
 **Purpose:** every metric the HUD/widget can show, end-to-end. What we read, which API, what unit, how it's converted, what's shown to the user, and how the vendor's official documentation says it should be done.
 
 Every claim cites a `file:line` from this repo or a vendor contract header vendored in `src/HHAPulse.Native/VendorContracts/`. Items that could not be proved against code or vendored docs are marked **UNVERIFIED**.
@@ -44,8 +44,11 @@ Symbol legend:
 5. [Battery](#5-battery)
 6. [Display](#6-display)
 7. [Power roll-up (CPU + GPU + total system + battery time)](#7-power-roll-up)
-8. [Structural fragility — why hardcoded labels are dangerous](#8-structural-fragility)
-9. [Historical audit bugs (now addressed by the 2026-04-10 fix pass)](#9-historical-audit-bugs-now-addressed-by-the-2026-04-10-fix-pass)
+8. [Storage](#8-storage)
+9. [CPU clock](#9-cpu-clock)
+10. [NPU detection](#10-npu-detection)
+11. [Structural fragility — why hardcoded labels are dangerous](#11-structural-fragility)
+12. [Historical audit bugs (now addressed by the 2026-04-10 fix pass)](#12-historical-audit-bugs-now-addressed-by-the-2026-04-10-fix-pass)
 
 ---
 
@@ -399,7 +402,145 @@ We honor each of these contracts. The IGCL path is the only one where we have to
 
 ---
 
-## 8. Structural fragility
+## 8. Storage
+
+### What we show
+`storage_temp` (SSD temperature in °C) and `storage_wear` (percent-used wear from Windows storage reliability counters).
+
+### Pipeline
+```
+Primary/system drive
+  -> overlay StorageTempCollector
+  -> IOCTL_STORAGE_GET_DEVICE_NUMBER (map system volume to physical drive)
+  -> IOCTL_STORAGE_QUERY_PROPERTY(StorageDeviceTemperatureProperty)
+  -> STORAGE_TEMPERATURE_DATA_DESCRIPTOR
+  -> snapshot.Storage.TemperatureCelsius
+  -> MetricFlags.StorageTemperature
+  -> HUD/Manual via storage_temp
+
+MSFT_StorageReliabilityCounter
+  -> capture-service CaptureServiceSensorCollector
+  -> CaptureFrameMetrics.StorageWear*
+  -> overlay CaptureServiceCollector
+  -> snapshot.Storage.WearPercentUsed / PowerOnHours / DeviceModel
+  -> MetricFlags.StorageWear
+  -> HUD/Manual via storage_wear
+```
+
+### How
+
+| Metric | Source API | File:Line | Conversion | Unit at HUD |
+|---|---|---|---|---|
+| SSD temperature | `IOCTL_STORAGE_QUERY_PROPERTY` + `StorageDeviceTemperatureProperty` | `StorageTempCollector.cs:16-18`, `:31-76`, `:123-145` | signed `short` Celsius from `STORAGE_TEMPERATURE_INFO.Temperature` | `°C` |
+| SSD wear | `MSFT_StorageReliabilityCounter.Wear` via elevated capture service | `CaptureServiceSensorCollector.cs:10-12`, `:209-245`; overlay ingest at `CaptureServiceCollector.cs:244-276` | direct percent-used value | `% used` |
+| SSD model / power-on hours | `MSFT_PhysicalDisk.FriendlyName`, `PowerOnHours` | `CaptureServiceSensorCollector.cs:236-239` | none | diagnostics/detail only |
+
+### Contract/storage-model wiring
+
+- `TelemetrySnapshot` now carries `StorageMetrics` at `TelemetrySnapshot.cs:41-48` and defines `TemperatureCelsius`, `WearPercentUsed`, `PowerOnHours`, `DeviceModel`, and `Reliability` at `:198-218`.
+- `MetricFlags.StorageTemperature` / `MetricFlags.StorageWear` were added at `MetricFlags.cs:27-30`.
+- The Manual metric catalog exposes `storage_temp` / `storage_wear` at `OverlayPresetCatalog.cs:33-34` and `:95-100`.
+- Compact HUD formatting is `47°C` / `6%` via `MetricFormatterCompact.cs:97-103` and `:151-160`.
+
+### What we do **not** show
+
+- SSD throughput, IOPS, queue depth, or SMART error-count walls. The current pass is thermal/reliability only.
+- Fake wear estimates derived from age, TBW guesses, or vendor utilities.
+
+### Status
+
+- ✅ `storage_temp` is a real overlay-side user-mode path with no service dependency.
+- ✅ `storage_wear` is a real capture-service path and preserves valid `0%` wear readings (`CaptureServiceSensorCollector.cs:233-239`, `CaptureServiceCollector.cs:244-276`).
+- 🔬 Store/MSIX validation is still pending for the IOCTL path in a packaged build. We have chosen the capture service for `MSFT_StorageReliabilityCounter` because AppContainer compatibility is not yet trusted.
+
+---
+
+## 9. CPU clock
+
+### What we show
+One aggregate CPU clock value in the HUD/Manual picker, plus per-core nominal frequency detail in the snapshot for diagnostics.
+
+### Pipeline
+```
+PDH \Processor Information(_Total)\Processor Frequency
+  -> CpuClockCollector
+  -> snapshot.Cpu.ClockMegahertz / snapshot.CpuDetail.AggregateEffectiveMhz
+  -> MetricFlags.CpuClock
+  -> MetricFormatterCompact "~3.21GHz"
+
+CallNtPowerInformation(ProcessorInformation)
+  -> PROCESSOR_POWER_INFORMATION[]
+  -> snapshot.CpuDetail.PerCoreNominal
+  -> ClockStatusMessage explains nominal-vs-live limitation
+```
+
+### How
+
+| Metric | Source API | File:Line | Conversion | Unit at HUD |
+|---|---|---|---|---|
+| Aggregate CPU clock | PDH `\Processor Information(_Total)\Processor Frequency` | `CpuClockCollector.cs:10-13`, `:23-41`, `:99-140` | PDH reports MHz directly | `~GHz` / `~MHz` |
+| Per-core nominal CPU clock | `CallNtPowerInformation(ProcessorInformation)` | `CpuClockCollector.cs:143-181`, parse helper at `:65-97` | direct `CurrentMhz` / `MaxMhz` / `MhzLimit` fields | diagnostics/detail only |
+
+### Contract wiring
+
+- `TelemetrySnapshot.CpuDetail` was added at `TelemetrySnapshot.cs:44-48`, with `AggregateEffectiveMhz`, `PerCoreNominal`, and `ClockStatusMessage` defined at `:220-247`.
+- `MetricFlags.CpuClock` was added at `MetricFlags.cs:27-30`.
+- Manual selection uses `cpu_clock` from `OverlayPresetCatalog.cs:17` and `:84-88`.
+- The compact formatter deliberately prefixes the value with `~` at `MetricFormatterCompact.cs:138-148` to mark it as approximate/nominal rather than live turbo-accurate.
+
+### Truth rule
+
+If `PROCESSOR_POWER_INFORMATION.CurrentMhz == MaxMhz` for every core, we record the Windows limitation explicitly in `snapshot.CpuDetail.ClockStatusMessage` (`CpuClockCollector.cs:164-172`). We do **not** pretend this is live throttle-aware per-core telemetry.
+
+### Status
+
+- ✅ Aggregate CPU clock is real and HUD-selectable.
+- ✅ Per-core values are captured as detail only, not exploded into HUD chips.
+- 🔬 Packaged-build validation is still required for PDH and `CallNtPowerInformation`.
+
+---
+
+## 10. NPU detection
+
+### What we show
+NPU presence, vendor, and adapter/driver description in diagnostics/detail data only. No utilization number ships in this pass.
+
+### Pipeline
+```
+DXCore
+  -> DXCoreCreateAdapterFactory
+  -> CreateAdapterList(NPU hardware-type attribute)
+  -> GetProperty(DriverDescription)
+  -> classify vendor from description
+  -> snapshot.Npu.* and MetricFlags.NpuPresent
+```
+
+### How
+
+| Metric | Source API | File:Line | Conversion | Unit at HUD |
+|---|---|---|---|---|
+| NPU present/vendor/adapter | DXCore adapter enumeration | `NpuDetectionCollector.cs:9-12`, `:31-67`, `:97-180` | string classification (`Intel AI Boost`, `AMD Ryzen AI`, `Qualcomm Hexagon NPU`, or other) | not shown in HUD |
+
+### Contract wiring
+
+- `TelemetrySnapshot.Npu` now exists at `TelemetrySnapshot.cs:47-48` and `:249-260`.
+- `MetricFlags.NpuPresent` was added at `MetricFlags.cs:27-30`.
+- The collector records an explicit `npu_present` provenance trace at `NpuDetectionCollector.cs:49-65`.
+
+### What we do **not** show
+
+- NPU utilization, temperature, power, or clock. No public proved source has been accepted into the product for those fields as of 2026-04-15.
+- A HUD chip for NPU presence. This is diagnostics/detail data only in Plan A.
+
+### Status
+
+- ✅ Detection is real and proof-gated through DXCore.
+- ✅ Vendor classification is explicit and conservative (`NpuDetectionCollector.cs:70-95`).
+- 🔬 Store/MSIX packaged validation is still required for DXCore enumeration on the final Store-targeted build.
+
+---
+
+## 11. Structural fragility
 
 > *"Anything hardcoded is a red flag — that's not real data, that's fabricated."* — user, 2026-04-10
 
@@ -445,7 +586,7 @@ This is the only structural change that eliminates the fragility. Until it lands
 
 ---
 
-## 9. Historical audit bugs now addressed by the 2026-04-10 fix pass
+## 12. Historical audit bugs now addressed by the 2026-04-10 fix pass
 
 In the original priority order. See `Section A` of the audit report for the full WHERE / WHAT / WHY / PROOF / HOW for each. These entries are retained as audit history; see the current implementation delta at the top of this file for the applied fixes.
 

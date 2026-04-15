@@ -26,10 +26,13 @@ HHAPulse.CaptureService (elevated Windows service)
 
 ## Product Rules
 
-- One in-game HUD only: no side panel, no nested boxes, no diagnostic overlay, no custom metric picker, no preset label.
-- HUD metrics: FPS, 1% low, frametime, CPU, GPU, RAM, VRAM, battery, display Hz.
+- One in-game HUD only: no side panel, no nested boxes, no second diagnostic overlay. Manual metric selection stays in the companion, not on top of the game.
+- Operational universal metrics: FPS, 1% low, frametime, CPU usage, GPU usage, RAM, battery, display Hz.
+- Operational hardware-gated metrics: CPU temp, CPU power, GPU temp, GPU clock, GPU power, GPU fan, VRAM, total power, device temp, storage temp, storage wear. Show them when a proved source exists; otherwise render `--`.
+- Nominal-but-honestly-labeled metrics: aggregate `cpu_clock` only. Render with the `~` prefix and never describe it as live throttle-accurate per-core frequency.
+- Detect-only metrics: NPU presence/vendor may be reported in diagnostics, but no utilization number ships without a proved public source.
 - Missing FPS data shows `--`; never fake FPS from DWM, D3DKMT, or timers.
-- Temperature, fan, power, latency, and frame generation stay hidden until a real data source exists.
+- Never faked: input latency, numeric frame-generation FPS, unsupported vendor temperatures, NPU utilization, or any power/thermal field without a proved source.
 - The overlay owns foreground detection; the service must not call `GetForegroundWindow` from Session 0.
 - No DLL injection, no graphics API hooks, no game memory reads, no analytics.
 

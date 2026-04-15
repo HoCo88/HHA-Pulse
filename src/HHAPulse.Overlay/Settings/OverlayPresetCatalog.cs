@@ -14,6 +14,7 @@ public static class OverlayPresetCatalog
     public const string CpuUsage = "cpu";
     public const string CpuTemp = "cpu_temp";
     public const string CpuPower = "cpu_power";
+    public const string CpuClock = "cpu_clock";
 
     // ── GPU ──
     public const string GpuUsage = "gpu";
@@ -29,6 +30,8 @@ public static class OverlayPresetCatalog
     public const string Battery = "battery";
     public const string RefreshRate = "refresh_rate";
     public const string DeviceTemp = "device_temp";
+    public const string StorageTemp = "storage_temp";
+    public const string StorageWear = "storage_wear";
 
     // ── Presets ──
     // Minimal: glanceable essentials.
@@ -57,21 +60,15 @@ public static class OverlayPresetCatalog
         FrameTime,
         CpuUsage,
         CpuTemp,
+        CpuPower,
         GpuUsage,
         GpuTemp,
-        GpuClock,
-        DeviceTemp,
-        GpuFan,
         Ram,
-        Vram,
         RefreshRate,
         Battery
     };
 
-    /// <summary>
-    /// Every known metric in display order (for Custom mode picker).
-    /// </summary>
-    public static readonly string[] AllMetricIds =
+    private static readonly string[] FullMetrics =
     {
         Fps,
         AvgFps,
@@ -94,6 +91,35 @@ public static class OverlayPresetCatalog
         Battery
     };
 
+    /// <summary>
+    /// Every known metric in display order (for Custom mode picker).
+    /// </summary>
+    public static readonly string[] AllMetricIds =
+    {
+        Fps,
+        AvgFps,
+        OnePercentLow,
+        ZeroPointOneLow,
+        FrameTime,
+        CpuUsage,
+        CpuTemp,
+        CpuPower,
+        CpuClock,
+        GpuUsage,
+        GpuTemp,
+        GpuClock,
+        GpuPower,
+        GpuFan,
+        Ram,
+        Vram,
+        StorageTemp,
+        StorageWear,
+        TotalPower,
+        DeviceTemp,
+        RefreshRate,
+        Battery
+    };
+
     public static IReadOnlyList<string> GetMetricIds(OverlayPreset preset, IReadOnlyList<string> customMetricIds)
     {
         return preset switch
@@ -101,20 +127,21 @@ public static class OverlayPresetCatalog
             OverlayPreset.Minimal => MinimalMetrics,
             OverlayPreset.Standard => StandardMetrics,
             OverlayPreset.Tuner => TunerMetrics,
+            OverlayPreset.Full => FullMetrics,
             OverlayPreset.Custom => customMetricIds.Count > 0 ? customMetricIds : TunerMetrics,
             OverlayPreset.Off => Array.Empty<string>(),
             _ => StandardMetrics
         };
     }
 
-    public static OverlayLayout GetLayout(OverlayPreset preset, IReadOnlyList<string> customMetricIds)
+    public static OverlayLayout GetLayout(OverlayPreset preset, IReadOnlyList<string> customMetricIds, TopBarPosition position = TopBarPosition.TopThin)
     {
         var metrics = GetMetricIds(preset, customMetricIds);
-        return new OverlayLayout(metrics);
+        return new OverlayLayout(metrics, position, LineCountFor(position));
     }
 
     /// <summary>
-    /// Cycles presets: Minimal → Standard → Tuner → Off → Minimal.
+    /// Cycles presets: Minimal → Standard → Tuner → Full → Off → Minimal.
     /// Custom is not part of the cycle.
     /// </summary>
     public static OverlayPreset NextPreset(OverlayPreset preset)
@@ -123,7 +150,8 @@ public static class OverlayPresetCatalog
         {
             OverlayPreset.Minimal => OverlayPreset.Standard,
             OverlayPreset.Standard => OverlayPreset.Tuner,
-            OverlayPreset.Tuner => OverlayPreset.Off,
+            OverlayPreset.Tuner => OverlayPreset.Full,
+            OverlayPreset.Full => OverlayPreset.Off,
             OverlayPreset.Off => OverlayPreset.Minimal,
             OverlayPreset.Custom => OverlayPreset.Minimal,
             _ => OverlayPreset.Standard
@@ -136,12 +164,18 @@ public static class OverlayPresetCatalog
         {
             OverlayPreset.Minimal => "Minimal",
             OverlayPreset.Standard => "Standard",
-            OverlayPreset.Tuner => "Tuner",
-            OverlayPreset.Custom => "Custom",
+            OverlayPreset.Tuner => "Advanced",
+            OverlayPreset.Custom => "Manual",
             OverlayPreset.Off => "Off",
+            OverlayPreset.Full => "Full",
             _ => "Standard"
         };
     }
+
+    public static int LineCountFor(TopBarPosition position)
+    {
+        return position is TopBarPosition.TopTall or TopBarPosition.BottomTall ? 2 : 1;
+    }
 }
 
-public sealed record OverlayLayout(IReadOnlyList<string> TopBarMetricIds);
+public sealed record OverlayLayout(IReadOnlyList<string> TopBarMetricIds, TopBarPosition Position, int LineCount);

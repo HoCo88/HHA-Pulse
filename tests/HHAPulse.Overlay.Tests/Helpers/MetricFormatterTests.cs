@@ -232,4 +232,85 @@ public sealed class MetricFormatterTests
 
         Assert.Equal("60fps", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Fps, snapshot));
     }
+
+    [Fact]
+    public void CompactFormatter_StorageTempShowsWhenAvailable()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.StorageTemperature,
+            Storage = { TemperatureCelsius = 47 }
+        };
+
+        Assert.Equal("47°C", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.StorageTemp, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_StorageWearShowsWhenAvailable()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.StorageWear,
+            Storage = { WearPercentUsed = 6 }
+        };
+
+        Assert.Equal("6%", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.StorageWear, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_StorageWearAllowsZeroPercent()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.StorageWear,
+            Storage = { WearPercentUsed = 0 }
+        };
+
+        Assert.Equal("0%", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.StorageWear, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_CpuClockUsesHonestyPrefix()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.CpuClock,
+            CpuDetail = { AggregateEffectiveMhz = 3215 }
+        };
+
+        Assert.Equal("~3.21GHz", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.CpuClock, snapshot));
+    }
+
+    [Fact]
+    public void Formatter_LabelsPlanATelemetryWithExistingHudPrefixes()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.StorageTemperature | MetricFlags.StorageWear | MetricFlags.CpuClock,
+            Storage =
+            {
+                TemperatureCelsius = 47,
+                WearPercentUsed = 6
+            },
+            CpuDetail = { AggregateEffectiveMhz = 3215 }
+        };
+
+        Assert.Equal("SSD 47°C", MetricFormatter.FormatMetric(OverlayPresetCatalog.StorageTemp, snapshot));
+        Assert.Equal("SSD 6%", MetricFormatter.FormatMetric(OverlayPresetCatalog.StorageWear, snapshot));
+        Assert.Equal("CPU ~3.21GHz", MetricFormatter.FormatMetric(OverlayPresetCatalog.CpuClock, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_NewTelemetryFallsBackWhenUnavailable()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            Storage = { TemperatureCelsius = 47, WearPercentUsed = 6 },
+            CpuDetail = { AggregateEffectiveMhz = 3215 }
+        };
+
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.StorageTemp, snapshot));
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.StorageWear, snapshot));
+        Assert.Equal("--", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.CpuClock, snapshot));
+    }
 }

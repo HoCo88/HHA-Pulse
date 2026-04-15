@@ -23,11 +23,14 @@ public sealed class DisplayCollector : IMetricCollector
         if (!EnumDisplaySettings(null, EnumCurrentSettings, ref dm))
             return Task.CompletedTask;
 
-        snapshot.AvailableMetrics |= MetricFlags.Display;
+        var validRefresh = dm.dmDisplayFrequency > 1;
         snapshot.Display.WidthPixels = dm.dmPelsWidth;
         snapshot.Display.HeightPixels = dm.dmPelsHeight;
-        snapshot.Display.RefreshRateHertz = dm.dmDisplayFrequency;
-        var validRefresh = dm.dmDisplayFrequency > 1;
+        if (validRefresh)
+        {
+            snapshot.AvailableMetrics |= MetricFlags.Display;
+            snapshot.Display.RefreshRateHertz = dm.dmDisplayFrequency;
+        }
         MeasurementTraceRecorder.Record(
             snapshot,
             "refresh_rate",

@@ -12,16 +12,9 @@ namespace HHAPulse.Overlay;
 
 public sealed partial class MainWindow : Window
 {
-    // Heights account for the refreshed HUD tile visuals: 23px ExtraBold value
-    // text, 4px tile vertical padding, 4px root border vertical padding, and a
-    // 1px outer border. See TopBarControl.Tile / TopBarControl.xaml.
-    private const int SingleRowHeight = 54;
-    private const int TallRowHeight = 84;
-    private const int DoubleRowHeight = 92;
-
     private OverlayViewModel? _viewModel;
     private bool isOverlayVisible = true;
-    private OverlayEdge overlayEdge = OverlayEdge.Top;
+    private TopBarPosition overlayPosition = TopBarPosition.TopThin;
 
     public MainWindow()
     {
@@ -80,9 +73,9 @@ public sealed partial class MainWindow : Window
         TopBar.ApplyTextSize(size);
     }
 
-    public void ApplyEdge(OverlayEdge edge)
+    public void ApplyPosition(TopBarPosition position)
     {
-        overlayEdge = edge;
+        overlayPosition = position;
         ResizeOverlayWindow();
     }
 
@@ -96,7 +89,9 @@ public sealed partial class MainWindow : Window
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
         if (args.PropertyName == nameof(OverlayViewModel.TopBarMetricIds) ||
-            args.PropertyName == nameof(OverlayViewModel.ActivePreset))
+            args.PropertyName == nameof(OverlayViewModel.ActivePreset) ||
+            args.PropertyName == nameof(OverlayViewModel.Position) ||
+            args.PropertyName == nameof(OverlayViewModel.LineCount))
         {
             DispatcherQueue.TryEnqueue(ApplyLayoutState);
         }
@@ -123,18 +118,56 @@ public sealed partial class MainWindow : Window
         var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
         var displayArea = DisplayArea.GetFromWindowId(windowId, DisplayAreaFallback.Primary);
 
-        int width = Math.Min(TopBar.EstimatedWidth, displayArea.WorkArea.Width);
-        int height = Math.Min(TopBar.EstimatedHeight, displayArea.WorkArea.Height);
+        int dockWidth = ResolveSideDockWidth();
+        bool isSideDock = overlayPosition is TopBarPosition.LeftDock or TopBarPosition.RightDock;
+        int width = isSideDock
+            ? Math.Min(dockWidth, displayArea.WorkArea.Width)
+            : Math.Min(TopBar.EstimatedWidth, displayArea.WorkArea.Width);
+        int height = isSideDock
+            ? displayArea.WorkArea.Height
+            : Math.Min(TopBar.EstimatedHeight, displayArea.WorkArea.Height);
+
+        int x = displayArea.WorkArea.X;
+        int y = displayArea.WorkArea.Y;
+        switch (overlayPosition)
+        {
+            case TopBarPosition.BottomThin:
+            case TopBarPosition.BottomTall:
+                y = displayArea.WorkArea.Y + displayArea.WorkArea.Height - height;
+                break;
+            case TopBarPosition.RightDock:
+                x = displayArea.WorkArea.X + displayArea.WorkArea.Width - width;
+                break;
+        }
 
         NativeMethods.SetWindowPos(
             hwnd,
             NativeMethods.HWND_TOPMOST,
-            displayArea.WorkArea.X,
-            overlayEdge == OverlayEdge.Bottom
-                ? displayArea.WorkArea.Y + displayArea.WorkArea.Height - height
-                : displayArea.WorkArea.Y,
+            x,
+            y,
             width,
             height,
             NativeMethods.SWP_NOACTIVATE);
+    }
+
+    private static int ResolveSideDockWidth()
+    {
+        try
+        {
+            if (Application.Current?.Resources.TryGetValue("HhapSideDockWidth", out var resource) == true)
+            {
+                return resource switch
+                {
+                    double value => (int)Math.Ceiling(value),
+                    int value => value,
+                    _ => 280
+                };
+            }
+        }
+        catch
+        {
+        }
+
+        return 280;
     }
 }

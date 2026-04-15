@@ -21,4 +21,14 @@ public sealed class ServiceSensorSnapshot
     public string DeviceTemperatureSource { get; set; } = string.Empty;
 
     public string DeviceTemperatureStatusMessage { get; set; } = string.Empty;
+
+    public byte StorageWearPercentUsed { get; set; }
+
+    public uint StoragePowerOnHours { get; set; }
+
+    public string StorageDeviceModel { get; set; } = string.Empty;
+
+    public string StorageReliabilityStatusMessage { get; set; } = string.Empty;
+
+    public bool StorageReliabilityAvailable { get; set; }
 }

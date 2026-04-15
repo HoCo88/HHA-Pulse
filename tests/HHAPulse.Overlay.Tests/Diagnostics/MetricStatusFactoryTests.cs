@@ -90,7 +90,10 @@ public sealed class MetricStatusFactoryTests
         Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.AvgFps);
         Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.OnePercentLow);
         Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.ZeroPointOneLow);
+        Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.StorageTemp);
+        Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.StorageWear);
+        Assert.Contains(statuses, status => status.MetricId == OverlayPresetCatalog.CpuClock);
         Assert.DoesNotContain(statuses, status => status.MetricId == OverlayPresetCatalog.InputLatency);
-        Assert.Equal(19, statuses.Count);
+        Assert.Equal(22, statuses.Count);
     }
 }

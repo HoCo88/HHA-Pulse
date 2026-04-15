@@ -30,7 +30,7 @@ public sealed partial class TopBarControl : UserControl
 
     private static readonly string[] CpuMetrics =
     {
-        OverlayPresetCatalog.CpuUsage, OverlayPresetCatalog.CpuTemp, OverlayPresetCatalog.CpuPower
+        OverlayPresetCatalog.CpuUsage, OverlayPresetCatalog.CpuTemp, OverlayPresetCatalog.CpuPower, OverlayPresetCatalog.CpuClock
     };
 
     private static readonly string[] GpuMetrics =
@@ -43,6 +43,11 @@ public sealed partial class TopBarControl : UserControl
     private static readonly string[] MemoryMetrics =
     {
         OverlayPresetCatalog.Ram
+    };
+
+    private static readonly string[] StorageMetrics =
+    {
+        OverlayPresetCatalog.StorageTemp, OverlayPresetCatalog.StorageWear
     };
 
     private static readonly string[] SystemMetrics =
@@ -214,7 +219,9 @@ public sealed partial class TopBarControl : UserControl
         DispatcherQueue.TryEnqueue(() =>
         {
             if (e.PropertyName is nameof(OverlayViewModel.TopBarMetricIds)
-                or nameof(OverlayViewModel.ActivePreset))
+                or nameof(OverlayViewModel.ActivePreset)
+                or nameof(OverlayViewModel.Position)
+                or nameof(OverlayViewModel.LineCount))
             {
                 RebuildMetricViews();
                 return;
@@ -271,35 +278,57 @@ public sealed partial class TopBarControl : UserControl
             AddComp(hw, BuildHw("CPU", CpuMetrics, ids));
             AddComp(hw, BuildGpu(ids));
             AddComp(hw, BuildMemory(ids));
+            AddComp(hw, BuildStorage(ids));
             AddComp(hw, BuildSystem(ids));
-
-            var singleRow = Row();
-            foreach (var e in perf) singleRow.Children.Add(e);
-            if (perf.Count > 0 && hw.Count > 0) singleRow.Children.Add(Sep());
-            foreach (var e in hw) singleRow.Children.Add(e);
 
             UpdateValues();
 
-            singleRow.Measure(Unbounded);
-            var singleWidth = (int)Math.Ceiling(singleRow.DesiredSize.Width + RootBorder.Padding.Left + RootBorder.Padding.Right);
-            var screenWidth = GetScreenWidth();
-
-            if (singleWidth <= screenWidth)
+            var layoutMode = ResolveLayoutMode(viewModel.Position, viewModel.LineCount);
+            if (layoutMode == TopBarLayoutMode.SideDock)
             {
-                RowsPanel.Children.Add(singleRow);
-                var (_, h1) = MeasureContent();
-                Notify(1, singleWidth, h1);
+                foreach (var element in perf.Concat(hw))
+                {
+                    RowsPanel.Children.Add(WrapVerticalRow(element));
+                }
+
+                var (wDock, hDock) = MeasureContent();
+                Notify(Math.Max(1, RowsPanel.Children.Count), wDock, hDock);
             }
-            else
+            else if (layoutMode == TopBarLayoutMode.Tall)
             {
-                singleRow.Children.Clear();
-
                 var r1 = Row(); foreach (var e in perf) r1.Children.Add(e);
                 var r2 = Row(); foreach (var e in hw) r2.Children.Add(e);
                 RowsPanel.Children.Add(r1);
                 if (r2.Children.Count > 0) RowsPanel.Children.Add(r2);
                 var (w2, h2) = MeasureContent();
                 Notify(r2.Children.Count > 0 ? 2 : 1, w2, h2);
+            }
+            else
+            {
+                var singleRow = Row();
+                foreach (var e in perf) singleRow.Children.Add(e);
+                if (perf.Count > 0 && hw.Count > 0) singleRow.Children.Add(Sep());
+                foreach (var e in hw) singleRow.Children.Add(e);
+
+                singleRow.Measure(Unbounded);
+                var singleWidth = (int)Math.Ceiling(singleRow.DesiredSize.Width + RootBorder.Padding.Left + RootBorder.Padding.Right);
+                var screenWidth = GetScreenWidth();
+
+                if (singleWidth <= screenWidth)
+                {
+                    RowsPanel.Children.Add(singleRow);
+                    var (_, h1) = MeasureContent();
+                    Notify(1, singleWidth, h1);
+                }
+                else
+                {
+                    var r1 = Row(); foreach (var e in perf) r1.Children.Add(e);
+                    var r2 = Row(); foreach (var e in hw) r2.Children.Add(e);
+                    RowsPanel.Children.Add(r1);
+                    if (r2.Children.Count > 0) RowsPanel.Children.Add(r2);
+                    var (w2, h2) = MeasureContent();
+                    Notify(r2.Children.Count > 0 ? 2 : 1, w2, h2);
+                }
             }
 
             UpdateFpsGraph();
@@ -448,6 +477,29 @@ public sealed partial class TopBarControl : UserControl
         return cell;
     }
 
+    private UIElement? BuildStorage(HashSet<string> ids)
+    {
+        var active = StorageMetrics.Where(ids.Contains).ToArray();
+        if (active.Length == 0)
+        {
+            return null;
+        }
+
+        var cell = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 3, VerticalAlignment = VerticalAlignment.Center };
+        cell.Children.Add(Label("SSD"));
+
+        foreach (var id in active)
+        {
+            var vb = Value("--", RoleBrush(id));
+            vb.MinWidth = PixelMinWidth(id);
+            vb.Margin = new Thickness(2, 0, 2, 0);
+            valueBlocks[id] = vb;
+            cell.Children.Add(vb);
+        }
+
+        return cell;
+    }
+
     private UIElement? BuildSystem(HashSet<string> ids)
     {
         var active = SystemMetrics.Where(ids.Contains).ToArray();
@@ -571,6 +623,19 @@ public sealed partial class TopBarControl : UserControl
         Spacing = 6
     };
 
+    private static StackPanel WrapVerticalRow(UIElement element)
+    {
+        var row = new StackPanel
+        {
+            Orientation = Orientation.Horizontal,
+            VerticalAlignment = VerticalAlignment.Center,
+            HorizontalAlignment = HorizontalAlignment.Stretch,
+            Margin = new Thickness(0, 1, 0, 1)
+        };
+        row.Children.Add(element);
+        return row;
+    }
+
     private static Rectangle Sep() => new()
     {
         Width = 1, Height = 18, Fill = SepBrush,
@@ -641,6 +706,7 @@ public sealed partial class TopBarControl : UserControl
         OverlayPresetCatalog.CpuTemp
             or OverlayPresetCatalog.GpuTemp
             or OverlayPresetCatalog.DeviceTemp
+            or OverlayPresetCatalog.StorageTemp
             or OverlayPresetCatalog.CpuPower
             or OverlayPresetCatalog.GpuPower
             or OverlayPresetCatalog.TotalPower
@@ -648,6 +714,8 @@ public sealed partial class TopBarControl : UserControl
 
         OverlayPresetCatalog.Ram
             or OverlayPresetCatalog.Vram
+            or OverlayPresetCatalog.StorageWear
+            or OverlayPresetCatalog.CpuClock
             or OverlayPresetCatalog.GpuClock => NeutralBrush,
 
         OverlayPresetCatalog.GpuFan => ActiveBrush,
@@ -670,15 +738,24 @@ public sealed partial class TopBarControl : UserControl
         OverlayPresetCatalog.ZeroPointOneLow => 6,
         OverlayPresetCatalog.FrameTime => 6,
         OverlayPresetCatalog.CpuUsage or OverlayPresetCatalog.GpuUsage => 4,
-        OverlayPresetCatalog.CpuTemp or OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.DeviceTemp => 4,
+        OverlayPresetCatalog.CpuTemp or OverlayPresetCatalog.GpuTemp or OverlayPresetCatalog.DeviceTemp or OverlayPresetCatalog.StorageTemp => 4,
         OverlayPresetCatalog.CpuPower or OverlayPresetCatalog.GpuPower or OverlayPresetCatalog.TotalPower => 5,
-        OverlayPresetCatalog.GpuClock => 6,
+        OverlayPresetCatalog.GpuClock or OverlayPresetCatalog.CpuClock => 8,
         OverlayPresetCatalog.GpuFan => 7,
-        OverlayPresetCatalog.Ram or OverlayPresetCatalog.Vram => 7,
+        OverlayPresetCatalog.Ram or OverlayPresetCatalog.Vram or OverlayPresetCatalog.StorageWear => 7,
         OverlayPresetCatalog.Battery => 10,
         OverlayPresetCatalog.RefreshRate => 3,
         _ => 4,
     };
+
+    internal static TopBarLayoutMode ResolveLayoutMode(TopBarPosition position, int lineCount) =>
+        position switch
+        {
+            TopBarPosition.LeftDock or TopBarPosition.RightDock => TopBarLayoutMode.SideDock,
+            TopBarPosition.TopTall or TopBarPosition.BottomTall => TopBarLayoutMode.Tall,
+            _ when lineCount >= 2 => TopBarLayoutMode.Tall,
+            _ => TopBarLayoutMode.Thin
+        };
 
     // ── Resource lookup helpers ──
 
@@ -733,4 +810,11 @@ public sealed partial class TopBarControl : UserControl
         }
         return fallback;
     }
+}
+
+internal enum TopBarLayoutMode
+{
+    Thin = 0,
+    Tall = 1,
+    SideDock = 2
 }

@@ -1,0 +1,56 @@
+<UserControl
+    x:Class="HHAPulse.Overlay.Controls.PositionFlyout"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource HhapStatCardStyle}" Width="320">
+        <StackPanel Spacing="14">
+            <StackPanel Spacing="4">
+                <TextBlock Text="POSITION" Style="{StaticResource HhapEyebrowStyle}" />
+                <TextBlock Text="Choose where the HUD sits" Style="{StaticResource HhapH3Style}" />
+                <TextBlock x:Name="CurrentPositionText"
+                           Style="{StaticResource HhapEventLineStyle}"
+                           Text="Top · 1 line" />
+            </StackPanel>
+
+            <Border Background="{StaticResource HhapPanel2Brush}"
+                    BorderBrush="{StaticResource HhapLineBrush}"
+                    BorderThickness="1"
+                    CornerRadius="16"
+                    Padding="16">
+                <Grid x:Name="MonitorCanvas" Height="156">
+                    <Rectangle Fill="{StaticResource HhapPanel3Brush}" RadiusX="18" RadiusY="18" />
+                    <Grid x:Name="MonitorGrid" Margin="12" IsHitTestVisible="False" />
+                    <Border x:Name="SelectionHighlight"
+                            Background="#1F22D3EE"
+                            BorderBrush="{StaticResource HhapAccentHi}"
+                            BorderThickness="1"
+                            CornerRadius="12"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top"
+                            Width="120"
+                            Height="16"
+                            Margin="12" />
+                </Grid>
+            </Border>
+
+            <Grid ColumnSpacing="8" RowSpacing="8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <Button Grid.Row="0" Grid.Column="0" Content="Top · 1 line" Style="{StaticResource HhapPositionButtonStyle}" Click="OnTopThinClicked" />
+                <Button Grid.Row="0" Grid.Column="1" Content="Top · 2 lines" Style="{StaticResource HhapPositionButtonStyle}" Click="OnTopTallClicked" />
+                <Button Grid.Row="1" Grid.Column="0" Content="Bottom · 1 line" Style="{StaticResource HhapPositionButtonStyle}" Click="OnBottomThinClicked" />
+                <Button Grid.Row="1" Grid.Column="1" Content="Bottom · 2 lines" Style="{StaticResource HhapPositionButtonStyle}" Click="OnBottomTallClicked" />
+                <Button Grid.Row="2" Grid.Column="0" Content="Left dock" Style="{StaticResource HhapPositionButtonStyle}" Click="OnLeftDockClicked" />
+                <Button Grid.Row="2" Grid.Column="1" Content="Right dock" Style="{StaticResource HhapPositionButtonStyle}" Click="OnRightDockClicked" />
+            </Grid>
+        </StackPanel>
+    </Border>
+</UserControl>

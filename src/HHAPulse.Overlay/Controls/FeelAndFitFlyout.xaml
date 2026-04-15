@@ -1,0 +1,31 @@
+<UserControl
+    x:Class="HHAPulse.Overlay.Controls.FeelAndFitFlyout"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Border Style="{StaticResource HhapStatCardStyle}" Width="320">
+        <StackPanel Spacing="16">
+            <StackPanel Spacing="4">
+                <TextBlock Text="FEEL &amp; FIT" Style="{StaticResource HhapEyebrowStyle}" />
+                <TextBlock Text="Tune how the HUD reads" Style="{StaticResource HhapH3Style}" />
+                <TextBlock Style="{StaticResource HhapMutedStyle}"
+                           Text="Background opacity, text opacity, and HUD text size write through to the same settings as today."
+                           TextWrapping="Wrap" />
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="BgOpacityValue" Style="{StaticResource HhapMutedStyle}" Text="Background opacity" />
+                <Slider x:Name="BgOpacitySlider" Minimum="0" Maximum="100" StepFrequency="5" ValueChanged="OnBgOpacityChanged" />
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="TextOpacityValue" Style="{StaticResource HhapMutedStyle}" Text="Text opacity" />
+                <Slider x:Name="TextOpacitySlider" Minimum="20" Maximum="100" StepFrequency="5" ValueChanged="OnTextOpacityChanged" />
+            </StackPanel>
+
+            <StackPanel Spacing="10">
+                <TextBlock x:Name="TextSizeValue" Style="{StaticResource HhapMutedStyle}" Text="HUD text size" />
+                <Slider x:Name="TextSizeSlider" Minimum="10" Maximum="22" StepFrequency="1" ValueChanged="OnTextSizeChanged" />
+            </StackPanel>
+        </StackPanel>
+    </Border>
+</UserControl>

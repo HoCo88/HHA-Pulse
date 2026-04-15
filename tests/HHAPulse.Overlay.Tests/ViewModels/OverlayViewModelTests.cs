@@ -23,7 +23,8 @@ public sealed class OverlayViewModelTests
     [Theory]
     [InlineData(OverlayPreset.Minimal, 2)]
     [InlineData(OverlayPreset.Standard, 6)]
-    [InlineData(OverlayPreset.Tuner, 14)]
+    [InlineData(OverlayPreset.Tuner, 11)]
+    [InlineData(OverlayPreset.Full, 19)]
     public void ApplySettings_PresetControlsMetricCount(OverlayPreset preset, int expectedCount)
     {
         var viewModel = new OverlayViewModel();
@@ -34,6 +35,25 @@ public sealed class OverlayViewModelTests
 
         Assert.Equal(preset, viewModel.ActivePreset);
         Assert.Equal(expectedCount, viewModel.TopBarMetricIds.Count);
+    }
+
+    [Theory]
+    [InlineData(TopBarPosition.TopThin, 1)]
+    [InlineData(TopBarPosition.BottomThin, 1)]
+    [InlineData(TopBarPosition.TopTall, 2)]
+    [InlineData(TopBarPosition.BottomTall, 2)]
+    [InlineData(TopBarPosition.LeftDock, 1)]
+    [InlineData(TopBarPosition.RightDock, 1)]
+    public void ApplySettings_UpdatesPositionAndLineCount(TopBarPosition position, int expectedLineCount)
+    {
+        var viewModel = new OverlayViewModel();
+        var settings = AppSettings.CreateDefault();
+        settings.TopBarPosition = position;
+
+        viewModel.ApplySettings(settings);
+
+        Assert.Equal(position, viewModel.Position);
+        Assert.Equal(expectedLineCount, viewModel.LineCount);
     }
 
     [Fact]

@@ -23,6 +23,8 @@ public sealed class OverlayViewModel : ViewModelBase
     private TelemetrySnapshot currentSnapshot = new();
     private OverlayPreset activePreset = OverlayPreset.Standard;
     private IReadOnlyList<string> topBarMetricIds = OverlayPresetCatalog.GetLayout(OverlayPreset.Standard, Array.Empty<string>()).TopBarMetricIds;
+    private TopBarPosition position = TopBarPosition.TopThin;
+    private int lineCount = 1;
     private IReadOnlyList<double> fpsHistory = Array.Empty<double>();
     private IReadOnlyList<double> avgFpsHistory = Array.Empty<double>();
     private IReadOnlyList<double> onePercentLowHistory = Array.Empty<double>();
@@ -45,6 +47,18 @@ public sealed class OverlayViewModel : ViewModelBase
     {
         get => topBarMetricIds;
         private set => SetProperty(ref topBarMetricIds, value);
+    }
+
+    public TopBarPosition Position
+    {
+        get => position;
+        private set => SetProperty(ref position, value);
+    }
+
+    public int LineCount
+    {
+        get => lineCount;
+        private set => SetProperty(ref lineCount, value);
     }
 
     public IReadOnlyList<double> FpsHistory
@@ -80,8 +94,10 @@ public sealed class OverlayViewModel : ViewModelBase
     public void ApplySettings(AppSettings settings)
     {
         ActivePreset = settings.ActivePreset;
-        var layout = OverlayPresetCatalog.GetLayout(settings.ActivePreset, settings.EnabledMetricIds);
+        var layout = OverlayPresetCatalog.GetLayout(settings.ActivePreset, settings.EnabledMetricIds, settings.TopBarPosition);
         TopBarMetricIds = layout.TopBarMetricIds;
+        Position = layout.Position;
+        LineCount = layout.LineCount;
     }
 
     public void ApplyTelemetry(TelemetrySnapshot snapshot)

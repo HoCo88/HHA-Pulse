@@ -1,0 +1,2791 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>HHA Pulse — UX Redesign Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: #050608;
+    color: #EDEFF4;
+    font-family: "Inter", system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "ss01", "cv11";
+    scroll-behavior: smooth;
+  }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+
+  /* ─── Page shell ─── */
+  .page {
+    max-width: 1480px;
+    margin: 0 auto;
+    padding: 48px 32px 96px;
+  }
+  .page-header {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-bottom: 24px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    margin-bottom: 48px;
+  }
+  .page-eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.16em;
+    font-size: 11px;
+    color: #6b7280;
+    font-weight: 600;
+  }
+  .page-title {
+    font-size: 40px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    line-height: 1.1;
+  }
+  .page-sub {
+    color: #9aa0ab;
+    font-size: 16px;
+    max-width: 720px;
+    margin-top: 4px;
+  }
+
+  /* ─── Direction nav ─── */
+  .dir-nav {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    background: rgba(5,6,8,0.85);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    padding: 16px 32px;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  .dir-nav-brand {
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    margin-right: auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .dir-nav-brand .dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: #7CFF79;
+    box-shadow: 0 0 12px #7CFF79;
+  }
+  .dir-nav a.pill {
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #b4bac6;
+    transition: background 0.15s, color 0.15s;
+  }
+  .dir-nav a.pill:hover { background: rgba(255,255,255,0.06); color: #fff; }
+
+  /* ─── Direction section ─── */
+  .dir {
+    padding: 80px 0;
+    border-bottom: 1px dashed rgba(255,255,255,0.05);
+  }
+  .dir:last-child { border-bottom: none; }
+  .dir-intro {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 48px;
+    align-items: end;
+    margin-bottom: 40px;
+  }
+  .dir-num {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 13px;
+    color: #6b7280;
+    letter-spacing: 0.06em;
+    margin-bottom: 10px;
+  }
+  .dir-name {
+    font-size: 56px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .dir-tag {
+    color: #9aa0ab;
+    margin-top: 12px;
+    font-size: 16px;
+    line-height: 1.5;
+  }
+  .dir-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding-left: 24px;
+    border-left: 1px solid rgba(255,255,255,0.08);
+  }
+  .dir-meta-row {
+    display: grid;
+    grid-template-columns: 100px 1fr;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .dir-meta-row .k {
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    font-size: 11px;
+    font-weight: 600;
+    padding-top: 2px;
+  }
+  .dir-meta-row .v { color: #d4d8e0; line-height: 1.4; }
+
+  .mock-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 24px;
+  }
+  .mock-grid .full { grid-column: 1 / -1; }
+
+  /* ─── Generic desktop frame ─── */
+  .desktop {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 40px 80px -20px rgba(0,0,0,0.8), 0 0 0 1px rgba(255,255,255,0.02);
+    aspect-ratio: 16/10;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+  .desktop .titlebar {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 12px;
+    gap: 8px;
+    background: rgba(0,0,0,0.3);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    flex-shrink: 0;
+  }
+  .desktop .titlebar .traffic {
+    display: flex;
+    gap: 6px;
+  }
+  .desktop .titlebar .traffic span {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.14);
+  }
+  .desktop .titlebar .tb-title {
+    font-size: 11px;
+    color: #6b7280;
+    margin-left: auto;
+    margin-right: auto;
+    letter-spacing: 0.04em;
+  }
+  .desktop .content {
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* ─── HUD bar ─── */
+  .hud-frame {
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: #0b0d12 url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='600' height='380'><defs><linearGradient id='g' x1='0' x2='1' y1='0' y2='1'><stop offset='0' stop-color='%23142038'/><stop offset='1' stop-color='%23050608'/></linearGradient></defs><rect width='600' height='380' fill='url(%23g)'/><circle cx='120' cy='100' r='70' fill='%232a3a5f' opacity='0.4'/><circle cx='460' cy='240' r='90' fill='%231f5c7a' opacity='0.35'/></svg>");
+    background-size: cover;
+    aspect-ratio: 16/10;
+    position: relative;
+    overflow: hidden;
+    padding: 16px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7);
+  }
+  .hud-frame .gamecaption {
+    position: absolute;
+    top: 16px;
+    left: 18px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: rgba(255,255,255,0.35);
+    letter-spacing: 0.1em;
+  }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION A — EDITORIAL DARK
+     "Magazine cover for your rig. Big typography,
+      generous whitespace, one accent."
+     ───────────────────────────────────────────────── */
+  .a-token {
+    --bg: #0F1115;
+    --surface: #171A21;
+    --surface-2: #1F232B;
+    --border: rgba(255,255,255,0.06);
+    --text: #F4F6FA;
+    --muted: #9BA3AF;
+    --muted-2: #5B6372;
+    --accent: #22D3EE;
+    --accent-hi: #67E8F9;
+    --good: #4ADE80;
+    --okay: #FACC15;
+    --warn: #F87171;
+    --gold: #F5B301;
+  }
+  .a-token .desktop { background: var(--bg); aspect-ratio: auto; min-height: 720px; }
+  .a-token .desktop .content {
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    color: var(--text);
+  }
+  .a-shell-top {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 22px 28px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .a-shell-top .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    font-size: 14px;
+  }
+  .a-shell-top .logo .mark {
+    width: 22px;
+    height: 22px;
+    border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent), #06B6D4);
+    display: grid;
+    place-items: center;
+    color: #042028;
+    font-weight: 900;
+    font-size: 11px;
+  }
+  .a-shell-top .tabs {
+    display: flex;
+    gap: 4px;
+    margin-left: 24px;
+  }
+  .a-shell-top .tabs a {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .a-shell-top .tabs a.active { background: rgba(255,255,255,0.06); color: var(--text); }
+  .a-shell-top .right {
+    margin-left: auto;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+  .a-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--muted);
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .a-chip .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .a-chip.warn .dot { background: var(--warn); box-shadow: 0 0 8px var(--warn); }
+  .a-chip.warn { color: var(--warn); border-color: rgba(255,184,107,0.25); }
+  .a-iconbtn {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: grid;
+    place-items: center;
+    color: var(--muted);
+    font-size: 13px;
+  }
+
+  .a-body {
+    display: grid;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 28px;
+    padding: 32px 28px;
+    min-height: 0;
+  }
+  .a-hero h1 {
+    font-family: "Space Grotesk", "Inter", sans-serif;
+    font-size: 52px;
+    font-weight: 700;
+    line-height: 0.96;
+    letter-spacing: -0.035em;
+  }
+  .a-hero h1 em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .a-hero p {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 14px;
+    max-width: 380px;
+    line-height: 1.55;
+  }
+  .a-hero .cta-row {
+    display: flex;
+    gap: 10px;
+    margin-top: 24px;
+  }
+  .a-btn {
+    padding: 10px 18px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    background: var(--accent);
+    color: #052028;
+  }
+  .a-btn.ghost {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .a-preview {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .a-preview-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .a-preview-head .label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+  .a-preview-head .game {
+    font-size: 10px;
+    color: var(--muted);
+    font-family: "JetBrains Mono", monospace;
+  }
+  .a-preview-canvas {
+    flex: 1;
+    background: radial-gradient(ellipse at 30% 20%, rgba(34,211,238,0.08), transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(6,182,212,0.05), transparent 50%),
+                #0B0D13;
+    border-radius: 8px;
+    border: 1px dashed rgba(255,255,255,0.06);
+    position: relative;
+    display: grid;
+    place-items: end center;
+    padding: 14px;
+  }
+  .a-hud-sample {
+    background: rgba(10,12,18,0.85);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px;
+    padding: 7px 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+  }
+  .a-hud-sample .metric { display: flex; align-items: baseline; gap: 4px; }
+  .a-hud-sample .metric .k { color: var(--muted); font-size: 8px; text-transform: uppercase; }
+  .a-hud-sample .metric .v { color: var(--text); font-weight: 600; font-size: 11px; }
+  .a-hud-sample .metric .v.accent { color: var(--accent); }
+  .a-hud-sample .divider { width: 1px; height: 10px; background: rgba(255,255,255,0.08); }
+
+  .a-strip {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    padding: 18px 28px 22px;
+    border-top: 1px solid var(--border);
+  }
+  .a-strip .cell {
+    padding: 0 18px;
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .a-strip .cell:first-child { border-left: none; padding-left: 0; }
+  .a-strip .cell .k {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    font-weight: 600;
+  }
+  .a-strip .cell .v {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+  }
+  .a-strip .cell .v .u { font-size: 11px; color: var(--muted); font-weight: 400; margin-left: 3px; }
+  .a-strip .cell .sub {
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* A — HUD in-game */
+  .a-token .hud-bar {
+    position: absolute;
+    bottom: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(7,8,11,0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 12px;
+    padding: 9px 16px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-family: "JetBrains Mono", monospace;
+    box-shadow: 0 10px 40px -10px rgba(0,0,0,0.7);
+  }
+  .a-token .hud-bar .grp { display: flex; align-items: baseline; gap: 5px; }
+  .a-token .hud-bar .k { font-size: 9px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.1em; }
+  .a-token .hud-bar .v { font-size: 13px; font-weight: 700; color: #EDEFF4; }
+  .a-token .hud-bar .v.accent { color: var(--accent); }
+  .a-token .hud-bar .sep { width: 1px; height: 12px; background: rgba(255,255,255,0.1); }
+
+  /* A — Settings panel */
+  .a-token .panel {
+    border-radius: 14px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 22px;
+    aspect-ratio: 10/16;
+    max-width: 320px;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7);
+  }
+  .a-token .panel-eyebrow { font-size: 10px; text-transform: uppercase; letter-spacing: 0.12em; color: var(--muted); font-weight: 600; }
+  .a-token .panel-title { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; margin-top: 4px; }
+  .a-token .panel-desc { font-size: 12px; color: var(--muted); margin-top: 6px; max-width: 240px; line-height: 1.5; }
+  .a-token .panel-grp { margin-top: 22px; }
+  .a-token .panel-grp .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .a-token .panel-grp .row .k { font-size: 12px; color: #D4D8E0; font-weight: 500; }
+  .a-token .panel-grp .row .v { font-family: "JetBrains Mono", monospace; font-size: 11px; color: var(--accent); }
+  .a-token .slider {
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255,255,255,0.08);
+    position: relative;
+  }
+  .a-token .slider::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 45%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .a-token .slider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 45%;
+    transform: translate(-50%,-50%);
+    width: 12px;
+    height: 12px;
+    background: #fff;
+    border-radius: 50%;
+  }
+  .a-token .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 8px;
+  }
+  .a-token .seg button {
+    padding: 8px;
+    font-size: 11px;
+    border-radius: 8px;
+    font-weight: 600;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+  }
+  .a-token .seg button.on { background: var(--accent); color: #052028; border-color: var(--accent); }
+
+  /* A — band tier badges (ported from handheldally.com /devices pattern) */
+  .a-token .band {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .a-token .band::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+  }
+  .a-token .band.good { color: var(--good); }
+  .a-token .band.good::before { background: var(--good); box-shadow: 0 0 6px var(--good); }
+  .a-token .band.okay { color: var(--okay); }
+  .a-token .band.okay::before { background: var(--okay); box-shadow: 0 0 6px var(--okay); }
+  .a-token .band.warn { color: var(--warn); }
+  .a-token .band.warn::before { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+
+  /* A — Command-deck accent: pulsing CAPTURE LIVE chip */
+  .a-token .a-chip.live {
+    color: var(--accent);
+    border-color: rgba(34,211,238,0.25);
+    background: rgba(34,211,238,0.06);
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    letter-spacing: 0.1em;
+  }
+  .a-token .a-chip.live .dot {
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: a-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes a-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+
+  /* A — Corner ticks (Command-deck detail on key cards) */
+  .a-token .ticks { position: relative; }
+  .a-token .ticks::before,
+  .a-token .ticks::after {
+    content: "";
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--accent);
+    opacity: 0.6;
+  }
+  .a-token .ticks::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .a-token .ticks::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+
+  /* A — POSITION PICKER */
+  .a-position {
+    background: var(--surface);
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    padding: 18px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+  .a-position-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .a-position-head .label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+  .a-position-head .current {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+  .a-position-monitor {
+    background:
+      linear-gradient(rgba(34,211,238,0.04) 1px, transparent 1px) 0 0 / 16px 16px,
+      linear-gradient(90deg, rgba(34,211,238,0.04) 1px, transparent 1px) 0 0 / 16px 16px,
+      linear-gradient(135deg, #0A0D14, #0E1219);
+    border-radius: 6px;
+    border: 1px solid rgba(255,255,255,0.06);
+    aspect-ratio: 16/10;
+    position: relative;
+    overflow: hidden;
+    margin-bottom: 14px;
+  }
+  .a-position-monitor::before {
+    content: "GAME AREA";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    font-size: 9px;
+    color: rgba(155,163,175,0.35);
+    letter-spacing: 0.22em;
+    font-weight: 600;
+  }
+  /* Anchor highlight rects */
+  .a-pos-rect {
+    position: absolute;
+    background: rgba(34,211,238,0.14);
+    border: 1px solid var(--accent);
+    box-shadow: 0 0 12px rgba(34,211,238,0.25), inset 0 0 0 1px rgba(34,211,238,0.2);
+    border-radius: 2px;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .a-pos-rect.active { opacity: 1; }
+  .a-pos-rect.top-1 { top: 6px; left: 24%; right: 24%; height: 11%; }
+  .a-pos-rect.top-2 { top: 6px; left: 18%; right: 18%; height: 18%; }
+  .a-pos-rect.bot-1 { bottom: 6px; left: 24%; right: 24%; height: 11%; }
+  .a-pos-rect.bot-2 { bottom: 6px; left: 18%; right: 18%; height: 18%; }
+  .a-pos-rect.left { top: 14%; bottom: 14%; left: 6px; width: 15%; }
+  .a-pos-rect.right { top: 14%; bottom: 14%; right: 6px; width: 15%; }
+
+  .a-position-buttons {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 6px;
+  }
+  .a-position-buttons button {
+    padding: 9px 6px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: all 0.15s;
+  }
+  .a-position-buttons button:hover { color: var(--text); border-color: rgba(34,211,238,0.2); }
+  .a-position-buttons button.on {
+    background: rgba(34,211,238,0.08);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+  .a-position-buttons button .glyph {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    letter-spacing: 0;
+    color: inherit;
+    opacity: 0.8;
+  }
+
+  /* A — PRESET ROW */
+  .a-presets {
+    margin-top: 24px;
+    padding: 24px 28px 28px;
+    border-top: 1px solid var(--border);
+  }
+  .a-presets-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .a-presets-head .label {
+    font-size: 10px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    font-weight: 600;
+  }
+  .a-presets-head .hint {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    color: var(--muted);
+  }
+  .a-preset-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .a-preset {
+    position: relative;
+    padding: 16px 16px 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-align: left;
+  }
+  .a-preset:hover { border-color: rgba(34,211,238,0.25); }
+  .a-preset.on {
+    border-color: var(--accent);
+    background: rgba(34,211,238,0.06);
+  }
+  .a-preset.on::after {
+    content: "";
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+  .a-preset .eyebrow {
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .a-preset.on .eyebrow { color: var(--accent); }
+  .a-preset .name {
+    font-family: "Space Grotesk", sans-serif;
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin-top: 6px;
+    color: var(--text);
+  }
+  .a-preset .mini {
+    margin-top: 12px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+  .a-preset .mini .m-v { color: var(--text); font-weight: 600; }
+  .a-preset .mini .m-v.accent { color: var(--accent); }
+
+  /* A — Event line (operator vibe without the whole pane) */
+  .a-eventline {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 28px 0;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 9px;
+    color: var(--muted-2);
+    letter-spacing: 0.04em;
+  }
+  .a-eventline .ts { color: var(--accent); opacity: 0.7; }
+  .a-eventline .sep { color: var(--muted-2); opacity: 0.4; }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION B — COMMAND DECK
+     "Operator console. Dense, monospace, precision."
+     ───────────────────────────────────────────────── */
+  .b-token {
+    --bg: #0B0D12;
+    --surface: #12151C;
+    --surface-2: #171A21;
+    --border: rgba(155,180,220,0.08);
+    --text: #F4F6FA;
+    --muted: #5B6372;
+    --grid: rgba(34,211,238,0.04);
+    --accent: #22D3EE;
+    --ok: #4ADE80;
+    --warn: #FACC15;
+    --danger: #F87171;
+  }
+  .b-token .desktop {
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0 / 24px 24px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0 / 24px 24px,
+      var(--bg);
+  }
+  .b-token .desktop .content { color: var(--text); font-family: "JetBrains Mono", monospace; }
+  .b-topbar {
+    display: flex;
+    align-items: center;
+    padding: 14px 20px;
+    gap: 14px;
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .b-topbar .brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.04em;
+  }
+  .b-topbar .brand::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent);
+    clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+  }
+  .b-topbar .breadcrumb { color: var(--muted); }
+  .b-topbar .breadcrumb .cur { color: var(--accent); }
+  .b-topbar .right {
+    margin-left: auto;
+    display: flex;
+    gap: 14px;
+    color: var(--muted);
+  }
+  .b-topbar .right .live {
+    color: var(--ok);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .b-topbar .right .live::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ok);
+    box-shadow: 0 0 8px var(--ok);
+    animation: pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+  .b-deck {
+    display: grid;
+    grid-template-columns: 220px 1fr 260px;
+    height: calc(100% - 42px);
+  }
+  .b-rail {
+    border-right: 1px solid var(--border);
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+  }
+  .b-rail .group {
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    font-size: 9px;
+    padding: 12px 10px 4px;
+  }
+  .b-rail a {
+    padding: 7px 10px;
+    border-radius: 4px;
+    color: #9aa3b3;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .b-rail a.on {
+    background: rgba(0,230,255,0.08);
+    color: var(--accent);
+    border-left: 2px solid var(--accent);
+    padding-left: 8px;
+  }
+  .b-rail a .tag {
+    font-size: 9px;
+    color: var(--muted);
+  }
+  .b-rail a.on .tag { color: var(--accent); }
+
+  .b-main {
+    padding: 18px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow: hidden;
+  }
+  .b-module-hdr {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  .b-module-hdr .id {
+    color: var(--accent);
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
+  .b-module-hdr h2 {
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+  .b-module-hdr .subtitle {
+    margin-left: auto;
+    color: var(--muted);
+    font-size: 10px;
+  }
+  .b-stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+  }
+  .b-stat {
+    border: 1px solid var(--border);
+    padding: 14px 14px 12px;
+    background: var(--surface);
+    position: relative;
+  }
+  .b-stat::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 1px;
+    background: var(--accent);
+  }
+  .b-stat .k {
+    font-size: 9px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+  }
+  .b-stat .v {
+    font-size: 28px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--text);
+    margin-top: 4px;
+  }
+  .b-stat .v .u { font-size: 11px; color: var(--muted); margin-left: 3px; }
+  .b-stat .bar {
+    margin-top: 12px;
+    height: 3px;
+    background: rgba(255,255,255,0.05);
+    position: relative;
+  }
+  .b-stat .bar::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    background: var(--accent);
+  }
+  .b-stat[data-fill="36"] .bar::before { width: 36%; }
+  .b-stat[data-fill="72"] .bar::before { width: 72%; }
+  .b-stat[data-fill="46"] .bar::before { width: 46%; }
+  .b-stat[data-fill="92"] .bar::before { width: 92%; background: var(--ok); }
+
+  .b-bigstat {
+    flex: 1;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 18px 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    min-height: 0;
+  }
+  .b-bigstat .left { display: flex; flex-direction: column; justify-content: space-between; }
+  .b-bigstat .left .k { font-size: 10px; color: var(--muted); letter-spacing: 0.1em; }
+  .b-bigstat .left .num {
+    font-size: 72px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    line-height: 0.95;
+    color: var(--accent);
+    text-shadow: 0 0 30px rgba(0,230,255,0.15);
+  }
+  .b-bigstat .left .num .u { font-size: 16px; color: var(--muted); margin-left: 4px; }
+  .b-bigstat .left .sub { font-size: 10px; color: var(--muted); }
+  .b-bigstat .right {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+  }
+  .b-bigstat .right span {
+    flex: 1;
+    background: var(--accent);
+    opacity: 0.6;
+    border-radius: 1px 1px 0 0;
+  }
+
+  .b-right {
+    border-left: 1px solid var(--border);
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    font-size: 11px;
+  }
+  .b-right .sect-title {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--border);
+  }
+  .b-right .log {
+    font-size: 10px;
+    color: #9aa3b3;
+    line-height: 1.6;
+  }
+  .b-right .log .ts { color: var(--muted); margin-right: 6px; }
+  .b-right .log .ok { color: var(--ok); }
+  .b-right .log .warn { color: var(--warn); }
+
+  /* B — HUD */
+  .b-token .hud-bar {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(5,6,9,0.85);
+    border: 1px solid rgba(0,230,255,0.2);
+    padding: 8px 14px;
+    display: flex;
+    gap: 18px;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 11px;
+    color: var(--text);
+    box-shadow: 0 0 0 1px rgba(0,230,255,0.05), 0 10px 30px -10px rgba(0,0,0,0.8);
+  }
+  .b-token .hud-bar::before, .b-token .hud-bar::after {
+    content: "";
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border: 1px solid var(--accent);
+  }
+  .b-token .hud-bar::before { top: -1px; left: -1px; border-right: none; border-bottom: none; }
+  .b-token .hud-bar::after { bottom: -1px; right: -1px; border-left: none; border-top: none; }
+  .b-token .hud-bar .g { display: flex; align-items: baseline; gap: 5px; }
+  .b-token .hud-bar .g .k { color: var(--muted); font-size: 9px; letter-spacing: 0.08em; }
+  .b-token .hud-bar .g .v { font-weight: 600; }
+  .b-token .hud-bar .g .v.accent { color: var(--accent); }
+
+  /* B — Settings panel */
+  .b-token .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 18px;
+    font-family: "JetBrains Mono", monospace;
+    color: var(--text);
+    max-width: 320px;
+    aspect-ratio: 10/16;
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7);
+  }
+  .b-token .panel .head {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+  }
+  .b-token .panel .head .accent { color: var(--accent); }
+  .b-token .panel h3 {
+    font-size: 20px;
+    margin-top: 14px;
+    letter-spacing: -0.01em;
+    font-weight: 600;
+  }
+  .b-token .panel .ln {
+    display: grid;
+    grid-template-columns: 1fr 60px;
+    gap: 8px;
+    align-items: center;
+    margin-top: 14px;
+    font-size: 11px;
+  }
+  .b-token .panel .ln .k { color: var(--muted); text-transform: uppercase; font-size: 9px; letter-spacing: 0.08em; }
+  .b-token .panel .ln .v { text-align: right; color: var(--accent); }
+  .b-token .panel .bar {
+    grid-column: 1 / -1;
+    height: 2px;
+    background: rgba(255,255,255,0.07);
+    position: relative;
+    margin-top: -4px;
+  }
+  .b-token .panel .bar::before { content: ""; position: absolute; inset: 0; width: 45%; background: var(--accent); }
+  .b-token .panel .bar.full::before { width: 100%; }
+  .b-token .panel .bar.mid::before { width: 58%; }
+  .b-token .panel .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-top: 16px;
+  }
+  .b-token .panel .seg button {
+    padding: 9px 0;
+    font-size: 10px;
+    font-family: inherit;
+    letter-spacing: 0.08em;
+    border: 1px solid var(--border);
+    color: var(--muted);
+  }
+  .b-token .panel .seg button.on {
+    background: rgba(0,230,255,0.1);
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+
+  /* ─────────────────────────────────────────────────
+     DIRECTION C — GLASS MINIMAL
+     "Whisper-quiet. Fluent acrylic. Only what you need."
+     ───────────────────────────────────────────────── */
+  .c-token {
+    --bg-a: #15120A;
+    --bg-b: #0B0D12;
+    --surface: rgba(255,255,255,0.03);
+    --surface-hi: rgba(245,179,1,0.08);
+    --border: rgba(245,179,1,0.18);
+    --border-soft: rgba(255,255,255,0.08);
+    --text: #F4F6FA;
+    --muted: #9BA3AF;
+    --accent: #F5B301;
+    --accent-hi: #FCD34D;
+    --accent-glow: rgba(245,179,1,0.25);
+    --cyan: #22D3EE;
+  }
+  .c-token .desktop {
+    background:
+      radial-gradient(ellipse at 85% 10%, rgba(245,179,1,0.18), transparent 50%),
+      radial-gradient(ellipse at 10% 100%, rgba(34,211,238,0.08), transparent 55%),
+      linear-gradient(135deg, var(--bg-a), var(--bg-b));
+  }
+  .c-token .desktop .content {
+    color: var(--text);
+    display: grid;
+    grid-template-columns: 200px 1fr;
+  }
+  .c-sidebar {
+    padding: 28px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+  }
+  .c-sidebar .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 500;
+    letter-spacing: -0.01em;
+  }
+  .c-sidebar .logo .m {
+    width: 24px;
+    height: 24px;
+    border-radius: 7px;
+    background: conic-gradient(from 180deg, var(--accent), var(--accent-hi), var(--accent));
+    box-shadow: 0 0 16px var(--accent-glow);
+  }
+  .c-sidebar .nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    font-size: 13px;
+  }
+  .c-sidebar .nav a {
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .c-sidebar .nav a.on {
+    background: var(--surface-hi);
+    color: var(--text);
+  }
+  .c-main {
+    padding: 32px 36px;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    gap: 24px;
+  }
+  .c-main .h-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+  }
+  .c-main h1 {
+    font-size: 34px;
+    font-weight: 300;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+  }
+  .c-main h1 strong { font-weight: 600; }
+  .c-main .sub {
+    color: var(--muted);
+    font-size: 13px;
+    margin-top: 6px;
+    font-weight: 300;
+  }
+  .c-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 14px 8px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text);
+  }
+  .c-toggle .knob {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+  .c-preview {
+    flex: 1;
+    border-radius: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 0;
+  }
+  .c-preview .head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+  .c-preview .stage {
+    flex: 1;
+    border-radius: 10px;
+    background: radial-gradient(ellipse at center, rgba(180,167,255,0.1), transparent 60%), rgba(0,0,0,0.3);
+    display: grid;
+    place-items: center;
+    position: relative;
+    min-height: 80px;
+  }
+  .c-hud-glass {
+    background: rgba(20,18,34,0.65);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    font-family: "Inter", sans-serif;
+    font-size: 11px;
+  }
+  .c-hud-glass .grp {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .c-hud-glass .grp .k {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 400;
+  }
+  .c-hud-glass .grp .v {
+    font-weight: 500;
+    font-size: 13px;
+    letter-spacing: -0.01em;
+  }
+  .c-hud-glass .grp .v.accent { color: var(--accent); }
+  .c-hud-glass .sep {
+    width: 1px;
+    height: 10px;
+    background: rgba(255,255,255,0.08);
+  }
+
+  .c-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+  }
+  .c-stat {
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+  }
+  .c-stat .k {
+    font-size: 10px;
+    color: var(--muted);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .c-stat .v {
+    font-size: 22px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    margin-top: 6px;
+  }
+  .c-stat .v strong { font-weight: 600; }
+  .c-stat .v .u { color: var(--muted); font-weight: 300; margin-left: 2px; font-size: 13px; }
+
+  /* C — HUD floating */
+  .c-token .hud-bar {
+    position: absolute;
+    bottom: 16px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(15,14,28,0.55);
+    backdrop-filter: blur(22px);
+    -webkit-backdrop-filter: blur(22px);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 16px;
+    padding: 10px 18px;
+    display: flex;
+    gap: 18px;
+    align-items: center;
+    box-shadow: 0 20px 50px -10px rgba(0,0,0,0.8);
+  }
+  .c-token .hud-bar .grp {
+    display: flex;
+    align-items: baseline;
+    gap: 5px;
+  }
+  .c-token .hud-bar .grp .k { color: var(--muted); font-size: 9px; }
+  .c-token .hud-bar .grp .v { font-size: 13px; font-weight: 500; }
+  .c-token .hud-bar .grp .v.accent { color: var(--accent); }
+  .c-token .hud-bar .sep { width: 1px; height: 10px; background: rgba(255,255,255,0.1); }
+
+  /* C — Settings panel */
+  .c-token .panel {
+    background: rgba(15,14,28,0.75);
+    backdrop-filter: blur(26px);
+    -webkit-backdrop-filter: blur(26px);
+    border: 1px solid rgba(255,255,255,0.09);
+    border-radius: 20px;
+    padding: 26px;
+    max-width: 320px;
+    aspect-ratio: 10/16;
+    color: var(--text);
+    box-shadow: 0 30px 60px -20px rgba(0,0,0,0.8);
+  }
+  .c-token .panel .eyebrow {
+    font-size: 10px;
+    color: var(--muted);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+  }
+  .c-token .panel h3 {
+    font-size: 24px;
+    font-weight: 300;
+    letter-spacing: -0.02em;
+    margin-top: 4px;
+  }
+  .c-token .panel h3 strong { font-weight: 600; }
+  .c-token .panel .desc { font-size: 12px; color: var(--muted); margin-top: 6px; line-height: 1.55; font-weight: 300; }
+  .c-token .panel .grp { margin-top: 22px; }
+  .c-token .panel .grp .row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .c-token .panel .grp .row .k { font-size: 12px; color: #D4D8E0; font-weight: 400; }
+  .c-token .panel .grp .row .v { font-size: 11px; color: var(--accent); }
+  .c-token .panel .slider {
+    height: 2px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 2px;
+    position: relative;
+  }
+  .c-token .panel .slider::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    width: 45%;
+    background: var(--accent);
+    border-radius: 2px;
+  }
+  .c-token .panel .slider::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 45%;
+    transform: translate(-50%,-50%);
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 14px var(--accent-glow);
+  }
+  .c-token .panel .seg {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .c-token .panel .seg button {
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    color: var(--muted);
+    background: transparent;
+    border: 1px solid var(--border);
+  }
+  .c-token .panel .seg button.on {
+    background: rgba(180,167,255,0.15);
+    color: var(--accent);
+    border-color: rgba(180,167,255,0.4);
+  }
+
+  /* ─── Micro bits ─── */
+  .caption {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #6b7280;
+    letter-spacing: 0.02em;
+  }
+  .caption strong { color: #9aa0ab; font-weight: 500; }
+
+  .panel-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 20px;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.015);
+    border: 1px dashed rgba(255,255,255,0.05);
+    aspect-ratio: 16/10;
+  }
+
+  .three-up {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+</style>
+</head>
+<body>
+
+<nav class="dir-nav">
+  <div class="dir-nav-brand"><span class="dot"></span>HHA Pulse · UX Redesign</div>
+  <a class="pill" href="#banner">Research</a>
+  <a class="pill" href="#round3">Round 03 · Fluid no-fluff</a>
+</nav>
+
+<div class="page">
+
+  <header class="page-header">
+    <div class="page-eyebrow">MOCKUP ROUND 05 · 2026-04-15 · LEVEL 1-4 + REAL VOICES</div>
+    <h1 class="page-title">Presets map to Valve Levels. Voices drive the spec.</h1>
+    <p class="page-sub">
+      The four curated presets now map 1:1 to Valve's Steam Deck performance overlay Level 1-4 — <strong style="color:#F4F6FA">Minimal · Standard · Advanced · Full</strong> — because every surveyed handheld gamer already understands this vocabulary. Manual is demoted to a quiet <em>"Or build your own ▸ Manual"</em> link below the preset row and starts as a copy of whichever curated preset was last active (users want to <em>tweak</em>, not rebuild from empty). Standard is the mass-market sweet spot per Windows Central, MakeUseOf and the Valve FPS-only patch. The spec's §2b is now written entirely from real quotes — Steam Community Bug Reports, g-helper and HandheldCompanion GitHub issues, Steam Deck HQ, XDA, GamingOnLinux, PulseGeek — not generic UX laws. Full research: <code style="font-family:'JetBrains Mono',monospace;font-size:0.85em;color:#67E8F9;">docs/superpowers/research/handheld-gamer-voices.md</code>.
+    </p>
+  </header>
+
+  <section class="research-banner" id="banner">
+    <div class="rb-grid">
+      <div class="rb-cell">
+        <div class="rb-eyebrow">BRAND · handheldally.com</div>
+        <div class="rb-title">Warm tinkerer, not cyberpunk.</div>
+        <p class="rb-body">Voice is *"Stop searching, start playing"* and *"Built by a fellow tinkerer"* — community, not clinical. Palette is dark slate <code>#0F1115</code> · cyan <code>#22D3EE</code> · gold <code>#F5B301</code> reserved for Premium/Founder surfaces. Glassmorphism is <strong>earned</strong>, not default.</p>
+      </div>
+      <div class="rb-cell">
+        <div class="rb-eyebrow">CODE · HHAP-0.5 audit</div>
+        <div class="rb-title">The HUD is clean. The companion window is the mess.</div>
+        <p class="rb-body"><code>MainWindow.xaml</code> + <code>TopBarControl.xaml</code> are rule-compliant and stay. The mess lives in <code>HubView.xaml</code> (preset cards, nested ellipses, dead Live-now strip), <code>ComposerOverlay.xaml</code> (the whole wizard), and <code>SupportView.xaml</code> (Advanced diagnostics expander). Tokens in <code>HhapTheme.xaml</code> are healthy — reuse them.</p>
+      </div>
+      <div class="rb-cell">
+        <div class="rb-eyebrow">PLATFORM · WinUI 3</div>
+        <div class="rb-title">No cheap frosted-glass cards.</div>
+        <p class="rb-body">Mica/Acrylic are <em>window-level only</em> in WinUI 3. Per-element frosted cards require DirectComposition plumbing we want to avoid. Custom fonts, color transitions, page transitions, and Lightweight Styling are all free. Shadows are popup-first — prototype before relying on them.</p>
+      </div>
+    </div>
+    <div class="rb-foot">
+      <strong>Decision:</strong> Direction A is the default skin. Directions B and C were cut from the mockup after a side-by-side review — B felt too clinical for the brand's <em style="color:#F4F6FA;font-style:normal;font-weight:500">warm tinkerer</em> voice, C's per-element glass is not cheaply achievable in WinUI 3 and the brand reserves glass+gold for the future Founder tier anyway. Operator details from B (pulsing capture dot, mono numerics on HUD, faint cyan grid on data surfaces, corner ticks) are being folded into A. C is deferred until we ship a Founder unlock.
+    </div>
+  </section>
+
+  <style>
+    .research-banner {
+      margin-bottom: 56px;
+      padding: 28px 28px 24px;
+      border-radius: 16px;
+      border: 1px solid rgba(34,211,238,0.14);
+      background:
+        radial-gradient(ellipse at 80% 0%, rgba(34,211,238,0.08), transparent 50%),
+        linear-gradient(180deg, rgba(34,211,238,0.03), transparent),
+        #0D1018;
+    }
+    .rb-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 28px;
+      padding-bottom: 22px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .rb-eyebrow {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #22D3EE;
+    }
+    .rb-title {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -0.015em;
+      margin-top: 8px;
+      color: #F4F6FA;
+    }
+    .rb-body {
+      color: #9BA3AF;
+      font-size: 13px;
+      margin-top: 8px;
+      line-height: 1.55;
+    }
+    .rb-body code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 11px;
+      color: #67E8F9;
+      background: rgba(34,211,238,0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+    .rb-body strong { color: #F4F6FA; font-weight: 600; }
+    .rb-body em { color: #F4F6FA; font-style: normal; font-weight: 500; }
+    .rb-foot {
+      padding-top: 18px;
+      color: #9BA3AF;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .rb-foot strong { color: #F4F6FA; font-weight: 600; }
+  </style>
+
+  <!-- ═══════════════════ ROUND 03 — FLUID, NO FLUFF ═══════════════════ -->
+  <style>
+    /* HHA Pulse — Fluid design tokens.
+       Everything sizes from intrinsic/fluid units. No hardcoded pixel widths or heights
+       except at window-edge backstops (`min-width/height` on the AppWindow, which is
+       the equivalent of Windows-level hard floors). XAML equivalents use
+       `GridLength *`, `Auto`, theme-ramp tokens via {ThemeResource}, and
+       `VisualStateManager` + `AdaptiveTrigger` for tier switches.
+    */
+    .pulse {
+      /* Brand colour tokens — from brand-handheldally.md */
+      --pulse-bg:          #0F1115;
+      --pulse-surface:     #171A21;
+      --pulse-panel:       #1F232B;
+      --pulse-panel-hi:    #252A33;
+      --pulse-line:        color-mix(in srgb, white 6%, transparent);
+      --pulse-line-strong: color-mix(in srgb, white 12%, transparent);
+      --pulse-text:        #F4F6FA;
+      --pulse-muted:       #9BA3AF;
+      --pulse-muted-2:     #5B6372;
+      --pulse-accent:      #22D3EE;
+      --pulse-accent-hi:   #67E8F9;
+      --pulse-gold:        #F5B301; /* Founder tier only — never on default */
+      --pulse-good:        #4ADE80;
+      --pulse-okay:        #FACC15;
+      --pulse-warn:        #F87171;
+
+      /* Fluid type — clamp(min, preferred, max) so text scales with viewport
+         and never exceeds readable extremes. Based on vw because the companion
+         window *is* the viewport from its own perspective. */
+      --t-micro:   clamp(0.625rem, 0.55rem + 0.15vw, 0.75rem);
+      --t-small:   clamp(0.75rem,  0.68rem + 0.2vw,  0.875rem);
+      --t-body:    clamp(0.875rem, 0.80rem + 0.25vw, 1rem);
+      --t-lead:    clamp(1rem,     0.90rem + 0.35vw, 1.125rem);
+      --t-display: clamp(1.125rem, 0.95rem + 0.6vw,  1.375rem);
+      --t-num-sm:  clamp(0.875rem, 0.80rem + 0.25vw, 1rem);
+      --t-num-md:  clamp(1.25rem,  1.10rem + 0.45vw, 1.625rem);
+      --t-num-lg:  clamp(1.75rem,  1.50rem + 0.75vw, 2.5rem);
+
+      /* Space scale — rem-based, with fluid gap via clamp */
+      --s-1: 0.25rem;
+      --s-2: 0.5rem;
+      --s-3: 0.75rem;
+      --s-4: 1rem;
+      --s-5: clamp(1rem, 0.85rem + 0.6vw, 1.5rem);
+      --s-6: clamp(1.25rem, 1rem + 0.85vw, 2rem);
+
+      /* Radii */
+      --r-xs: 0.25rem;
+      --r-sm: 0.5rem;
+      --r-md: 0.75rem;
+      --r-lg: 1rem;
+
+      /* Motion */
+      --dur-fast: 150ms;
+      --dur-base: 200ms;
+      --ease:     cubic-bezier(0.22, 0.61, 0.36, 1);
+
+      /* Fonts */
+      --ff-display: "Space Grotesk", system-ui, sans-serif;
+      --ff-body:    "Inter", system-ui, sans-serif;
+      --ff-mono:    "JetBrains Mono", ui-monospace, monospace;
+
+      /* Internal responsive: container queries, not viewport.
+         The .pulse element IS the WinUI 3 AppWindow analogue. */
+      container-type: inline-size;
+      container-name: pulse;
+    }
+
+    /* PULSE window chrome */
+    .pulse .frame {
+      border-radius: var(--r-lg);
+      overflow: hidden;
+      border: 1px solid var(--pulse-line-strong);
+      background: var(--pulse-bg);
+      color: var(--pulse-text);
+      font-family: var(--ff-body);
+      display: grid;
+      grid-template-rows: auto 1fr auto auto auto;
+      box-shadow: 0 30px 60px -20px rgba(0,0,0,0.7);
+      min-height: clamp(30rem, 60vh, 44rem);
+    }
+
+    /* Top status bar — no hero, this is the identity + live state */
+    .pulse .topbar {
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: var(--s-4);
+      align-items: center;
+      padding: var(--s-4) var(--s-5);
+      border-bottom: 1px solid var(--pulse-line);
+      background: color-mix(in srgb, var(--pulse-bg) 92%, white);
+    }
+    .pulse .mark {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s-2);
+      font-family: var(--ff-display);
+      font-weight: 700;
+      font-size: var(--t-lead);
+      letter-spacing: -0.01em;
+    }
+    .pulse .mark::before {
+      content: "";
+      width: 1.25em;
+      aspect-ratio: 1;
+      border-radius: var(--r-xs);
+      background: linear-gradient(135deg, var(--pulse-accent), #06B6D4);
+      box-shadow: 0 0 0 1px color-mix(in srgb, var(--pulse-accent) 20%, transparent);
+    }
+    .pulse .livestate {
+      display: flex;
+      gap: var(--s-3);
+      align-items: center;
+      flex-wrap: wrap;
+      font-family: var(--ff-mono);
+      font-size: var(--t-micro);
+      letter-spacing: 0.06em;
+    }
+    .pulse .livestate .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s-2);
+      padding: calc(var(--s-2) - 0.125rem) var(--s-3);
+      border-radius: 999px;
+      border: 1px solid var(--pulse-line);
+      color: var(--pulse-muted);
+    }
+    .pulse .livestate .chip.live {
+      color: var(--pulse-accent);
+      border-color: color-mix(in srgb, var(--pulse-accent) 30%, transparent);
+      background: color-mix(in srgb, var(--pulse-accent) 6%, transparent);
+    }
+    .pulse .livestate .chip.live::before {
+      content: "";
+      width: 0.5em;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--pulse-accent);
+      box-shadow: 0 0 0.5em var(--pulse-accent);
+      animation: pulse-dot 1.4s ease-in-out infinite;
+    }
+    .pulse .livestate .chip .num {
+      font-weight: 600;
+      color: var(--pulse-text);
+    }
+    @keyframes pulse-dot { 0%,100% { opacity: 1; } 50% { opacity: 0.35; } }
+    .pulse .topbar .icons {
+      display: flex;
+      gap: var(--s-2);
+    }
+    .pulse .topbar .icons button {
+      min-width: 2.75rem;
+      min-height: 2.75rem;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--pulse-line);
+      color: var(--pulse-muted);
+      font-size: var(--t-body);
+      background: transparent;
+      transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+    }
+    .pulse .topbar .icons button:hover {
+      background: var(--pulse-panel);
+      color: var(--pulse-text);
+    }
+
+    /* Main work area — toolbar row on top, presets below.
+       Position and Feel&Fit are small pill dropdowns (set-and-forget).
+       Presets are the primary surface — each card shows a mini HUD preview
+       of exactly what that preset renders on screen. */
+    .pulse .work {
+      display: grid;
+      grid-template-rows: auto 1fr;
+      gap: var(--s-4);
+      padding: var(--s-4) var(--s-5) var(--s-4);
+      min-height: 0;
+    }
+
+    /* TOOLBAR — two pill dropdowns */
+    .pulse .toolbar {
+      display: flex;
+      gap: var(--s-3);
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .pulse .pill-dd {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s-3);
+      min-height: 2.5rem;
+      padding: var(--s-2) var(--s-4);
+      border: 1px solid var(--pulse-line);
+      border-radius: 999px;
+      background: var(--pulse-surface);
+      color: var(--pulse-text);
+      font-family: var(--ff-body);
+      font-size: var(--t-small);
+      font-weight: 500;
+      cursor: pointer;
+      transition: all var(--dur-fast) var(--ease);
+    }
+    .pulse .pill-dd:hover {
+      border-color: color-mix(in srgb, var(--pulse-accent) 30%, transparent);
+      background: var(--pulse-panel);
+    }
+    .pulse .pill-dd .k {
+      color: var(--pulse-muted);
+      font-weight: 600;
+      font-size: 0.82em;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .pulse .pill-dd .v {
+      color: var(--pulse-text);
+      font-family: var(--ff-mono);
+      font-weight: 600;
+    }
+    .pulse .pill-dd .car {
+      color: var(--pulse-muted);
+      opacity: 0.7;
+      font-size: 0.75em;
+      margin-left: calc(-1 * var(--s-2));
+    }
+
+    /* PRESET ROW — 4 cards, each with a real mini HUD preview */
+    .pulse .preset-row {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: var(--s-3);
+      align-content: start;
+    }
+    /* Wrap to 2×2 when the container is narrow */
+    @container pulse (max-width: 64rem) {
+      .pulse .preset-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+    .pulse .preset {
+      padding: var(--s-4);
+      background: var(--pulse-surface);
+      border: 1px solid var(--pulse-line);
+      border-radius: var(--r-md);
+      color: var(--pulse-text);
+      text-align: left;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      gap: var(--s-3);
+      cursor: pointer;
+      position: relative;
+      transition: all var(--dur-fast) var(--ease);
+      min-width: 0;
+    }
+    .pulse .preset:hover { border-color: color-mix(in srgb, var(--pulse-accent) 35%, transparent); }
+    .pulse .preset.on {
+      border-color: var(--pulse-accent);
+      background: color-mix(in srgb, var(--pulse-accent) 7%, transparent);
+    }
+    .pulse .preset.on::after {
+      content: "";
+      position: absolute;
+      top: var(--s-3);
+      right: var(--s-3);
+      width: 0.55em;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--pulse-accent);
+      box-shadow: 0 0 0.6em var(--pulse-accent);
+    }
+    .pulse .preset .eyebrow {
+      font-family: var(--ff-mono);
+      font-size: var(--t-micro);
+      color: var(--pulse-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+    .pulse .preset.on .eyebrow { color: var(--pulse-accent); }
+    .pulse .preset .name {
+      font-family: var(--ff-display);
+      font-weight: 600;
+      font-size: var(--t-lead);
+      letter-spacing: -0.015em;
+      line-height: 1.1;
+    }
+    /* Mini HUD preview — looks like the actual HUD bar, compact */
+    .pulse .preset .preview {
+      align-self: center;
+      justify-self: stretch;
+      padding: var(--s-3) var(--s-3);
+      background: color-mix(in srgb, var(--pulse-bg) 65%, black);
+      border: 1px solid var(--pulse-line);
+      border-radius: var(--r-xs);
+      font-family: var(--ff-mono);
+      font-size: var(--t-micro);
+      color: var(--pulse-text);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: baseline;
+      justify-content: center;
+      gap: 0.35em 0.6em;
+      font-variant-numeric: tabular-nums;
+      min-height: 2.25rem;
+    }
+    .pulse .preset .preview .m {
+      display: inline-flex;
+      align-items: baseline;
+      gap: 0.22em;
+      white-space: nowrap;
+    }
+    .pulse .preset .preview .m .k {
+      color: var(--pulse-muted);
+      font-size: 0.82em;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+    .pulse .preset .preview .m .v {
+      font-weight: 600;
+      color: var(--pulse-text);
+    }
+    .pulse .preset .preview .m .v.accent { color: var(--pulse-accent); }
+    .pulse .preset .preview .m .u {
+      font-size: 0.78em;
+      color: var(--pulse-muted);
+      font-weight: 400;
+      margin-left: 0.1em;
+    }
+    .pulse .preset .preview .sep {
+      color: var(--pulse-muted-2);
+      opacity: 0.55;
+    }
+    /* Manual preset preview — metric toggle chips */
+    .pulse .preset .preview.toggles {
+      gap: 0.3em 0.35em;
+      padding: var(--s-2);
+    }
+    .pulse .preset .preview .tog {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3em;
+      padding: 0.22em 0.55em;
+      border-radius: 999px;
+      border: 1px solid var(--pulse-line);
+      color: var(--pulse-muted);
+      font-size: 0.82em;
+      font-family: var(--ff-body);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+    }
+    .pulse .preset .preview .tog::before {
+      content: "";
+      width: 0.42em;
+      aspect-ratio: 1;
+      border-radius: 50%;
+      background: var(--pulse-muted-2);
+    }
+    .pulse .preset .preview .tog.on {
+      color: var(--pulse-accent);
+      border-color: color-mix(in srgb, var(--pulse-accent) 45%, transparent);
+      background: color-mix(in srgb, var(--pulse-accent) 8%, transparent);
+    }
+    .pulse .preset .preview .tog.on::before {
+      background: var(--pulse-accent);
+      box-shadow: 0 0 0.4em var(--pulse-accent);
+    }
+    .pulse .preset .count {
+      font-family: var(--ff-mono);
+      font-size: var(--t-micro);
+      color: var(--pulse-muted);
+      letter-spacing: 0.04em;
+    }
+
+    /* Manual link — quiet secondary entry, NOT a fifth card */
+    .pulse .manual-link {
+      justify-self: start;
+      padding: var(--s-3) var(--s-4);
+      margin-top: var(--s-3);
+      background: transparent;
+      border: 1px dashed color-mix(in srgb, var(--pulse-accent) 25%, transparent);
+      border-radius: var(--r-sm);
+      color: var(--pulse-text);
+      font-family: var(--ff-body);
+      font-size: var(--t-small);
+      font-weight: 500;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s-2);
+      cursor: pointer;
+      transition: all var(--dur-fast) var(--ease);
+    }
+    .pulse .manual-link:hover {
+      border-color: var(--pulse-accent);
+      background: color-mix(in srgb, var(--pulse-accent) 6%, transparent);
+    }
+    .pulse .manual-link .arrow {
+      color: var(--pulse-accent);
+      font-weight: 700;
+    }
+    .pulse .manual-link strong {
+      color: var(--pulse-accent);
+      font-family: var(--ff-display);
+      font-weight: 600;
+    }
+    .pulse .manual-link .hint {
+      color: var(--pulse-muted);
+      font-weight: 400;
+      font-size: 0.85em;
+    }
+
+    /* POSITION FLYOUT — shown as a standalone widget in the mockup.
+       In the real product this is a WinUI 3 `Flyout` opened by the Position pill button.
+       Rendered as a stand-in next to the md sandbox so reviewers see the inside of the dropdown. */
+    .pulse-flyout {
+      max-width: 22rem;
+      background: var(--pulse-panel);
+      border: 1px solid var(--pulse-line-strong);
+      border-radius: var(--r-md);
+      padding: var(--s-4);
+      display: grid;
+      gap: var(--s-3);
+      box-shadow: 0 1.5rem 3rem -1rem rgba(0,0,0,0.8);
+      position: relative;
+    }
+    .pulse-flyout::before {
+      content: "";
+      position: absolute;
+      top: -0.4rem;
+      left: 2rem;
+      width: 0.8rem;
+      height: 0.8rem;
+      background: var(--pulse-panel);
+      border-top: 1px solid var(--pulse-line-strong);
+      border-left: 1px solid var(--pulse-line-strong);
+      transform: rotate(45deg);
+    }
+    .pulse-flyout .fl-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      font-family: var(--ff-body);
+      font-size: var(--t-micro);
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--pulse-muted);
+    }
+    .pulse-flyout .fl-head .curr {
+      font-family: var(--ff-mono);
+      color: var(--pulse-accent);
+      letter-spacing: 0.04em;
+    }
+    .pulse-flyout .monitor {
+      aspect-ratio: 16 / 10;
+      background:
+        linear-gradient(color-mix(in srgb, var(--pulse-accent) 5%, transparent) 1px, transparent 1px) 0 0 / 6% 6%,
+        linear-gradient(90deg, color-mix(in srgb, var(--pulse-accent) 5%, transparent) 1px, transparent 1px) 0 0 / 6% 6%,
+        linear-gradient(135deg, #0A0D14, #0E1219);
+      border: 1px solid var(--pulse-line);
+      border-radius: var(--r-sm);
+      position: relative;
+      overflow: hidden;
+    }
+    .pulse-flyout .monitor::after {
+      content: "GAME AREA";
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+      font-size: var(--t-micro);
+      color: color-mix(in srgb, var(--pulse-muted) 35%, transparent);
+      letter-spacing: 0.22em;
+      font-weight: 600;
+      pointer-events: none;
+    }
+    .pulse-flyout .highlight {
+      position: absolute;
+      background: color-mix(in srgb, var(--pulse-accent) 18%, transparent);
+      border: 1px solid var(--pulse-accent);
+      box-shadow: 0 0 0.8rem color-mix(in srgb, var(--pulse-accent) 25%, transparent);
+      border-radius: var(--r-xs);
+    }
+    .pulse-flyout .highlight.bot-1 { bottom: 4%; left: 22%; right: 22%; height: 11%; }
+    .pulse-flyout .buttons {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: var(--s-2);
+    }
+    .pulse-flyout .buttons button {
+      min-height: 2.5rem;
+      padding: var(--s-2);
+      border: 1px solid var(--pulse-line);
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--pulse-muted);
+      font-family: var(--ff-body);
+      font-size: var(--t-small);
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3em;
+      cursor: pointer;
+      transition: all var(--dur-fast) var(--ease);
+    }
+    .pulse-flyout .buttons button:hover {
+      color: var(--pulse-text);
+      border-color: color-mix(in srgb, var(--pulse-accent) 30%, transparent);
+    }
+    .pulse-flyout .buttons button.on {
+      color: var(--pulse-accent);
+      background: color-mix(in srgb, var(--pulse-accent) 9%, transparent);
+      border-color: var(--pulse-accent);
+    }
+    .pulse-flyout .buttons button .g {
+      font-family: var(--ff-mono);
+      opacity: 0.6;
+    }
+
+    /* Feel & fit inline trigger — quiet link under the preset row.
+       When tapped, reveals three sliders in an inline expander (not shown in comp). */
+    .pulse .feel-fit-link {
+      justify-self: start;
+      padding: var(--s-2) var(--s-3);
+      background: transparent;
+      border: none;
+      color: var(--pulse-muted);
+      font-family: var(--ff-body);
+      font-size: var(--t-small);
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s-2);
+      cursor: pointer;
+      transition: color var(--dur-fast) var(--ease);
+    }
+    .pulse .feel-fit-link:hover { color: var(--pulse-accent); }
+    .pulse .feel-fit-link span { opacity: 0.55; font-size: 0.75em; }
+
+    /* Event line — quiet, operator vibe */
+    .pulse .event {
+      display: flex;
+      gap: var(--s-4);
+      align-items: center;
+      padding: var(--s-2) var(--s-5);
+      font-family: var(--ff-mono);
+      font-size: var(--t-micro);
+      color: var(--pulse-muted-2);
+      letter-spacing: 0.04em;
+      border-top: 1px solid var(--pulse-line);
+      flex-wrap: wrap;
+    }
+    .pulse .event .ts { color: color-mix(in srgb, var(--pulse-accent) 70%, transparent); }
+    .pulse .event .sep { opacity: 0.4; }
+
+    /* Support footer */
+    .pulse .support {
+      padding: var(--s-4) var(--s-5) var(--s-5);
+      border-top: 1px solid var(--pulse-line);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-3);
+    }
+    .pulse .support .states {
+      display: flex;
+      gap: var(--s-4);
+      flex-wrap: wrap;
+    }
+    .pulse .support .states .s {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--s-2);
+      font-family: var(--ff-body);
+      font-size: var(--t-small);
+      color: var(--pulse-muted);
+    }
+    .pulse .support .states .s::before {
+      content: "";
+      width: 0.5em;
+      aspect-ratio: 1;
+      border-radius: 50%;
+    }
+    .pulse .support .states .s.up::before    { background: var(--pulse-good); box-shadow: 0 0 0.4em var(--pulse-good); }
+    .pulse .support .states .s.lim::before   { background: var(--pulse-okay); }
+    .pulse .support .states .s.down::before  { background: var(--pulse-warn); }
+    .pulse .support .actions {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+      gap: var(--s-2);
+    }
+    .pulse .support .actions button {
+      min-height: 2.75rem;
+      padding: var(--s-2) var(--s-4);
+      border: 1px solid var(--pulse-line);
+      border-radius: var(--r-sm);
+      background: transparent;
+      color: var(--pulse-text);
+      font-family: var(--ff-body);
+      font-size: var(--t-small);
+      font-weight: 500;
+      transition: background var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+    }
+    .pulse .support .actions button:hover {
+      border-color: color-mix(in srgb, var(--pulse-accent) 25%, transparent);
+      background: var(--pulse-panel);
+    }
+
+    /* Focus visuals for gamepad/keyboard — equivalent to
+       {StaticResource ControlFocusVisualPrimaryBrush} override */
+    .pulse button:focus-visible,
+    .pulse .preset:focus-visible {
+      outline: 2px solid var(--pulse-accent);
+      outline-offset: 2px;
+    }
+
+    /* Container-query stack for the comparison layout */
+    .round3-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+      gap: var(--s-5);
+      align-items: start;
+    }
+    @media (max-width: 960px) {
+      .round3-layout { grid-template-columns: 1fr; }
+    }
+
+    /* A sandbox wrapper so container queries work at different widths */
+    .sandbox {
+      display: grid;
+      gap: var(--s-5);
+    }
+    .sandbox .width-label {
+      font-family: var(--ff-mono);
+      font-size: var(--t-micro);
+      color: var(--pulse-muted, #9BA3AF);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      padding-bottom: var(--s-2);
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .sandbox .width-label strong { color: #F4F6FA; font-weight: 600; }
+    .w-md { max-width: 1400px; }
+    .w-sm { max-width: 1100px; }
+    .w-xs { max-width: 620px; }
+
+    /* Principles block */
+    .principles {
+      padding: var(--s-5);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: var(--r-md);
+      background: #0D1018;
+      display: grid;
+      gap: var(--s-4);
+    }
+    .principles h3 {
+      font-family: var(--ff-body, Inter, sans-serif);
+      font-size: var(--t-lead, 1rem);
+      color: #F4F6FA;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .principles ol {
+      list-style: none;
+      counter-reset: p;
+      display: grid;
+      gap: var(--s-3);
+    }
+    .principles li {
+      counter-increment: p;
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: var(--s-3);
+      font-size: var(--t-small, 0.8125rem);
+      color: #9BA3AF;
+      line-height: 1.55;
+    }
+    .principles li::before {
+      content: counter(p, decimal-leading-zero);
+      font-family: var(--ff-mono);
+      font-size: 0.75rem;
+      color: #22D3EE;
+      font-weight: 600;
+    }
+    .principles li strong { color: #F4F6FA; font-weight: 600; }
+    .principles .cite {
+      display: block;
+      margin-top: 0.25em;
+      color: #5B6372;
+      font-family: var(--ff-mono);
+      font-size: 0.6875rem;
+    }
+  </style>
+
+  <section class="dir" id="round3" style="padding-top: 32px;">
+    <div class="dir-intro">
+      <div>
+        <div class="dir-num">ROUND 03 / 2026-04-15 · Fluid, no fluff</div>
+        <div class="dir-name">The companion, when <em style="color:#22D3EE">it just works</em>.</div>
+        <p class="dir-tag">
+          Rewritten per Johny's feedback: no hardcoded pixels, no editorial hero, no marketing inside the product. Typography fluid via <code style="font-family:var(--ff-mono);color:#67E8F9;background:color-mix(in srgb, #22D3EE 8%, transparent);padding:0.1em 0.35em;border-radius:0.25em;font-size:0.85em;">clamp()</code>, layout fluid via <code style="font-family:var(--ff-mono);color:#67E8F9;background:color-mix(in srgb, #22D3EE 8%, transparent);padding:0.1em 0.35em;border-radius:0.25em;font-size:0.85em;">minmax(0, 1fr)</code> and <code style="font-family:var(--ff-mono);color:#67E8F9;background:color-mix(in srgb, #22D3EE 8%, transparent);padding:0.1em 0.35em;border-radius:0.25em;font-size:0.85em;">@container</code> queries. WinUI 3 equivalents are documented in <code style="font-family:var(--ff-mono);color:#67E8F9;background:color-mix(in srgb, #22D3EE 8%, transparent);padding:0.1em 0.35em;border-radius:0.25em;font-size:0.85em;">docs/superpowers/specs/2026-04-15-hha-pulse-ux-redesign-design.md</code> §13. The three sandboxes below are the <strong style="color:#F4F6FA">same markup</strong> at three widths — md, sm, xs — no duplicated HTML.
+        </p>
+      </div>
+      <div class="dir-meta">
+        <div class="dir-meta-row"><span class="k">Units</span><span class="v">rem for type · fr for layout · clamp() for fluid · @container for responsive · var(--token) for everything</span></div>
+        <div class="dir-meta-row"><span class="k">Hero?</span><span class="v">None. The topbar carries identity + live state; the work area goes direct to controls.</span></div>
+        <div class="dir-meta-row"><span class="k">Psychology</span><span class="v">Handheld user pauses a game → wants to fix one thing → needs to see status, flip a toggle, switch preset, resume. Every extra word costs them.</span></div>
+        <div class="dir-meta-row"><span class="k">References</span><span class="v">GitHub dashboard, Linear app, Vercel dashboard — "just open and work".</span></div>
+      </div>
+    </div>
+
+    <div class="round3-layout">
+      <div class="sandbox">
+
+        <!-- md — intended layout -->
+        <div class="w-md">
+          <div class="width-label">SANDBOX · <strong>md — intended</strong> (container ≥ 56 rem)</div>
+          <div class="pulse">
+            <div class="frame">
+              <div class="topbar">
+                <div class="mark">Pulse</div>
+                <div class="livestate">
+                  <span class="chip live">OVERLAY ON</span>
+                  <span class="chip">CAPTURE READY</span>
+                  <span class="chip">HADES II</span>
+                </div>
+                <div class="icons">
+                  <button title="Minimise">–</button>
+                  <button title="Close">×</button>
+                </div>
+              </div>
+
+              <div class="work">
+                <div class="toolbar">
+                  <button class="pill-dd" aria-haspopup="true" aria-expanded="false">
+                    <span class="k">Position</span>
+                    <span class="v">Bottom · 1 line</span>
+                    <span class="car">▾</span>
+                  </button>
+                  <button class="pill-dd" aria-haspopup="true" aria-expanded="false">
+                    <span class="k">Feel &amp; fit</span>
+                    <span class="v">Default</span>
+                    <span class="car">▾</span>
+                  </button>
+                </div>
+
+                <div class="preset-row">
+                  <button class="preset">
+                    <span class="eyebrow">Level 1</span>
+                    <span class="name">Minimal</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="sep">·</span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92<span class="u">%</span></span></span>
+                    </div>
+                    <span class="count">2 metrics · FPS counter only</span>
+                  </button>
+
+                  <button class="preset on">
+                    <span class="eyebrow">Level 2</span>
+                    <span class="name">Standard</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="m"><span class="k">FT</span><span class="v">7.0</span></span>
+                      <span class="m"><span class="k">CPU</span><span class="v">36<span class="u">%</span></span></span>
+                      <span class="m"><span class="k">GPU</span><span class="v">72<span class="u">%</span></span></span>
+                      <span class="m"><span class="k">RAM</span><span class="v">11.2</span></span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92<span class="u">%</span></span></span>
+                      <span class="m"><span class="k">W</span><span class="v">9.2</span></span>
+                    </div>
+                    <span class="count">7 metrics · the sweet spot</span>
+                  </button>
+
+                  <button class="preset">
+                    <span class="eyebrow">Level 3</span>
+                    <span class="name">Advanced</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="m"><span class="k">1%</span><span class="v">108</span></span>
+                      <span class="m"><span class="k">FT</span><span class="v">7.0</span></span>
+                      <span class="m"><span class="k">CPU</span><span class="v">36</span></span>
+                      <span class="m"><span class="k">GPU</span><span class="v">72</span></span>
+                      <span class="m"><span class="k">RAM</span><span class="v">11.2</span></span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92</span></span>
+                      <span class="m"><span class="k">W</span><span class="v">9.2</span></span>
+                      <span class="m"><span class="k">⏱</span><span class="v">1:48</span></span>
+                      <span class="m"><span class="k">Hz</span><span class="v">120</span></span>
+                    </div>
+                    <span class="count">10 metrics · tuning</span>
+                  </button>
+
+                  <button class="preset">
+                    <span class="eyebrow">Level 4</span>
+                    <span class="name">Full</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="m"><span class="k">1%</span><span class="v">108</span></span>
+                      <span class="m"><span class="k">FT</span><span class="v">7.0</span></span>
+                      <span class="m"><span class="k">CPU</span><span class="v">36</span></span>
+                      <span class="m"><span class="k">GPU</span><span class="v">72</span></span>
+                      <span class="m"><span class="k">RAM</span><span class="v">11.2</span></span>
+                      <span class="m"><span class="k">VRAM</span><span class="v">8.2</span></span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92</span></span>
+                      <span class="m"><span class="k">W</span><span class="v">9.2</span></span>
+                      <span class="m"><span class="k">⏱</span><span class="v">1:48</span></span>
+                      <span class="m"><span class="k">Hz</span><span class="v">120</span></span>
+                    </div>
+                    <span class="count">11 metrics · everything</span>
+                  </button>
+                </div>
+
+                <button class="manual-link">Or build your own <span class="arrow">▸</span> <strong>Manual</strong> <span class="hint">— starts as a copy of Level 2</span></button>
+              </div>
+
+              <div class="event">
+                <span class="ts">17:27:08</span>
+                <span>pid 14228</span>
+                <span class="sep">·</span>
+                <span>HADES_II.EXE</span>
+                <span class="sep">·</span>
+                <span>frametime 7.0 ms</span>
+                <span class="sep">·</span>
+                <span>sampling 120 Hz</span>
+              </div>
+
+              <div class="support">
+                <div class="states">
+                  <span class="s up">Capture online</span>
+                  <span class="s up">Game detect</span>
+                  <span class="s lim">Companion · standalone</span>
+                </div>
+                <div class="actions">
+                  <button>Copy support report</button>
+                  <button>Open log folder</button>
+                  <button>handheldally.com</button>
+                  <button>Community</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="caption" style="margin-top: var(--s-4);">
+            <strong>Position</strong> and <strong>Feel &amp; fit</strong> are pill-button dropdowns now — set-and-forget. Click Position and the flyout below opens anchored to the button. Presets are the primary surface; each card previews the actual HUD content it renders.
+          </div>
+
+          <div class="pulse" style="margin-top: var(--s-4); max-width: 22rem;">
+            <div class="pulse-flyout">
+              <div class="fl-head">
+                <span>Position</span>
+                <span class="curr">BOTTOM · 1 LINE</span>
+              </div>
+              <div class="monitor">
+                <div class="highlight bot-1"></div>
+              </div>
+              <div class="buttons">
+                <button><span class="g">▔</span>Top · 1L</button>
+                <button><span class="g">≡</span>Top · 2L</button>
+                <button><span class="g">◐</span>Left</button>
+                <button class="on"><span class="g">▁</span>Bot · 1L</button>
+                <button><span class="g">≣</span>Bot · 2L</button>
+                <button><span class="g">◑</span>Right</button>
+              </div>
+            </div>
+          </div>
+          <div class="caption" style="margin-top: var(--s-3);">
+            <strong>Position flyout</strong> · opens anchored to the Position pill. Monitor canvas + six anchor buttons. Closes on select or outside click.
+          </div>
+        </div>
+
+        <!-- sm — hybrid -->
+        <div class="w-sm">
+          <div class="width-label">SANDBOX · <strong>sm — tight dock</strong> (container 1024–1279 effective)</div>
+          <div class="pulse">
+            <div class="frame">
+              <div class="topbar">
+                <div class="mark">Pulse</div>
+                <div class="livestate">
+                  <span class="chip live">OVERLAY ON</span>
+                  <span class="chip">HADES II</span>
+                </div>
+                <div class="icons">
+                  <button>×</button>
+                </div>
+              </div>
+              <div class="work">
+                <div class="toolbar">
+                  <button class="pill-dd"><span class="k">Position</span><span class="v">Bot · 1L</span><span class="car">▾</span></button>
+                  <button class="pill-dd"><span class="k">Feel &amp; fit</span><span class="v">Default</span><span class="car">▾</span></button>
+                </div>
+                <div class="preset-row">
+                  <button class="preset">
+                    <span class="eyebrow">Level 1</span>
+                    <span class="name">Minimal</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92</span></span>
+                    </div>
+                    <span class="count">2</span>
+                  </button>
+                  <button class="preset on">
+                    <span class="eyebrow">Level 2</span>
+                    <span class="name">Standard</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="m"><span class="k">FT</span><span class="v">7.0</span></span>
+                      <span class="m"><span class="k">CPU</span><span class="v">36</span></span>
+                      <span class="m"><span class="k">GPU</span><span class="v">72</span></span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92</span></span>
+                    </div>
+                    <span class="count">7</span>
+                  </button>
+                  <button class="preset">
+                    <span class="eyebrow">Level 3</span>
+                    <span class="name">Advanced</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">FPS</span><span class="v accent">142</span></span>
+                      <span class="m"><span class="k">1%</span><span class="v">108</span></span>
+                      <span class="m"><span class="k">FT</span><span class="v">7.0</span></span>
+                      <span class="m"><span class="k">BAT</span><span class="v">92</span></span>
+                      <span class="m"><span class="k">W</span><span class="v">9.2</span></span>
+                    </div>
+                    <span class="count">10</span>
+                  </button>
+                  <button class="preset">
+                    <span class="eyebrow">Level 4</span>
+                    <span class="name">Full</span>
+                    <div class="preview">
+                      <span class="m"><span class="k">all 11</span></span>
+                    </div>
+                    <span class="count">11</span>
+                  </button>
+                </div>
+                <button class="manual-link">Or build your own <span class="arrow">▸</span> <strong>Manual</strong></button>
+              </div>
+              <div class="event">
+                <span class="ts">17:27:08</span>
+                <span>pid 14228 · HADES_II.EXE · 7.0 ms</span>
+              </div>
+              <div class="support">
+                <div class="states">
+                  <span class="s up">Capture</span>
+                  <span class="s up">Game detect</span>
+                  <span class="s lim">Companion</span>
+                </div>
+                <div class="actions">
+                  <button>Copy report</button>
+                  <button>Open log</button>
+                  <button>handheldally.com</button>
+                  <button>Community</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- xs — handheld floor -->
+        <div class="w-xs">
+          <div class="width-label">SANDBOX · <strong>xs — handheld floor</strong> (AYANEO Air, GPD Win 4 · 960 × 540 effective)</div>
+          <div class="pulse">
+            <div class="frame">
+              <div class="topbar">
+                <div class="mark">Pulse</div>
+                <div class="livestate">
+                  <span class="chip live">ON</span>
+                </div>
+                <div class="icons">
+                  <button>×</button>
+                </div>
+              </div>
+              <div class="work">
+                <div class="toolbar">
+                  <button class="pill-dd"><span class="k">Pos</span><span class="v">B·1L</span><span class="car">▾</span></button>
+                  <button class="pill-dd"><span class="k">Fit</span><span class="v">Def.</span><span class="car">▾</span></button>
+                </div>
+                <div class="preset-row">
+                  <button class="preset">
+                    <span class="eyebrow">L1</span>
+                    <span class="name">Minimal</span>
+                    <div class="preview">
+                      <span class="m"><span class="v accent">142</span></span>
+                    </div>
+                    <span class="count">2</span>
+                  </button>
+                  <button class="preset on">
+                    <span class="eyebrow">L2</span>
+                    <span class="name">Standard</span>
+                    <div class="preview">
+                      <span class="m"><span class="v accent">142</span></span>
+                      <span class="m"><span class="v">36</span></span>
+                      <span class="m"><span class="v">72</span></span>
+                      <span class="m"><span class="v">92</span></span>
+                    </div>
+                    <span class="count">7</span>
+                  </button>
+                  <button class="preset">
+                    <span class="eyebrow">L3</span>
+                    <span class="name">Advanced</span>
+                    <div class="preview">
+                      <span class="m"><span class="v">10</span></span>
+                    </div>
+                    <span class="count">10</span>
+                  </button>
+                  <button class="preset">
+                    <span class="eyebrow">L4</span>
+                    <span class="name">Full</span>
+                    <div class="preview">
+                      <span class="m"><span class="v">11</span></span>
+                    </div>
+                    <span class="count">11</span>
+                  </button>
+                </div>
+                <button class="manual-link"><strong>Manual</strong><span class="arrow">▸</span></button>
+              </div>
+              <div class="event">
+                <span class="ts">17:27</span>
+                <span>pid 14228 · HADES_II</span>
+              </div>
+              <div class="support">
+                <div class="states">
+                  <span class="s up">Capture</span>
+                  <span class="s up">Game</span>
+                </div>
+                <div class="actions">
+                  <button>Report</button>
+                  <button>Log</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <aside style="display: grid; gap: var(--s-5); position: sticky; top: calc(32px + 3.5rem);">
+        <div class="principles">
+          <h3>Handheld psychology — 7 principles we're designing to</h3>
+          <ol>
+            <li>
+              <strong>The user paused a game.</strong> Every second of chrome is stolen from play. The companion opens → the two knobs that matter are already visible → one click each → resume.
+              <span class="cite">Fitts's + Hick's laws. Miller 7±2 metric count.</span>
+            </li>
+            <li>
+              <strong>Handhelds are read at arm's length.</strong> Body type floors at <code>0.875rem</code>, numerals at <code>1.25rem</code>. Band-tier dots glow so they read in peripheral vision on a 7" screen at 40 cm.
+              <span class="cite">WCAG 2.2 reading distance + contrast AA on dark surfaces.</span>
+            </li>
+            <li>
+              <strong>Battery and thermals are constant anxieties.</strong> Battery % sits in the topbar chip row — always visible, never hidden behind a tab. Live FPS sits next to it. CPU/GPU % tell the user how close to thermal headroom they are.
+              <span class="cite">Handheld mental-model primary concerns. Brand voice: "the ally whispering stats".</span>
+            </li>
+            <li>
+              <strong>Touch + gamepad + mouse, all at once.</strong> Every interactive target is ≥ <code>2.75rem</code> (~44 dip). Tab order matches visual order. Focus ring is brand-cyan so it's legible on dark slate.
+              <span class="cite">MS Fluent accessibility spec; XYFocusKeyboardNavigation=Enabled.</span>
+            </li>
+            <li>
+              <strong>No fluff, no marketing.</strong> The product surface shows status + knobs + status. Marketing copy ("Stop glancing. Just play.") ships in the <strong>Store listing</strong>, not in the app. Brand lives in typography, colour, motion — not headlines.
+              <span class="cite">Johny 2026-04-15: "just open and work, no fluff and marketing around it".</span>
+            </li>
+            <li>
+              <strong>Session memory.</strong> Short sessions, interrupted. The app always opens in whatever state the user left it. No "welcome back" dialog, no onboarding on second launch.
+              <span class="cite">Kahneman attention restoration. Every competing launcher does this wrong.</span>
+            </li>
+            <li>
+              <strong>Thermal / battery context in the event line.</strong> A single muted mono line at the bottom of the work area shows <code>pid · exe · frametime · sample rate</code> — pro diagnostic info without cluttering the main surface. This is the one Command-Deck detail that survived the rewrite.
+              <span class="cite">Progressive disclosure; visible-but-quiet.</span>
+            </li>
+          </ol>
+        </div>
+
+        <div class="device-matrix">
+          <div class="dm-head">Handheld target matrix · 14 devices</div>
+          <div class="dm-sub">Cited from <code style="font-family:'JetBrains Mono',monospace;font-size:10px;color:#67E8F9;">docs/superpowers/research/handheld-device-matrix.md</code>.</div>
+          <table class="dm-table">
+            <thead>
+              <tr><th>Device</th><th>Native</th><th>Scale</th><th>Effective</th><th>Tier</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>AYANEO Air (5.5")</td><td>1920×1080</td><td>200% <em>(Win-rec)</em></td><td>960×540</td><td class="t-xs">xs</td></tr>
+              <tr><td>GPD Win 4 (6.0")</td><td>1920×1080</td><td>200% <em>(Win-rec)</em></td><td>960×540</td><td class="t-xs">xs</td></tr>
+              <tr><td>ROG Ally Z1E</td><td>1920×1080</td><td><strong>150% factory</strong></td><td>1280×720</td><td class="t-md">md</td></tr>
+              <tr><td>ROG Ally X</td><td>1920×1080</td><td><strong>150% factory</strong></td><td>1280×720</td><td class="t-md">md</td></tr>
+              <tr><td>MSI Claw A1M</td><td>1920×1080</td><td>150% <em>(Win-rec)</em></td><td>1280×720</td><td class="t-md">md</td></tr>
+              <tr><td>GPD Win Mini</td><td>1920×1080</td><td>150% <em>(Win-rec)</em></td><td>1280×720</td><td class="t-md">md</td></tr>
+              <tr><td>Steam Deck LCD</td><td>1280×800</td><td>100%</td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>Steam Deck OLED</td><td>1280×800</td><td>100%</td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>AYANEO 2S</td><td>1920×1200</td><td>150% <em>(Win-rec)</em></td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>Legion Go S</td><td>1920×1200</td><td>150% <em>(Win-rec)</em></td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>Claw 8 AI+</td><td>1920×1200</td><td>150% <em>(Win-rec)</em></td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>AYANEO Kun</td><td>2560×1600</td><td>200% <em>(Win-rec)</em></td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>Legion Go</td><td>2560×1600</td><td>200% <em>(Win-rec)</em></td><td>1280×800</td><td class="t-md">md</td></tr>
+              <tr><td>OneXPlayer X1</td><td>2560×1600</td><td>150% <em>(Win-rec)</em></td><td>1707×1067</td><td class="t-lg">lg</td></tr>
+            </tbody>
+          </table>
+          <div class="dm-foot">
+            <strong>Clusters:</strong> 960×540 (2) · 1280×720 (4) · 1280×800 (7) · 1707×1067 (1).<br><br>
+            <strong>Breakpoints:</strong> <code>xs &lt;1024</code> · <code>sm 1024–1279</code> · <code>md 1280–1599</code> · <code>lg ≥1600</code>.<br><br>
+            <strong>Window floor:</strong> <code>MinWidth=880, MinHeight=500</code> (dip).<br><br>
+            <strong>Binding constraint:</strong> vertical — 640 px usable on the 16:9 cluster after Mica title bar + taskbar.
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+
+  <style>
+    /* Handheld narrow comp — applies when .desktop.narrow */
+    .a-token .desktop.narrow {
+      min-height: 880px;
+    }
+    .a-token .desktop.narrow .a-body {
+      grid-template-columns: 1fr;
+      gap: 20px;
+      padding: 22px;
+    }
+    .a-token .desktop.narrow .a-hero h1 { font-size: 38px; }
+    .a-token .desktop.narrow .a-hero p { max-width: none; margin-top: 10px; }
+    .a-token .desktop.narrow .a-presets.narrow { padding: 20px 22px 22px; }
+    .a-token .desktop.narrow .a-preset-grid.narrow {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .a-token .desktop.narrow .a-preset .mini { display: none; }
+    .a-token .desktop.narrow .a-strip.narrow {
+      grid-template-columns: 1fr 1fr;
+      padding: 18px 22px 20px;
+      gap: 14px 0;
+    }
+    .a-token .desktop.narrow .a-strip.narrow .cell {
+      border-left: none;
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+    }
+    .a-token .desktop.narrow .a-strip.narrow .cell:first-child { padding-left: 10px; }
+    .a-token .desktop.narrow .a-eventline { padding: 10px 22px 0; }
+    .a-token .desktop.narrow .a-shell-top { padding: 18px 22px 14px; }
+
+    .device-matrix {
+      background: #0D1018;
+      border: 1px solid rgba(34,211,238,0.14);
+      border-radius: 14px;
+      padding: 22px 24px 20px;
+    }
+    .dm-head {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: #F4F6FA;
+    }
+    .dm-sub {
+      font-size: 11px;
+      color: #9BA3AF;
+      margin-top: 4px;
+      margin-bottom: 16px;
+    }
+    .dm-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+    }
+    .dm-table th {
+      text-align: left;
+      padding: 8px 8px;
+      color: #5B6372;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+    .dm-table td {
+      padding: 8px 8px;
+      color: #D4D8E0;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+    }
+    .dm-table tbody tr:hover { background: rgba(34,211,238,0.03); }
+    .dm-table .t-xs { color: #F87171; font-weight: 600; text-transform: uppercase; }
+    .dm-table .t-sm { color: #FACC15; font-weight: 600; text-transform: uppercase; }
+    .dm-table .t-md { color: #22D3EE; font-weight: 600; text-transform: uppercase; }
+    .dm-table .t-lg { color: #4ADE80; font-weight: 600; text-transform: uppercase; }
+    .dm-table em { color: #5B6372; font-style: italic; font-size: 9px; }
+    .dm-foot {
+      margin-top: 14px;
+      font-size: 11px;
+      color: #9BA3AF;
+      line-height: 1.55;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+    .dm-foot strong { color: #F4F6FA; font-weight: 600; }
+    .dm-foot code {
+      font-family: "JetBrains Mono", monospace;
+      font-size: 10px;
+      color: #67E8F9;
+      background: rgba(34,211,238,0.08);
+      padding: 1px 5px;
+      border-radius: 4px;
+    }
+  </style>
+
+</div>
+
+</body>
+</html>
