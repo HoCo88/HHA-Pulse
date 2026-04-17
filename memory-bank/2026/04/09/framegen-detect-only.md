@@ -51,3 +51,16 @@ The current implementation uses `PayloadByName("FrameType")` only.
 That is intentionally conservative, but it means detection depends on TraceEvent exposing named payload fields for the provider on a real driver-instrumented machine. If that field does not resolve at runtime, the implementation will fail closed and report no detection instead of guessing.
 
 If hardware validation proves named payload access is insufficient, a future patch may add a verified raw-layout fallback, but only after the layout is locked to upstream source evidence.
+
+## 2026-04-17 supersession
+
+The detect-only scope locked on 2026-04-09 has been partially superseded. The "what the code does not do" checklist above is no longer accurate in full — specifically, `MetricFlags.FrameGen` is now set, and a labeled HUD surface now exists.
+
+Changes shipped:
+
+- Vendor label is surfaced via the `FrameGenVendor` enum (`None` / `IntelXeFG` / `AmdAFMF`) on `CaptureFrameMetrics` (Key 29) and `PerformanceMetrics` (Key 10).
+- `MetricFlags.FrameGen` is now set by `CaptureServiceCollector` when vendor != `None`.
+- The DXGI fallback in `EtwFrameCapture.cs` that assigned `appFps = fps; presentFps = fps` when Intel-PresentMon didn't fire has been removed. Both fields now stay `0`, matching the original spec's prohibition on synthesizing app/present FPS.
+- HUD FPS cell now renders `"{total}/{app}fps AFMF"` or `"{total}/{app}fps XeFG"` when frame-gen is active, and `"{total}fps"` otherwise.
+
+Source plan: `memory-bank/2026/04/17/framegen-handheld-plan.md`.

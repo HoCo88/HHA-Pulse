@@ -34,6 +34,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
     private int originalFrameCountThisInterval;
     private int generatedFrameCountThisInterval;
     private int repeatedFrameCountThisInterval;
+    private FrameGenVendor frameGenVendorThisInterval;
 
     public EtwFrameCapture(CaptureCoordinator coordinator, ILogger<EtwFrameCapture> logger)
     {
@@ -67,6 +68,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 originalFrameCountThisInterval = 0;
                 generatedFrameCountThisInterval = 0;
                 repeatedFrameCountThisInterval = 0;
+                frameGenVendorThisInterval = FrameGenVendor.None;
             }
         }
     }
@@ -148,21 +150,15 @@ public sealed class EtwFrameCapture : IAsyncDisposable
             // Convert per-interval Intel-PresentMon frame-type counts into
             // per-second rates for base (Original) vs effective present
             // (Original + Generated). If the Intel-PresentMon provider did
-            // not fire this interval (FG not active, or game not using
-            // XeSS-FG / AMD AFMF), we fall back to the DXGI-derived `fps`
-            // so non-FG games still report a non-zero app/present rate.
-            var intervalSeconds = PublishInterval.TotalSeconds;
-            double appFps = intervalSeconds > 0
-                ? originalFrameCountThisInterval / intervalSeconds
-                : 0;
-            double presentFps = intervalSeconds > 0
-                ? (originalFrameCountThisInterval + generatedFrameCountThisInterval) / intervalSeconds
-                : 0;
-            if (originalFrameCountThisInterval == 0 && generatedFrameCountThisInterval == 0)
-            {
-                appFps = fps;
-                presentFps = fps;
-            }
+            // not fire this interval, AppFramesPerSecond and
+            // PresentFramesPerSecond stay at 0 — the HUD formatter collapses
+            // to the single FramesPerSecond cell. Never fake a split from
+            // DXGI fps (spec: ARCHITECTURE.md "zeroed/not-computed until a
+            // real PresentMon-grade split exists").
+            var (appFps, presentFps) = ComputeAppAndPresentFps(
+                originalFrameCountThisInterval,
+                generatedFrameCountThisInterval,
+                PublishInterval.TotalSeconds);
 
             metrics = new CaptureFrameMetrics
             {
@@ -176,6 +172,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 PresentFramesPerSecond = presentFps,
                 DisplayFramesPerSecond = 0,
                 HybridPresentDetected = frameGenDetectedThisInterval,
+                FrameGenVendor = frameGenVendorThisInterval,
                 GameProcessId = target.ProcessId,
                 GameProcessName = target.ProcessName,
                 TimestampUnixMilliseconds = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
@@ -184,6 +181,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
             originalFrameCountThisInterval = 0;
             generatedFrameCountThisInterval = 0;
             repeatedFrameCountThisInterval = 0;
+            frameGenVendorThisInterval = FrameGenVendor.None;
             publishWindowFrameTimes.Clear();
         }
 
@@ -195,7 +193,7 @@ public sealed class EtwFrameCapture : IAsyncDisposable
 
     private void HandleFrameTypeEvent(TraceEvent data)
     {
-        if (!IntelPresentMonFrameTypeEvidence.TryGetFrameKind(data, out var kind))
+        if (!IntelPresentMonFrameTypeEvidence.TryGetFrameKindAndVendor(data, out var kind, out var vendor))
         {
             return;
         }
@@ -210,6 +208,10 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                 case PresentFrameKind.Generated:
                     generatedFrameCountThisInterval++;
                     frameGenDetectedThisInterval = true;
+                    if (vendor != FrameGenVendor.None)
+                    {
+                        frameGenVendorThisInterval = vendor;
+                    }
                     break;
                 case PresentFrameKind.Repeated:
                     repeatedFrameCountThisInterval++;
@@ -221,6 +223,20 @@ public sealed class EtwFrameCapture : IAsyncDisposable
                     break;
             }
         }
+    }
+
+    internal static (double AppFps, double PresentFps) ComputeAppAndPresentFps(
+        int originalFrameCount,
+        int generatedFrameCount,
+        double intervalSeconds)
+    {
+        if (intervalSeconds <= 0)
+        {
+            return (0, 0);
+        }
+        var app = originalFrameCount / intervalSeconds;
+        var present = (originalFrameCount + generatedFrameCount) / intervalSeconds;
+        return (app, present);
     }
 
     private static void TrimHistory(List<double> samples, double maxTotalMilliseconds)

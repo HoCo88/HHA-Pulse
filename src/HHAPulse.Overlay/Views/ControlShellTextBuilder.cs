@@ -12,6 +12,13 @@ internal static class ControlShellTextBuilder
     public static string Blank(string value) =>
         string.IsNullOrWhiteSpace(value) ? "--" : value;
 
+    private static string FrameGenVendorSuffix(FrameGenVendor vendor) => vendor switch
+    {
+        FrameGenVendor.IntelXeFG => " (Intel XeFG)",
+        FrameGenVendor.AmdAFMF => " (AMD AFMF)",
+        _ => string.Empty,
+    };
+
     public static string FriendlyPresetName(OverlayPreset preset) => preset switch
     {
         OverlayPreset.Tuner => "Advanced",
@@ -58,7 +65,7 @@ internal static class ControlShellTextBuilder
             : dependencies.CapturePayloadAgeMilliseconds > 2000
                 ? "Frame generation status is waiting on fresher capture data."
                 : snapshot.Performance.HybridPresentDetected
-                    ? "Frame generation was detected in the current capture window."
+                    ? $"Frame generation was detected{FrameGenVendorSuffix(snapshot.Performance.FrameGenVendor)} in the current capture window."
                     : "Frame generation was not detected in the current capture window.";
 
         return $"{routingText} {frameGenText}";

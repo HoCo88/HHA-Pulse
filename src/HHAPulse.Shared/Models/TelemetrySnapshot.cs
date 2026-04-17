@@ -80,6 +80,9 @@ public sealed class PerformanceMetrics
 
     [Key(9)]
     public bool HybridPresentDetected { get; set; }
+
+    [Key(10)]
+    public FrameGenVendor FrameGenVendor { get; set; }
 }
 
 [MessagePackObject]

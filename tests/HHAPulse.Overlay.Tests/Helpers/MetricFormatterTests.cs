@@ -234,6 +234,64 @@ public sealed class MetricFormatterTests
     }
 
     [Fact]
+    public void CompactFormatter_FpsCellShowsAfmfBadgeWhenAmdFrameGenActive()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fps | MetricFlags.FrameGen,
+            Performance =
+            {
+                FramesPerSecond = 120,
+                AppFramesPerSecond = 60,
+                FrameGenVendor = FrameGenVendor.AmdAFMF
+            }
+        };
+
+        var output = MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Fps, snapshot);
+
+        Assert.Contains("AFMF", output);
+        Assert.Equal("120/60fps AFMF", output);
+    }
+
+    [Fact]
+    public void CompactFormatter_FpsCellShowsXeFgBadgeWhenIntelFrameGenActive()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fps | MetricFlags.FrameGen,
+            Performance =
+            {
+                FramesPerSecond = 120,
+                AppFramesPerSecond = 60,
+                FrameGenVendor = FrameGenVendor.IntelXeFG
+            }
+        };
+
+        Assert.Equal("120/60fps XeFG", MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Fps, snapshot));
+    }
+
+    [Fact]
+    public void CompactFormatter_FpsCellCollapsesWhenNoFrameGenFlagAndAppFpsZero()
+    {
+        var snapshot = new TelemetrySnapshot
+        {
+            AvailableMetrics = MetricFlags.Fps,
+            Performance =
+            {
+                FramesPerSecond = 120,
+                AppFramesPerSecond = 0
+            }
+        };
+
+        var output = MetricFormatterCompact.FormatValue(OverlayPresetCatalog.Fps, snapshot);
+
+        Assert.Equal("120fps", output);
+        Assert.DoesNotContain("/", output);
+        Assert.DoesNotContain("AFMF", output);
+        Assert.DoesNotContain("XeFG", output);
+    }
+
+    [Fact]
     public void CompactFormatter_StorageTempShowsWhenAvailable()
     {
         var snapshot = new TelemetrySnapshot

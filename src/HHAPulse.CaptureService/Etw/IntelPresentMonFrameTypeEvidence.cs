@@ -1,3 +1,4 @@
+using HHAPulse.Shared.Models;
 using Microsoft.Diagnostics.Tracing;
 
 namespace HHAPulse.CaptureService.Etw;
@@ -100,6 +101,34 @@ public static class IntelPresentMonFrameTypeEvidence
     }
 
     /// <summary>
+    /// Same as <see cref="TryGetFrameKind"/> but also returns which vendor
+    /// produced the generated frame (Intel_XEFG vs AMD_AFMF). For non-generated
+    /// kinds, <paramref name="vendor"/> is <see cref="FrameGenVendor.None"/>.
+    /// </summary>
+    public static bool TryGetFrameKindAndVendor(TraceEvent data, out PresentFrameKind kind, out FrameGenVendor vendor)
+    {
+        kind = PresentFrameKind.Unknown;
+        vendor = FrameGenVendor.None;
+
+        if (data.ProviderGuid != ProviderGuid)
+        {
+            return false;
+        }
+
+        object? payloadValue;
+        try
+        {
+            payloadValue = data.PayloadByName(FrameTypePayloadName);
+        }
+        catch
+        {
+            return false;
+        }
+
+        return TryClassifyFrameKindAndVendor(payloadValue, out kind, out vendor);
+    }
+
+    /// <summary>
     /// Legacy test shim — kept so existing unit tests don't break. New tests
     /// should exercise <see cref="TryClassifyFrameKind"/> directly.
     /// </summary>
@@ -118,7 +147,13 @@ public static class IntelPresentMonFrameTypeEvidence
 
     public static bool TryClassifyFrameKind(object? payloadValue, out PresentFrameKind kind)
     {
+        return TryClassifyFrameKindAndVendor(payloadValue, out kind, out _);
+    }
+
+    public static bool TryClassifyFrameKindAndVendor(object? payloadValue, out PresentFrameKind kind, out FrameGenVendor vendor)
+    {
         kind = PresentFrameKind.Unknown;
+        vendor = FrameGenVendor.None;
 
         var normalized = NormalizeFrameType(payloadValue);
         if (string.IsNullOrWhiteSpace(normalized))
@@ -138,8 +173,12 @@ public static class IntelPresentMonFrameTypeEvidence
                 kind = PresentFrameKind.Repeated;
                 return true;
             case "Intel_XEFG":
+                kind = PresentFrameKind.Generated;
+                vendor = FrameGenVendor.IntelXeFG;
+                return true;
             case "AMD_AFMF":
                 kind = PresentFrameKind.Generated;
+                vendor = FrameGenVendor.AmdAFMF;
                 return true;
             default:
                 return false;

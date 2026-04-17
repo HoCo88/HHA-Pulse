@@ -65,7 +65,7 @@ Native bridge: `HHAPulse.Native.dll` exports flat C functions for AMD and Intel.
 - Input latency: needs PresentMon ETW parsing — not in capture service yet.
 - System total power / Device Power: battery discharge watts when unplugged; on AC, show `--` unless a real platform/whole-device watt source is accepted. Component sums remain diagnostics-only.
 
-Note: numeric frame-gen FPS is not implemented. The current runtime only exposes diagnostic detection via `HybridPresentDetected`; `MetricFlags.FrameGen` remains unset.
+Note: frame-gen detection now carries a vendor label (`FrameGenVendor.IntelXeFG` / `AmdAFMF`) propagated from Intel-PresentMon ETW. `MetricFlags.FrameGen` is set by `CaptureServiceCollector` when vendor is not `None`. `AppFramesPerSecond` / `PresentFramesPerSecond` are computed strictly from Intel-PresentMon frame-type counts and stay `0` when the provider did not fire (no DXGI fallback). See `memory-bank/2026/04/17/framegen-handheld-plan.md`.
 
 ## GPU Detection
 
@@ -97,7 +97,7 @@ GPU vendor and type are detected via `DXGI_ADAPTER_DESC1`:
 
 Component-grouped HUD bar. Metrics grouped by hardware component:
 
-- **FPS group**: FPS + AVG + 1% + 0.1% + sparkline graph. Diagnostic frame-generation detection exists, but the HUD FrameGen metric stays disabled until a validated numeric meaning exists.
+- **FPS group**: FPS + AVG + 1% + 0.1% + sparkline graph. When AMD AFMF or Intel XeFG is active, the FPS cell shows base-over-effective with vendor: `"120/60fps AFMF"` or `"120/60fps XeFG"`. Otherwise it collapses to the single-rate display (`"60fps"`).
 - **Frametime**: separate from FPS, own sparkline graph. Label "Frametime" not "FT".
 - **CPU**: `CPU 45% 12W` — usage + power inline under one label.
 - **GPU**: `GPU 85% 72°C 2400rpm 4.2/8G` — usage + temp + fan + VRAM under one label. GPU watts stay hidden until real.

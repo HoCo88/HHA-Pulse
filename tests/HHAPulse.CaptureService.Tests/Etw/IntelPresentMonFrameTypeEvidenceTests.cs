@@ -1,4 +1,5 @@
 using HHAPulse.CaptureService.Etw;
+using HHAPulse.Shared.Models;
 using Xunit;
 
 namespace HHAPulse.CaptureService.Tests.Etw;
@@ -27,5 +28,44 @@ public sealed class IntelPresentMonFrameTypeEvidenceTests
 
         Assert.False(parsed);
         Assert.False(generated);
+    }
+
+    [Fact]
+    public void TryClassifyFrameKindAndVendor_IntelXeFG_ReturnsGeneratedWithIntelVendor()
+    {
+        var parsed = IntelPresentMonFrameTypeEvidence.TryClassifyFrameKindAndVendor(
+            "Intel_PresentMon_Provider.Intel_XEFG",
+            out var kind,
+            out var vendor);
+
+        Assert.True(parsed);
+        Assert.Equal(PresentFrameKind.Generated, kind);
+        Assert.Equal(FrameGenVendor.IntelXeFG, vendor);
+    }
+
+    [Fact]
+    public void TryClassifyFrameKindAndVendor_AmdAFMF_ReturnsGeneratedWithAmdVendor()
+    {
+        var parsed = IntelPresentMonFrameTypeEvidence.TryClassifyFrameKindAndVendor(
+            "AMD_AFMF",
+            out var kind,
+            out var vendor);
+
+        Assert.True(parsed);
+        Assert.Equal(PresentFrameKind.Generated, kind);
+        Assert.Equal(FrameGenVendor.AmdAFMF, vendor);
+    }
+
+    [Fact]
+    public void TryClassifyFrameKindAndVendor_Original_ReturnsOriginalWithNoVendor()
+    {
+        var parsed = IntelPresentMonFrameTypeEvidence.TryClassifyFrameKindAndVendor(
+            "Original",
+            out var kind,
+            out var vendor);
+
+        Assert.True(parsed);
+        Assert.Equal(PresentFrameKind.Original, kind);
+        Assert.Equal(FrameGenVendor.None, vendor);
     }
 }

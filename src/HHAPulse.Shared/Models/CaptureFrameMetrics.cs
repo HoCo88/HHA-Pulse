@@ -91,4 +91,7 @@ public sealed class CaptureFrameMetrics
 
     [Key(28)]
     public bool StorageReliabilityAvailable { get; set; }
+
+    [Key(29)]
+    public FrameGenVendor FrameGenVendor { get; set; }
 }

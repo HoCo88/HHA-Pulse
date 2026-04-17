@@ -54,4 +54,40 @@ public sealed class EtwFrameCaptureTests
         Assert.NotNull(field);
         Assert.Equal(5, field!.GetValue(null));
     }
+
+    [Fact]
+    public void ComputeAppAndPresentFps_NoFrameGenEvents_ReturnsZero()
+    {
+        var (app, present) = EtwFrameCapture.ComputeAppAndPresentFps(0, 0, 1.0);
+
+        Assert.Equal(0, app);
+        Assert.Equal(0, present);
+    }
+
+    [Fact]
+    public void ComputeAppAndPresentFps_OnlyOriginalFrames_AppEqualsPresent()
+    {
+        var (app, present) = EtwFrameCapture.ComputeAppAndPresentFps(60, 0, 1.0);
+
+        Assert.Equal(60, app);
+        Assert.Equal(60, present);
+    }
+
+    [Fact]
+    public void ComputeAppAndPresentFps_MixedFrames_SplitCorrect()
+    {
+        var (app, present) = EtwFrameCapture.ComputeAppAndPresentFps(60, 60, 1.0);
+
+        Assert.Equal(60, app);
+        Assert.Equal(120, present);
+    }
+
+    [Fact]
+    public void ComputeAppAndPresentFps_ZeroInterval_ReturnsZero()
+    {
+        var (app, present) = EtwFrameCapture.ComputeAppAndPresentFps(60, 60, 0);
+
+        Assert.Equal(0, app);
+        Assert.Equal(0, present);
+    }
 }

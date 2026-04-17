@@ -18,11 +18,11 @@ public static class MetricFormatterCompact
             //
             // When driver frame generation is active (FrameGen flag set +
             // a valid AppFramesPerSecond < FramesPerSecond), the FPS cell
-            // shows total/base as "120/60fps" so the user can immediately
-            // see both the effective presented rate and the real app render
-            // rate. When frame gen is off, AppFramesPerSecond equals FramesPerSecond
-            // (by the fallback in EtwFrameCapture) and the cell collapses
-            // to the single "60fps" display.
+            // shows total/base as "120/60fps XeFG" (or "AFMF") so the user
+            // sees both the effective presented rate, the real app render
+            // rate, and the detected vendor. When frame gen is off,
+            // AppFramesPerSecond is 0 and the cell collapses to the single
+            // "60fps" display.
             OverlayPresetCatalog.Fps => FormatAvailable(snapshot, MetricFlags.Fps,
                 FormatTotalOverAppFps(snapshot), "--fps"),
 
@@ -188,10 +188,23 @@ public static class MetricFormatterCompact
             return "--fps";
         }
 
-        return frameGenActive
-            ? $"{total:0}/{app:0}fps"
-            : $"{total:0}fps";
+        if (!frameGenActive)
+        {
+            return $"{total:0}fps";
+        }
+
+        var badge = VendorBadge(snapshot.Performance.FrameGenVendor);
+        return badge.Length > 0
+            ? $"{total:0}/{app:0}fps {badge}"
+            : $"{total:0}/{app:0}fps";
     }
+
+    private static string VendorBadge(FrameGenVendor vendor) => vendor switch
+    {
+        FrameGenVendor.IntelXeFG => "XeFG",
+        FrameGenVendor.AmdAFMF => "AFMF",
+        _ => string.Empty,
+    };
 
     private static string FormatMemoryCompact(double usedMb, double totalMb)
     {

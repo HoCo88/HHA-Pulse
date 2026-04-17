@@ -90,9 +90,10 @@ public sealed class CaptureServiceCollector : IMetricCollector
             return Task.CompletedTask;
         }
 
-        snapshot.Dependencies.CaptureServiceStatusMessage = metrics.HybridPresentDetected
-            ? $"{status} captureFreshness={captureFreshness}; {routeStatus} Capture mode: ETW/PDH read-only, no hooks or VRR changes. Frame generation: detected from Intel-PresentMon ETW evidence. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms."
-            : $"{status} captureFreshness={captureFreshness}; {routeStatus} Capture mode: ETW/PDH read-only, no hooks or VRR changes. Frame generation: not detected in the current capture window. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms.";
+        var frameGenDetectedText = metrics.HybridPresentDetected
+            ? $"detected{FrameGenVendorSuffix(metrics.FrameGenVendor)} from Intel-PresentMon ETW evidence"
+            : "not detected in the current capture window";
+        snapshot.Dependencies.CaptureServiceStatusMessage = $"{status} captureFreshness={captureFreshness}; {routeStatus} Capture mode: ETW/PDH read-only, no hooks or VRR changes. Frame generation: {frameGenDetectedText}. fps={metrics.FramesPerSecond:0.0}, avg={metrics.AverageFramesPerSecond:0.0}, 1%={metrics.OnePercentLowFramesPerSecond:0.0}, 0.1%={metrics.ZeroPointOnePercentLowFramesPerSecond:0.0}, ft={metrics.FrameTimeMilliseconds:0.0}ms.";
 
         if (metrics.FramesPerSecond <= 0)
             return Task.CompletedTask;
@@ -108,6 +109,7 @@ public sealed class CaptureServiceCollector : IMetricCollector
         snapshot.Performance.PresentFramesPerSecond = metrics.PresentFramesPerSecond;
         snapshot.Performance.DisplayFramesPerSecond = metrics.DisplayFramesPerSecond;
         snapshot.Performance.HybridPresentDetected = metrics.HybridPresentDetected;
+        ApplyFrameGenVendor(snapshot, metrics.FrameGenVendor);
         snapshot.Dependencies.CaptureTargetProcessId = metrics.GameProcessId;
         snapshot.Dependencies.CaptureTargetProcessName = metrics.GameProcessName;
         RecordFpsTrace(snapshot, "fps", "FPS", metrics.FramesPerSecond, "present-start intervals -> 1000 / average frame time");
@@ -291,6 +293,22 @@ public sealed class CaptureServiceCollector : IMetricCollector
     private static string Blank(string value, string fallback)
     {
         return string.IsNullOrWhiteSpace(value) ? fallback : value;
+    }
+
+    private static string FrameGenVendorSuffix(FrameGenVendor vendor) => vendor switch
+    {
+        FrameGenVendor.IntelXeFG => " (Intel XeFG)",
+        FrameGenVendor.AmdAFMF => " (AMD AFMF)",
+        _ => string.Empty,
+    };
+
+    internal static void ApplyFrameGenVendor(TelemetrySnapshot snapshot, FrameGenVendor vendor)
+    {
+        snapshot.Performance.FrameGenVendor = vendor;
+        if (vendor != FrameGenVendor.None)
+        {
+            snapshot.AvailableMetrics |= MetricFlags.FrameGen;
+        }
     }
 
     private async Task RunOutputLoopAsync(CancellationToken cancellationToken)
