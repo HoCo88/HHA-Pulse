@@ -27,6 +27,15 @@ The active-bug section below captures the audit findings that triggered the fix.
 - `MetricStatusFactory` and `MeasurementTraceFactory` no longer invent hardcoded source/collector fallbacks. If runtime provenance is missing, diagnostics report `unknown collector`.
 - "Boundary traces" has been renamed to "Last observed boundary state"; widget client count is last-observed, not a heartbeat.
 
+## Current Implementation Delta (2026-04-17)
+
+- Frame-gen detection now carries a vendor label: `FrameGenVendor` enum (`None`/`IntelXeFG`/`AmdAFMF`) propagated via `CaptureFrameMetrics` Key 29 and `PerformanceMetrics` Key 10.
+- `MetricFlags.FrameGen` is set by `CaptureServiceCollector.ApplyFrameGenVendor` when vendor != `None`.
+- `AppFramesPerSecond` / `PresentFramesPerSecond` are now computed from real Intel-PresentMon frame-type counts via `EtwFrameCapture.ComputeAppAndPresentFps`. The previous DXGI fallback (`appFps = fps; presentFps = fps`) has been removed. When Intel-PresentMon didn't fire in the window, both fields stay `0`.
+- `DisplayFramesPerSecond` still stays `0` — no VBlank correlation path exists yet.
+- HUD FPS cell renders `"120/60fps AFMF"` / `"120/60fps XeFG"` when frame-gen is active; collapses to `"60fps"` otherwise.
+- Input latency remains hidden on handhelds because PresentMon issue #366 tracks the XInput coverage gap and handheld primary input is controller. Decision note: `memory-bank/2026/04/17/input-latency-handheld-gap.md`.
+
 Symbol legend:
 - ✅ verified honest (matches code AND matches vendor contract)
 - ⚠️ verified honest by accident (current code is right but the trace label is hardcoded with no runtime binding — see "Structural fragility" at the end)
@@ -55,7 +64,7 @@ Symbol legend:
 ## 1. FPS / frame timing / frame generation
 
 ### What we show
-`FPS`, `Avg FPS`, `1% low FPS`, `0.1% low FPS`, `frametime (ms)`, `frame generation detected/not detected`.
+`FPS`, `Avg FPS`, `1% low FPS`, `0.1% low FPS`, `frametime (ms)`, `frame generation with vendor label (Intel XeFG / AMD AFMF) and base-vs-effective FPS split when active`.
 
 ### Pipeline
 ```
@@ -78,7 +87,7 @@ Game process → DXGI/D3D9 ETW Present-Start events
 | FPS | `1000.0 / averageFrameTimeMs` | `FrameStatisticsCalculator.cs:13` | trivial reciprocal | fps |
 | 1% low FPS | sort frame times asc, take index `ceil((N-1)*0.99)`, return `1000/ms` | `FrameStatisticsCalculator.cs:21-29` | percentile→fps | fps |
 | 0.1% low FPS | same, with `0.999` | `FrameStatisticsCalculator.cs:21-29` | percentile→fps | fps |
-| Frame generation | `IntelPresentMonFrameTypeEvidence.TryGetGeneratedFrameEvidence` reads `FrameType` payload from Intel-PresentMon ETW provider | `IntelPresentMonFrameTypeEvidence.cs:20-66` | maps `Intel_XEFG` / `AMD_AFMF` → detected; `Original` / `Repeated` / `Unspecified` → not detected | "detected" / "not detected" |
+| Frame generation | `IntelPresentMonFrameTypeEvidence.TryGetGeneratedFrameEvidence` reads `FrameType` payload from Intel-PresentMon ETW provider | `IntelPresentMonFrameTypeEvidence.cs:20-66` | maps `Intel_XEFG` → `FrameGenVendor.IntelXeFG`, `AMD_AFMF` → `FrameGenVendor.AmdAFMF`; per-interval counts feed `ComputeAppAndPresentFps` for base (Original) vs effective (Original+Generated) rates | "detected" / "not detected" |
 
 ### ETW provider GUIDs (from `EtwFrameCapture.cs:11-13`)
 | Provider | GUID | Event ID we filter |
@@ -94,7 +103,7 @@ The DXGI and D3D9 event IDs were verified locally via `wevtutil` against the man
 
 - **Frame timing**: PresentMon's pattern is to capture `Present-Start` events from DXGI and D3D9 providers per process and compute frame time as the delta between consecutive starts. Our code matches this pattern at `EtwFrameCapture.cs:88-160`.
 - **1% / 0.1% low**: standard convention used by PresentMon and CapFrameX is `take the worst Nth-percentile frame time, convert to fps via 1000/ms`. Our code does exactly that for large windows. For small windows (`N < ~50`) the algorithm collapses to "absolute worst frame fps" — a conservative approximation.
-- **Frame generation detection**: Intel publishes its frame-type evidence via the dedicated Intel-PresentMon ETW provider. We read it correctly. We deliberately do **not** invent a numeric "frame-gen FPS" — there is no such field that doesn't require display VBlank correlation, which we don't yet do.
+- **Frame generation detection**: Intel publishes its frame-type evidence via the dedicated Intel-PresentMon ETW provider. We read it correctly. We compute base (Original) vs effective (Original+Generated) rates directly from Intel-PresentMon FrameType counts — real provider evidence, not inferred. We still do not compute `DisplayFramesPerSecond` because that requires VBlank/scanout correlation we do not yet have.
 
 ### Status
 
@@ -103,13 +112,8 @@ The DXGI and D3D9 event IDs were verified locally via `wevtutil` against the man
 - ✅ Frame time: read directly from ETW timestamp deltas, no fabrication.
 - ✅ Frame-gen detection: parses real ETW payload by name, no fabrication.
 - ✅ ETW provider GUIDs and event IDs: verified locally per code comments.
-- ❌ **`AppFramesPerSecond`, `PresentFramesPerSecond`, `DisplayFramesPerSecond` are fabricated** (`EtwFrameCapture.cs:145-147`):
-  ```csharp
-  AppFramesPerSecond = fps,
-  PresentFramesPerSecond = fps,
-  DisplayFramesPerSecond = 0,
-  ```
-  These three distinct PresentMon concepts (game render rate, Present-call rate, scanout rate) are collapsed into one value or zeroed. The HUD doesn't currently display them, but the diagnostics dump and any future widget that binds to them will report nonsense. **Fix: delete the fields from `PerformanceMetrics` until they have real sources, or compute them from PresentMon evidence.**
+- ✅ `AppFramesPerSecond` and `PresentFramesPerSecond` are computed from Intel-PresentMon frame-type counts (`EtwFrameCapture.cs` — `ComputeAppAndPresentFps`). Stay `0` when the provider did not fire in the window.
+- ❌ `DisplayFramesPerSecond` is still always `0`. Requires VBlank/scanout correlation that does not exist yet. Until then the field stays reserved.
 
 ---
 
